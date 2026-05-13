@@ -520,15 +520,18 @@ static int cuda_q8_use_dp4a(void) {
     return !g_cuda_no_q8_dp4a;
 }
 
-static int cuda_use_ordered_f16_matmul(void) {
-    if (g_cuda_force_ordered_f16_matmul) return 1;
-    if (g_cuda_no_ordered_f16_matmul) return 0;
+static int cuda_skip_ordered_f16_matmul(void) {
+    if (g_cuda_force_ordered_f16_matmul) return 0;
+    if (g_cuda_no_ordered_f16_matmul) return 1;
+    /* Blackwell-class GPUs measured so far (Thor sm_110 and GB10 sm_121) run
+     * the regular 256-thread reduction faster than the ordered 32-thread decode
+     * path. Keep older architectures on the existing default unless explicitly
+     * overridden. */
+    return g_cuda_sm_major >= 11;
+}
 
-    /* GB10 decode is measurably faster with the regular one-token F16 kernel
-     * than with the ordered chunked kernel, while batched prefill still uses
-     * the cuBLAS path.  Keep the old path available for A/B and diagnostics. */
-    if (g_cuda_gb10_device || (g_cuda_sm_major == 12 && g_cuda_sm_minor == 1)) return 0;
-    return 1;
+static int cuda_use_ordered_f16_matmul(void) {
+    return !cuda_skip_ordered_f16_matmul();
 }
 
 static int cuda_q8_f16_preload_allowed(const char *label, uint64_t in_dim, uint64_t out_dim) {
@@ -1256,9 +1259,10 @@ extern "C" int ds4_gpu_init(void) {
         }
         fprintf(stderr, "ds4: CUDA backend initialized on %s (sm_%d%d)\n",
                 prop.name, prop.major, prop.minor);
-        if (cuda_use_ordered_f16_matmul() == 0 &&
+        if (cuda_skip_ordered_f16_matmul() &&
             !g_cuda_no_ordered_f16_matmul) {
-            fprintf(stderr, "ds4: CUDA using unordered one-token F16 matmul on GB10/sm_121\n");
+            fprintf(stderr, "ds4: CUDA using unordered one-token F16 matmul (Blackwell sm_%d%d)\n",
+                    prop.major, prop.minor);
         }
     }
     if (!g_cublas_ready) {
@@ -6479,7 +6483,7 @@ extern "C" int ds4_gpu_matmul_f16_tensor(ds4_gpu_tensor *out, const void *model_
         !serial_f16 &&
         !serial_router &&
         n_tok == 1u &&
-        cuda_use_ordered_f16_matmul();
+        !cuda_skip_ordered_f16_matmul();
     if (!serial_f16 && g_cublas_ready && n_tok > 1) {
         const uint64_t xh_count = n_tok * in_dim;
         __half *xh = (__half *)cuda_tmp_alloc(xh_count * sizeof(__half), "f16 gemm activations");
