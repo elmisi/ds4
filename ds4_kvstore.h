@@ -188,6 +188,7 @@ bool ds4_kvstore_read_header(FILE *fp, ds4_kvstore_entry *e,
                              uint32_t *text_bytes);
 bool ds4_kvstore_read_entry_file(const char *path, const char sha[41],
                                  ds4_kvstore_entry *out);
+void ds4_kvstore_disk_drop_file_pages(int fd);
 void ds4_kvstore_fill_header(uint8_t h[DS4_KVSTORE_FIXED_HEADER],
                              uint8_t quant_bits, uint8_t reason,
                              uint8_t ext_flags, uint32_t tokens,

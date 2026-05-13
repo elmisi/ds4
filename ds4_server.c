@@ -8501,6 +8501,10 @@ static void kv_fill_header(uint8_t h[KV_CACHE_FIXED_HEADER], uint8_t quant_bits,
 }
 #endif
 
+static void kv_disk_drop_file_pages(int fd) {
+    ds4_kvstore_disk_drop_file_pages(fd);
+}
+
 static bool kv_read_header(FILE *fp, kv_entry *e, uint32_t *text_bytes) {
     return ds4_kvstore_read_header(fp, e, text_bytes);
 }
@@ -11647,6 +11651,8 @@ int main(int argc, char **argv) {
     return 0;
 }
 #else
+
+#include <sys/mman.h>
 
 static int test_failures = 0;
 
@@ -14964,6 +14970,114 @@ static void test_kv_cache_eviction_keeps_aligned_continued_frontiers(void) {
     rmdir(dir);
 }
 
+#if defined(__linux__) && defined(POSIX_FADV_DONTNEED)
+static size_t test_kv_count_resident_pages(const unsigned char *vec, size_t npages) {
+    size_t n = 0;
+    for (size_t i = 0; i < npages; i++) if (vec[i] & 1u) n++;
+    return n;
+}
+
+static size_t test_kv_resident_pages(int fd, size_t total, size_t npages,
+                                     unsigned char *vec) {
+    void *map = mmap(NULL, total, PROT_READ, MAP_SHARED, fd, 0);
+    if (map == MAP_FAILED) return SIZE_MAX;
+    size_t n = (mincore(map, total, vec) == 0)
+        ? test_kv_count_resident_pages(vec, npages)
+        : SIZE_MAX;
+    (void)munmap(map, total);
+    return n;
+}
+
+static void test_kv_disk_drop_file_pages_inner(bool keep_pages_env) {
+    const char *keep_env_name = "DS4_KV_KEEP_PAGES";
+    /* 4 MiB is enough for mincore signal/noise to be unambiguous while
+     * keeping the per-test write+fsync cheap on `make test`. */
+    const size_t total = (size_t)4 * 1024 * 1024;
+
+    char tmpl[] = "/tmp/ds4-kv-fadvise-test.XXXXXX";
+    char *dir = NULL;
+    char *path = NULL;
+    int fd = -1;
+    unsigned char *block = NULL;
+    unsigned char *vec = NULL;
+
+    dir = mkdtemp(tmpl);
+    TEST_ASSERT(dir != NULL);
+    if (!dir) goto done;
+
+    path = path_join(dir, "payload.bin");
+    fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0600);
+    TEST_ASSERT(fd >= 0);
+    if (fd < 0) goto done;
+
+    const size_t page_sz = (size_t)getpagesize();
+    const size_t npages = total / page_sz;
+
+    block = xmalloc(page_sz);
+    for (size_t i = 0; i < page_sz; i++) block[i] = (unsigned char)(i & 0xff);
+    bool wrote_ok = true;
+    for (size_t off = 0; off < total; off += page_sz) {
+        if (write(fd, block, page_sz) != (ssize_t)page_sz) {
+            wrote_ok = false;
+            break;
+        }
+    }
+    TEST_ASSERT(wrote_ok);
+    if (!wrote_ok) goto done;
+
+    /* Force dirty pages clean so POSIX_FADV_DONTNEED can actually drop them. */
+    TEST_ASSERT(fsync(fd) == 0);
+
+    /* Linux only invalidates page-cache pages with zero mappings, so each
+     * residency measurement opens and releases its own mmap. */
+    vec = xmalloc(npages);
+    size_t v_before = test_kv_resident_pages(fd, total, npages, vec);
+    TEST_ASSERT(v_before != SIZE_MAX);
+    if (v_before == SIZE_MAX) goto done;
+    TEST_ASSERT(v_before >= (npages * 9) / 10);
+
+    if (keep_pages_env) {
+        TEST_ASSERT(setenv(keep_env_name, "1", 1) == 0);
+    } else {
+        unsetenv(keep_env_name);
+    }
+    kv_disk_drop_file_pages(fd);
+    if (keep_pages_env) {
+        TEST_ASSERT(unsetenv(keep_env_name) == 0);
+    }
+
+    size_t v_after = test_kv_resident_pages(fd, total, npages, vec);
+    TEST_ASSERT(v_after != SIZE_MAX);
+    if (v_after == SIZE_MAX) goto done;
+    if (keep_pages_env) {
+        TEST_ASSERT(v_after >= (v_before * 9) / 10);
+    } else {
+        TEST_ASSERT(v_after <= v_before / 4);
+    }
+
+done:
+    free(vec);
+    free(block);
+    if (fd >= 0) close(fd);
+    if (path) {
+        unlink(path);
+        free(path);
+    }
+    if (dir) rmdir(dir);
+}
+
+static void test_kv_disk_drop_file_pages_releases_page_cache(void) {
+    test_kv_disk_drop_file_pages_inner(false);
+}
+
+static void test_kv_disk_drop_file_pages_respects_keep_pages_env(void) {
+    test_kv_disk_drop_file_pages_inner(true);
+}
+#else
+static void test_kv_disk_drop_file_pages_releases_page_cache(void) { /* no-op without POSIX_FADV_DONTNEED */ }
+static void test_kv_disk_drop_file_pages_respects_keep_pages_env(void) { /* no-op without POSIX_FADV_DONTNEED */ }
+#endif
+
 static void test_thinking_checkpoint_canonical_matches_future_prompt(void) {
     /* Simulate: user sends a single message, thinking mode on, no tools.
      * Model generates reasoning + content.  The next request will drop the
@@ -15320,6 +15434,8 @@ static void ds4_server_unit_tests_run(void) {
     test_kv_cache_eviction_score_decays_stale_hits();
     test_kv_cache_eviction_decayed_hits_tie_break_by_age();
     test_kv_cache_eviction_keeps_aligned_continued_frontiers();
+    test_kv_disk_drop_file_pages_releases_page_cache();
+    test_kv_disk_drop_file_pages_respects_keep_pages_env();
 }
 
 #ifndef DS4_SERVER_TEST_NO_MAIN
