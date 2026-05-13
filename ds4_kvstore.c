@@ -12,6 +12,7 @@
 #include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <float.h>
 #include <math.h>
 #include <stdarg.h>
@@ -445,6 +446,23 @@ bool ds4_kvstore_read_entry_file(const char *path, const char sha[41],
     e.file_size = (uint64_t)st.st_size;
     *out = e;
     return true;
+}
+
+/* Hint the kernel to drop clean page-cache pages for an open .kv file.
+ * The KV cache deliberately avoids mmap so cache restore does not add VM
+ * mappings to a process that already maps a very large GGUF; after a
+ * payload read or write the page-cache copy is dead weight that competes
+ * with the mmapped weights for RAM. POSIX_FADV_DONTNEED only drops clean
+ * pages, so the effect on a fresh write is best-effort until the kernel
+ * has finished writeback. Set DS4_KV_KEEP_PAGES=1 to disable for
+ * diagnostic comparisons. */
+void ds4_kvstore_disk_drop_file_pages(int fd) {
+#if defined(POSIX_FADV_DONTNEED)
+    if (fd < 0 || getenv("DS4_KV_KEEP_PAGES") != NULL) return;
+    (void)posix_fadvise(fd, 0, 0, POSIX_FADV_DONTNEED);
+#else
+    (void)fd;
+#endif
 }
 
 static void kv_cache_refresh(ds4_kvstore *kc) {
@@ -1014,6 +1032,7 @@ bool ds4_kvstore_store_live_prefix_text(ds4_kvstore *kc,
               kv_trailer_write(hooks, fp, text, &trailer_bytes) &&
               fflush(fp) == 0;
     int saved_errno = errno;
+    if (ok) ds4_kvstore_disk_drop_file_pages(fileno(fp));
     if (fclose(fp) != 0) {
         if (!saved_errno) saved_errno = errno;
         ok = false;
@@ -1231,6 +1250,7 @@ int ds4_kvstore_try_load_text(ds4_kvstore *kc,
                 header_ok ? err : fail_reason,
                 (kv_now_sec() - load_t0) * 1000.0);
     }
+    ds4_kvstore_disk_drop_file_pages(fileno(fp));
     fclose(fp);
 
     if (loaded > 0) {
