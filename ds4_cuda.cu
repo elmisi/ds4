@@ -1726,6 +1726,45 @@ __global__ static void matmul_f16_pair_ordered_chunks_kernel(
     }
 }
 
+__global__ static void matmul_f16_pair_kernel(
+        float *out0,
+        float *out1,
+        const __half *w0,
+        const __half *w1,
+        const float *x,
+        uint64_t in_dim,
+        uint64_t out_dim) {
+    uint64_t row = (uint64_t)blockIdx.x;
+    if (row >= out_dim) return;
+
+    float sum0 = 0.0f;
+    float sum1 = 0.0f;
+    const __half *wr0 = w0 + row * in_dim;
+    const __half *wr1 = w1 + row * in_dim;
+    for (uint64_t i = threadIdx.x; i < in_dim; i += blockDim.x) {
+        const float xv = x[i];
+        sum0 += __half2float(wr0[i]) * xv;
+        sum1 += __half2float(wr1[i]) * xv;
+    }
+
+    __shared__ float partial0[256];
+    __shared__ float partial1[256];
+    partial0[threadIdx.x] = sum0;
+    partial1[threadIdx.x] = sum1;
+    __syncthreads();
+    for (uint32_t stride = blockDim.x >> 1; stride > 0; stride >>= 1) {
+        if (threadIdx.x < stride) {
+            partial0[threadIdx.x] += partial0[threadIdx.x + stride];
+            partial1[threadIdx.x] += partial1[threadIdx.x + stride];
+        }
+        __syncthreads();
+    }
+    if (threadIdx.x == 0) {
+        out0[row] = partial0[0];
+        out1[row] = partial1[0];
+    }
+}
+
 __global__ static void matmul_f32_kernel(
         float *out,
         const float *w,
@@ -6091,8 +6130,7 @@ extern "C" int ds4_gpu_matmul_f16_pair_tensor(
     if (n_tok != 1 ||
         g_cuda_no_f16_pair_matmul ||
         g_cuda_serial_f16_matmul ||
-        g_cuda_serial_router ||
-        !cuda_use_ordered_f16_matmul()) {
+        g_cuda_serial_router) {
         return ds4_gpu_matmul_f16_tensor(out0, model_map, model_size, weight0_offset,
                                            in_dim, out_dim, x, n_tok) &&
                ds4_gpu_matmul_f16_tensor(out1, model_map, model_size, weight1_offset,
@@ -6113,6 +6151,17 @@ extern "C" int ds4_gpu_matmul_f16_pair_tensor(
     const __half *w0 = (const __half *)cuda_model_range_ptr(model_map, weight0_offset, weight_bytes, "f16_pair0");
     const __half *w1 = (const __half *)cuda_model_range_ptr(model_map, weight1_offset, weight_bytes, "f16_pair1");
     if (!w0 || !w1) return 0;
+    if (!cuda_use_ordered_f16_matmul()) {
+        matmul_f16_pair_kernel<<<(unsigned)out_dim, 256>>>(
+            (float *)out0->ptr,
+            (float *)out1->ptr,
+            w0,
+            w1,
+            (const float *)x->ptr,
+            in_dim,
+            out_dim);
+        return cuda_ok(cudaGetLastError(), "matmul_f16_pair launch");
+    }
     matmul_f16_pair_ordered_chunks_kernel<<<(unsigned)out_dim, 32>>>(
         (float *)out0->ptr,
         (float *)out1->ptr,
