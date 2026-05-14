@@ -83,6 +83,8 @@ next sections.
   vector generation, and usage.
 - [speed-bench/README.md](speed-bench/README.md): benchmark CSV files and graph
   generation.
+- [docs/GX10_CUDA_TUNING.md](docs/GX10_CUDA_TUNING.md): DGX Spark / GB10 CUDA
+  tuning notes and rejected local knobs.
 - [tests/test-vectors/README.md](tests/test-vectors/README.md): official
   continuation vectors used for regression checks.
 
@@ -693,6 +695,11 @@ when cross-building or when you need a known target:
 make cuda CUDA_ARCH=sm_120
 make cuda CUDA_ARCH=native
 ```
+
+The CUDA backend selects a GB10/sm_121-specific decode default for one-token F16
+matmuls. That path is faster on DGX Spark / GB10 while leaving batched prefill on
+the normal cuBLAS route. Use `DS4_CUDA_FORCE_ORDERED_F16_MATMUL=1` only for A/B
+testing or diagnostics when you need the older ordered F16 decode kernels.
 
 There is also a CPU reference/debug path:
 

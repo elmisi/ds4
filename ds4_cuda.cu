@@ -86,6 +86,21 @@ static cudaStream_t g_model_upload_stream;
 static cublasHandle_t g_cublas;
 static int g_cublas_ready;
 static int g_quality_mode;
+static int g_cuda_sm_major;
+static int g_cuda_sm_minor;
+static int g_cuda_gb10_device;
+static int g_cuda_no_q8_dp4a;
+static int g_cuda_force_ordered_f16_matmul;
+static int g_cuda_no_ordered_f16_matmul;
+static int g_cuda_serial_f16_matmul;
+static int g_cuda_serial_router;
+static int g_cuda_no_f16_pair_matmul;
+static int g_cuda_no_q8_batch_warp;
+static int g_cuda_disable_shared_gate_up_pair;
+static int g_cuda_no_warp_router_select;
+static int g_cuda_no_parallel_router_select;
+static int g_cuda_moe_no_decode_lut_gate;
+static int g_cuda_moe_no_direct_down_sum6;
 
 struct cuda_model_range {
     const void *host_base;
@@ -501,7 +516,18 @@ static int cuda_q8_label_is_attention_output(const char *label) {
 }
 
 static int cuda_q8_use_dp4a(void) {
-    return getenv("DS4_CUDA_NO_Q8_DP4A") == NULL;
+    return !g_cuda_no_q8_dp4a;
+}
+
+static int cuda_use_ordered_f16_matmul(void) {
+    if (g_cuda_force_ordered_f16_matmul) return 1;
+    if (g_cuda_no_ordered_f16_matmul) return 0;
+
+    /* GB10 decode is measurably faster with the regular one-token F16 kernel
+     * than with the ordered chunked kernel, while batched prefill still uses
+     * the cuBLAS path.  Keep the old path available for A/B and diagnostics. */
+    if (g_cuda_gb10_device || (g_cuda_sm_major == 12 && g_cuda_sm_minor == 1)) return 0;
+    return 1;
 }
 
 static int cuda_q8_f16_preload_allowed(const char *label, uint64_t in_dim, uint64_t out_dim) {
@@ -1205,10 +1231,29 @@ static int cublas_ok(cublasStatus_t st, const char *what) {
 extern "C" int ds4_gpu_init(void) {
     int dev = 0;
     if (!cuda_ok(cudaSetDevice(dev), "set device")) return 0;
+    g_cuda_no_q8_dp4a = getenv("DS4_CUDA_NO_Q8_DP4A") != NULL;
+    g_cuda_force_ordered_f16_matmul = getenv("DS4_CUDA_FORCE_ORDERED_F16_MATMUL") != NULL;
+    g_cuda_no_ordered_f16_matmul = getenv("DS4_CUDA_NO_ORDERED_F16_MATMUL") != NULL;
+    g_cuda_serial_f16_matmul = getenv("DS4_CUDA_SERIAL_F16_MATMUL") != NULL;
+    g_cuda_serial_router = getenv("DS4_CUDA_SERIAL_ROUTER") != NULL;
+    g_cuda_no_f16_pair_matmul = getenv("DS4_CUDA_NO_F16_PAIR_MATMUL") != NULL;
+    g_cuda_no_q8_batch_warp = getenv("DS4_CUDA_NO_Q8_BATCH_WARP") != NULL;
+    g_cuda_disable_shared_gate_up_pair = getenv("DS4_CUDA_DISABLE_SHARED_GATE_UP_PAIR") != NULL;
+    g_cuda_no_warp_router_select = getenv("DS4_CUDA_NO_WARP_ROUTER_SELECT") != NULL;
+    g_cuda_no_parallel_router_select = getenv("DS4_CUDA_NO_PARALLEL_ROUTER_SELECT") != NULL;
+    g_cuda_moe_no_decode_lut_gate = getenv("DS4_CUDA_MOE_NO_DECODE_LUT_GATE") != NULL;
+    g_cuda_moe_no_direct_down_sum6 = getenv("DS4_CUDA_MOE_NO_DIRECT_DOWN_SUM6") != NULL;
     cudaDeviceProp prop;
     if (cudaGetDeviceProperties(&prop, dev) == cudaSuccess) {
+        g_cuda_sm_major = prop.major;
+        g_cuda_sm_minor = prop.minor;
+        g_cuda_gb10_device = strstr(prop.name, "GB10") != NULL;
         fprintf(stderr, "ds4: CUDA backend initialized on %s (sm_%d%d)\n",
                 prop.name, prop.major, prop.minor);
+        if (cuda_use_ordered_f16_matmul() == 0 &&
+            !g_cuda_no_ordered_f16_matmul) {
+            fprintf(stderr, "ds4: CUDA using unordered one-token F16 matmul on GB10/sm_121\n");
+        }
     }
     if (!g_cublas_ready) {
         if (!cublas_ok(cublasCreate(&g_cublas), "create handle")) return 0;
@@ -1727,6 +1772,45 @@ __global__ static void matmul_f16_pair_ordered_chunks_kernel(
         }
         if (row < out0_dim) out0[row] = total0;
         if (row < out1_dim) out1[row] = total1;
+    }
+}
+
+__global__ static void matmul_f16_pair_kernel(
+        float *out0,
+        float *out1,
+        const __half *w0,
+        const __half *w1,
+        const float *x,
+        uint64_t in_dim,
+        uint64_t out_dim) {
+    uint64_t row = (uint64_t)blockIdx.x;
+    if (row >= out_dim) return;
+
+    float sum0 = 0.0f;
+    float sum1 = 0.0f;
+    const __half *wr0 = w0 + row * in_dim;
+    const __half *wr1 = w1 + row * in_dim;
+    for (uint64_t i = threadIdx.x; i < in_dim; i += blockDim.x) {
+        const float xv = x[i];
+        sum0 += __half2float(wr0[i]) * xv;
+        sum1 += __half2float(wr1[i]) * xv;
+    }
+
+    __shared__ float partial0[256];
+    __shared__ float partial1[256];
+    partial0[threadIdx.x] = sum0;
+    partial1[threadIdx.x] = sum1;
+    __syncthreads();
+    for (uint32_t stride = blockDim.x >> 1; stride > 0; stride >>= 1) {
+        if (threadIdx.x < stride) {
+            partial0[threadIdx.x] += partial0[threadIdx.x + stride];
+            partial1[threadIdx.x] += partial1[threadIdx.x + stride];
+        }
+        __syncthreads();
+    }
+    if (threadIdx.x == 0) {
+        out0[row] = partial0[0];
+        out1[row] = partial1[0];
     }
 }
 
@@ -5853,7 +5937,7 @@ static int cuda_matmul_q8_0_tensor_labeled(ds4_gpu_tensor *out, const void *mode
                 use_dp4a);
         return cuda_ok(cudaGetLastError(), "matmul_q8_0 warp launch");
     }
-    if (getenv("DS4_CUDA_NO_Q8_BATCH_WARP") == NULL && blocks <= 32u) {
+    if (!g_cuda_no_q8_batch_warp && blocks <= 32u) {
         dim3 bgrid(((unsigned)out_dim + 7u) / 8u, (unsigned)n_tok, 1);
         matmul_q8_0_preq_batch_warp8_kernel<<<bgrid, 256>>>(
                 (float *)out->ptr,
@@ -6025,17 +6109,17 @@ extern "C" int ds4_gpu_matmul_f16_tensor(ds4_gpu_tensor *out, const void *model_
     const char *wptr = cuda_model_range_ptr(model_map, weight_offset, weight_bytes, "f16");
     if (!wptr) return 0;
     const __half *w = (const __half *)wptr;
-    const int serial_f16 = getenv("DS4_CUDA_SERIAL_F16_MATMUL") != NULL;
+    const int serial_f16 = g_cuda_serial_f16_matmul;
     const int router_shape = in_dim == 4096u && out_dim == 256u && n_tok == 1u;
     const int serial_router =
         !serial_f16 &&
         router_shape &&
-        getenv("DS4_CUDA_SERIAL_ROUTER") != NULL;
+        g_cuda_serial_router;
     const int ordered_router =
         !serial_f16 &&
         !serial_router &&
         n_tok == 1u &&
-        getenv("DS4_CUDA_NO_ORDERED_F16_MATMUL") == NULL;
+        cuda_use_ordered_f16_matmul();
     if (!serial_f16 && g_cublas_ready && n_tok > 1) {
         const uint64_t xh_count = n_tok * in_dim;
         __half *xh = (__half *)cuda_tmp_alloc(xh_count * sizeof(__half), "f16 gemm activations");
@@ -6093,10 +6177,9 @@ extern "C" int ds4_gpu_matmul_f16_pair_tensor(
         return 0;
     }
     if (n_tok != 1 ||
-        getenv("DS4_CUDA_NO_F16_PAIR_MATMUL") != NULL ||
-        getenv("DS4_CUDA_SERIAL_F16_MATMUL") != NULL ||
-        getenv("DS4_CUDA_SERIAL_ROUTER") != NULL ||
-        getenv("DS4_CUDA_NO_ORDERED_F16_MATMUL") != NULL) {
+        g_cuda_no_f16_pair_matmul ||
+        g_cuda_serial_f16_matmul ||
+        g_cuda_serial_router) {
         return ds4_gpu_matmul_f16_tensor(out0, model_map, model_size, weight0_offset,
                                            in_dim, out_dim, x, n_tok) &&
                ds4_gpu_matmul_f16_tensor(out1, model_map, model_size, weight1_offset,
@@ -6117,6 +6200,17 @@ extern "C" int ds4_gpu_matmul_f16_pair_tensor(
     const __half *w0 = (const __half *)cuda_model_range_ptr(model_map, weight0_offset, weight_bytes, "f16_pair0");
     const __half *w1 = (const __half *)cuda_model_range_ptr(model_map, weight1_offset, weight_bytes, "f16_pair1");
     if (!w0 || !w1) return 0;
+    if (!cuda_use_ordered_f16_matmul()) {
+        matmul_f16_pair_kernel<<<(unsigned)out_dim, 256>>>(
+            (float *)out0->ptr,
+            (float *)out1->ptr,
+            w0,
+            w1,
+            (const float *)x->ptr,
+            in_dim,
+            out_dim);
+        return cuda_ok(cudaGetLastError(), "matmul_f16_pair launch");
+    }
     matmul_f16_pair_ordered_chunks_kernel<<<(unsigned)out_dim, 32>>>(
         (float *)out0->ptr,
         (float *)out1->ptr,
@@ -7490,7 +7584,7 @@ extern "C" int ds4_gpu_shared_gate_up_swiglu_q8_0_tensor(
         uint64_t                in_dim,
         uint64_t                out_dim,
         const ds4_gpu_tensor *x) {
-    if (getenv("DS4_CUDA_DISABLE_SHARED_GATE_UP_PAIR") == NULL) {
+    if (!g_cuda_disable_shared_gate_up_pair) {
         return ds4_gpu_matmul_q8_0_pair_tensor(gate, up,
                                                  model_map, model_size,
                                                  gate_offset, up_offset,
@@ -7553,13 +7647,13 @@ extern "C" int ds4_gpu_router_select_tensor(ds4_gpu_tensor *selected, ds4_gpu_te
         if (!hash) ok = 0;
     }
     if (ok) {
-        if (getenv("DS4_CUDA_NO_WARP_ROUTER_SELECT") == NULL &&
-            getenv("DS4_CUDA_NO_PARALLEL_ROUTER_SELECT") == NULL) {
+        if (!g_cuda_no_warp_router_select &&
+            !g_cuda_no_parallel_router_select) {
             dim3 block(32, 4, 1);
             router_select_warp_topk_kernel<<<1, block>>>((int32_t *)selected->ptr, (float *)weights->ptr, (float *)probs->ptr,
                                                          bias, hash, (const float *)logits->ptr, NULL, tok, hash_rows, 1,
                                                          has_bias && !hash_mode, hash_mode);
-        } else if (getenv("DS4_CUDA_NO_PARALLEL_ROUTER_SELECT") == NULL) {
+        } else if (!g_cuda_no_parallel_router_select) {
             router_select_parallel_kernel<<<1, 256>>>((int32_t *)selected->ptr, (float *)weights->ptr, (float *)probs->ptr,
                                                       bias, hash, (const float *)logits->ptr, NULL, tok, hash_rows, 1,
                                                       has_bias && !hash_mode, hash_mode);
@@ -7594,8 +7688,8 @@ extern "C" int ds4_gpu_router_select_batch_tensor(ds4_gpu_tensor *selected, ds4_
         hash = (const int32_t *)cuda_model_range_ptr(model_map, hash_offset, hash_bytes, "router_hash");
         if (!hash) return 0;
     }
-    if (getenv("DS4_CUDA_NO_WARP_ROUTER_SELECT") == NULL &&
-        getenv("DS4_CUDA_NO_PARALLEL_ROUTER_SELECT") == NULL) {
+    if (!g_cuda_no_warp_router_select &&
+        !g_cuda_no_parallel_router_select) {
         dim3 block(32, 4, 1);
         router_select_warp_topk_kernel<<<(n_tokens + 3u) / 4u, block>>>((int32_t *)selected->ptr,
                                                                         (float *)weights->ptr,
@@ -7609,7 +7703,7 @@ extern "C" int ds4_gpu_router_select_batch_tensor(ds4_gpu_tensor *selected, ds4_
                                                                         n_tokens,
                                                                         has_bias && !hash_mode,
                                                                         hash_mode);
-    } else if (getenv("DS4_CUDA_NO_PARALLEL_ROUTER_SELECT") == NULL) {
+    } else if (!g_cuda_no_parallel_router_select) {
         router_select_parallel_kernel<<<n_tokens, 256>>>((int32_t *)selected->ptr,
                                                          (float *)weights->ptr,
                                                          (float *)probs->ptr,
@@ -9868,7 +9962,7 @@ static int routed_moe_launch(
             n_tokens >= 128u && getenv("DS4_CUDA_MOE_NO_DOWN_TILE16") == NULL;
         const uint32_t use_decode_lut_gate =
             n_tokens == 1u && xq_blocks <= 16u &&
-            getenv("DS4_CUDA_MOE_NO_DECODE_LUT_GATE") == NULL;
+            !g_cuda_moe_no_decode_lut_gate;
         const uint32_t gate_row_span =
             getenv("DS4_CUDA_MOE_GATE_ROW512") != NULL ? 512u :
             getenv("DS4_CUDA_MOE_GATE_ROW2048") != NULL ? 2048u : 1024u;
@@ -9887,7 +9981,7 @@ static int routed_moe_launch(
               getenv("DS4_CUDA_MOE_NO_DOWN_ROW64") == NULL));
         const uint32_t use_direct_down_sum6 =
             n_tokens == 1u && n_expert == 6u &&
-            getenv("DS4_CUDA_MOE_NO_DIRECT_DOWN_SUM6") == NULL;
+            !g_cuda_moe_no_direct_down_sum6;
         uint32_t *sorted_pairs = NULL;
         uint32_t *sorted_offsets = NULL;
         uint32_t *sorted_counts = NULL;
