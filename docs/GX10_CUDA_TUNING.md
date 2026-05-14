@@ -25,8 +25,10 @@ With `sd-server` using about 10.5 GiB GPU memory, the baseline averaged:
 ## Accepted changes
 
 - GB10/sm_121 now uses the regular unordered one-token F16 matmul path by
-  default, including the F16 pair helper. The previous ordered F16 decode
-  kernels remain available with `DS4_CUDA_FORCE_ORDERED_F16_MATMUL=1`.
+  default. The F16 pair helper keeps the same GB10 choice and fuses the two
+  one-token projections into a single unordered CUDA launch. The previous
+  ordered F16 decode kernels remain available with
+  `DS4_CUDA_FORCE_ORDERED_F16_MATMUL=1`.
 - Several CUDA hot-path environment switches are cached during backend
   initialization instead of being read repeatedly during decode.
 - CUDA uses `DS4_METAL_GRAPH_TOKEN_SPLIT_LAYERS=0` by default. The old split
@@ -36,7 +38,9 @@ The full env-equivalent sweep for the unordered F16 path improved average
 generation from 13.16 t/s to 13.89 t/s while keeping prefill effectively flat.
 After the F16 pair helper was aligned with the same GB10 decision, the local
 8k/64 check measured 14.44 t/s generation. A post-rebase check on the updated
-main measured 14.26 t/s generation at the same 8k/64 frontier.
+main measured 14.26 t/s generation at the same 8k/64 frontier. Fusing the
+unordered F16 pair path then measured 14.50 t/s versus 14.31 t/s for the
+two-launch fallback at 8k/64, with the same 392 t/s-class prefill.
 
 ## Rejected knobs
 
