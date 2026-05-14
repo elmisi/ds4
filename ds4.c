@@ -10659,7 +10659,14 @@ static bool metal_graph_encode_token_raw_swa(
      * point where the prefix is large enough to hide useful work without
      * starving the second command buffer.
      */
+#ifdef __APPLE__
     uint32_t split_after_layers = 4;
+#else
+    /* On CUDA, flushing the split point synchronizes the device.  The split is
+     * useful for Metal command scheduling, but in CUDA decode it adds a
+     * per-token barrier in the hot path. */
+    uint32_t split_after_layers = 0;
+#endif
     const char *split_env = getenv("DS4_METAL_GRAPH_TOKEN_SPLIT_LAYERS");
     if (split_env && split_env[0]) {
         char *end = NULL;
