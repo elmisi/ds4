@@ -1,7 +1,7 @@
 # DGX Spark / GB10 CUDA tuning notes
 
 These notes record the CUDA tuning pass run on an ASUS Ascent GX10 / NVIDIA
-GB10 with another GPU workload (`sd-server`) left resident. The goal was to
+GB10 with another GPU workload left resident. The goal was to
 improve generated tokens/sec without materially hurting prefill or increasing
 memory-crash risk.
 
@@ -17,7 +17,7 @@ The baseline used `ds4-bench` with the public-domain *I Promessi Sposi* prompt:
   --csv tuning/gx10-20260514/baseline_default.csv
 ```
 
-With `sd-server` using about 10.5 GiB GPU memory, the baseline averaged:
+With the resident GPU workload using about 10.5 GiB GPU memory, the baseline averaged:
 
 - prefill: 366.99 t/s
 - generation: 13.16 t/s
@@ -70,7 +70,7 @@ machine:
 ## 20 t/s assessment
 
 The current release path is not one micro-kernel away from 20 t/s on this GB10
-setup. With `sd-server` stopped, a short CLI run measured about 16.3 t/s and
+setup. With the resident GPU workload stopped, a short CLI run measured about 16.3 t/s and
 `DS4_METAL_GRAPH_TOKEN_PROFILE=1` reported steady decode tokens around 60-62 ms:
 
 - encode/enqueue: 21-26 ms
