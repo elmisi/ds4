@@ -27645,7 +27645,14 @@ static DS4_MAYBE_UNUSED bool metal_graph_pre_m5_q2_decode_schedule_eligible(
 }
 
 static uint32_t metal_graph_token_split_after_layers(void) {
+#ifdef __APPLE__
     uint32_t split_after_layers = 4;
+#else
+    /* On CUDA, flushing the split point synchronizes the device.  The split is
+     * useful for Metal command scheduling, but in CUDA decode it adds a
+     * per-token barrier in the hot path. */
+    uint32_t split_after_layers = 0;
+#endif
 #ifndef DS4_ROCM_BUILD
     const char *split_env = getenv("DS4_METAL_GRAPH_TOKEN_SPLIT_LAYERS");
     if (split_env && split_env[0]) {
