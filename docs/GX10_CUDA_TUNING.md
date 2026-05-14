@@ -56,6 +56,45 @@ machine:
 - `DS4_CUDA_DIRECT_MODEL=1`
 - `DS4_CUDA_DISABLE_QKV_RMS_FUSED=1`
 - `DS4_CUDA_ATTENTION_OUTPUT_A_CUBLAS_MIN=5`
+- `DS4_CUDA_Q8_F16_ALL=1`
+- `DS4_CUDA_Q8_F32_LARGE=1`
+- one-token logits top-k/argmax readback instead of full logits readback
+- asynchronous CUDA `end_commands` without a per-token synchronize
+- a decode Q/KV pair projection that reused one Q8 input quantization for
+  `attn_q_a` and `attn_kv`; it measured 14.54 t/s versus 14.65 t/s for the
+  existing separate projections at 8k/64
+- an experimental one-token Q8->F16 cuBLAS decode path for the output logits;
+  limiting it to `out_dim >= 65536` measured 13.57 t/s generation and was
+  slower than the native Q8 matvec path
+
+## 20 t/s assessment
+
+The current release path is not one micro-kernel away from 20 t/s on this GB10
+setup. With `sd-server` stopped, a short CLI run measured about 16.3 t/s and
+`DS4_METAL_GRAPH_TOKEN_PROFILE=1` reported steady decode tokens around 60-62 ms:
+
+- encode/enqueue: 21-26 ms
+- GPU drain/synchronize: 35-39 ms
+- logits readback: about 0.02 ms
+
+That makes full-logit readback and sampling irrelevant for throughput. It also
+means kernel-local changes must remove about 10 ms/token to reach 20 t/s, while
+the largest individual CUDA hot spots are spread across routed MoE,
+attention-output projection, Q path, and the generic Q8 matvecs. The local
+attempts above did not find a safe kernel-level change with that scale of gain.
+
+The plausible route to 20 t/s is reducing per-token launch/enqueue overhead,
+most likely with CUDA Graph replay or an equivalent persistent decode executor.
+This is a larger architectural change, not a small backend knob: the current
+decode tape passes token, position, raw-cache row, compressed-cache frontiers,
+and pointer-swapped HC buffers as host-side control state, and compressed
+layers change behavior at ratio frontiers. A graph implementation would need to
+move those dynamic values into device-resident parameter/state buffers, or
+maintain a small set of graph variants for HC-buffer parity and compression
+frontiers. If that work can cut the 21-26 ms encode/enqueue component roughly in
+half, 20 t/s is realistic; without that class of change, the measured ceiling of
+the current design is closer to the mid/high 16 t/s range in the interactive
+CLI and mid 14 t/s in the conservative 8k/64 bench.
 
 ## Fork scan
 
