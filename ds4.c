@@ -20640,6 +20640,26 @@ static bool metal_graph_use_reference_attn_out_hc(void) {
     return metal_graph_env_flag("DS4_METAL_DISABLE_ATTN_OUT_HC_FUSION", &cache);
 }
 
+static bool cuda_no_q_norm_rope_fused(void) {
+    static int cache = -1;
+    return metal_graph_env_flag("DS4_CUDA_NO_Q_NORM_ROPE_FUSED", &cache);
+}
+
+static bool cuda_no_fused_hc_pre(void) {
+    static int cache = -1;
+    return metal_graph_env_flag("DS4_CUDA_NO_FUSED_HC_PRE", &cache);
+}
+
+static bool cuda_no_kv_rope_store_fused(void) {
+    static int cache = -1;
+    return metal_graph_env_flag("DS4_CUDA_NO_KV_ROPE_STORE_FUSED", &cache);
+}
+
+static bool cuda_no_attn_output_rope_low_fused(void) {
+    static int cache = -1;
+    return metal_graph_env_flag("DS4_CUDA_NO_ATTN_OUTPUT_ROPE_LOW_FUSED", &cache);
+}
+
 static bool metal_graph_decode_hc_pre(
         ds4_gpu_tensor       *out,
         ds4_gpu_tensor       *split,
@@ -22886,12 +22906,35 @@ static bool metal_graph_encode_decode_layer_phase(
         phase == METAL_DECODE_LAYER_FROM_ATTN_TO_FFN;
     bool cuda_tp_attn_heads_active = false;
     bool attn_inv_rope_done = resume_after_attn;
+    bool cuda_fuse_hc_pre DS4_MAYBE_UNUSED = false;
     if (phase != METAL_DECODE_LAYER_FROM_ATTN_PRE_TO_FFN &&
         phase != METAL_DECODE_LAYER_FROM_ATTN_PRE_TO_ATTN &&
         phase != METAL_DECODE_LAYER_FROM_QKV_TO_ATTN &&
         phase != METAL_DECODE_LAYER_FROM_QA_KV_RAW_TO_SHARED_MID &&
         phase != METAL_DECODE_LAYER_FROM_KV_STORE_TO_ATTN &&
         !resume_after_attn) {
+#ifndef __APPLE__
+    cuda_fuse_hc_pre =
+        fuse_hc_norm && !tp_ablate_hcpre && !cuda_no_fused_hc_pre();
+    if (ok && cuda_fuse_hc_pre) {
+        ok = ds4_gpu_hc_decode_pre_norm_fused_tensor(metal_graph_attn_cur(g),
+                                                       metal_graph_attn_norm(g),
+                                                       metal_graph_hc_split(g),
+                                                       metal_graph_hc_mix(g),
+                                                       metal_graph_cur_hc(g),
+                                                       model->map,
+                                                       model->size,
+                                                       layer->hc_attn_fn->abs_offset,
+                                                       layer->hc_attn_scale->abs_offset,
+                                                       layer->hc_attn_base->abs_offset,
+                                                       layer->attn_norm->abs_offset,
+                                                       DS4_N_EMBD,
+                                                       DS4_N_HC,
+                                                       DS4_N_HC_SINKHORN_ITER,
+                                                       DS4_HC_EPS,
+                                                       DS4_RMS_EPS) != 0;
+    }
+#endif
     bool attn_hc_producer_pre_norm_fused = false;
     if (ok && !tp_ablate_hcpre) {
         /* Fused norm+mix removes one decode dispatch per layer; the kernel
@@ -22939,7 +22982,7 @@ static bool metal_graph_encode_decode_layer_phase(
             }
         }
 #endif
-        if (ok && !attn_hc_producer_pre_norm_fused) {
+        if (ok && !attn_hc_producer_pre_norm_fused && !cuda_fuse_hc_pre) {
             if (fuse_norm_mix) {
                 ok = ds4_gpu_hc_rms_norm_mix_f16_tensor(
                         metal_graph_hc_mix(g), metal_graph_cur_hc(g),
@@ -22960,7 +23003,7 @@ static bool metal_graph_encode_decode_layer_phase(
         }
     }
     if (ok && fuse_hc_norm) {
-        if (!attn_hc_producer_pre_norm_fused) {
+        if (!attn_hc_producer_pre_norm_fused && !cuda_fuse_hc_pre) {
             ok = ds4_gpu_hc_split_weighted_sum_norm_tensor(metal_graph_attn_cur(g),
                                                              metal_graph_attn_norm(g),
                                                              metal_graph_hc_split(g),
@@ -22990,7 +23033,7 @@ static bool metal_graph_encode_decode_layer_phase(
                                                   il,
                                                   pos);
         }
-    } else if (ok) {
+    } else if (ok && !fuse_hc_norm) {
         ok = metal_graph_decode_hc_pre(metal_graph_attn_cur(g),
                                        metal_graph_hc_split(g),
                                        metal_graph_hc_mix(g),
@@ -23326,7 +23369,11 @@ static bool metal_graph_encode_decode_layer_phase(
     }
     const bool decode_q_norm_debug = metal_graph_debug_wants("Qnorm", il, pos);
     bool decode_q_norm_rope_fused = false;
-    if (ok && !decode_q_norm_debug) {
+    if (ok && !decode_q_norm_debug
+#ifndef __APPLE__
+        && !cuda_no_q_norm_rope_fused()
+#endif
+    ) {
         decode_q_norm_rope_fused =
             ds4_gpu_head_rms_norm_rope_tail_tensor(metal_graph_q(g),
                                                    1,
@@ -23379,6 +23426,7 @@ static bool metal_graph_encode_decode_layer_phase(
         }
     }
     const bool tp_ablate_kv = metal_graph_tp_ablate("kv");
+#if defined(__APPLE__)
     fuse_kv_rope_store =
         !tp_ablate_kv && !kv_rope_fused &&
         !metal_graph_use_reference_kv_decode() &&
@@ -23386,6 +23434,30 @@ static bool metal_graph_encode_decode_layer_phase(
         getenv("DS4_METAL_DISABLE_PRE_M5_KV_ROPE_FP8_FUSE") == NULL &&
         ds4_gpu_device_is_pre_m5_apple_silicon() &&
         ds4_gpu_kv_rope_fp8_fuse_available() != 0;
+#else
+    fuse_kv_rope_store =
+        ok && phase == METAL_DECODE_LAYER_FULL &&
+        !tp_ablate_kv && !kv_rope_fused &&
+        !metal_graph_debug_wants("KVrope", il, pos) &&
+        !cuda_no_kv_rope_store_fused() &&
+        !metal_graph_use_reference_kv_decode();
+    if (fuse_kv_rope_store) {
+        ok = ds4_gpu_kv_rope_fp8_store_raw_tensor(metal_graph_kv(g),
+                                                   raw_cache,
+                                                   raw_cap,
+                                                   raw_row,
+                                                   DS4_N_HEAD_DIM,
+                                                   DS4_N_ROT,
+                                                   pos,
+                                                   compressed ? (uint32_t)DS4_ROPE_ORIG_CTX : 0,
+                                                   freq_base,
+                                                   freq_scale,
+                                                   ext_factor,
+                                                   attn_factor,
+                                                   DS4_ROPE_YARN_BETA_FAST,
+                                                   DS4_ROPE_YARN_BETA_SLOW) != 0;
+    }
+#endif
     if (ok && !tp_ablate_kv && !kv_rope_fused && !fuse_kv_rope_store) {
         ok = ds4_gpu_rope_tail_tensor(metal_graph_kv(g), 1,
                                       DS4_N_HEAD_KV, DS4_N_HEAD_DIM,
@@ -23401,8 +23473,9 @@ static bool metal_graph_encode_decode_layer_phase(
     }
     }
     if (!resume_after_kv_store) {
-        /* The common no-debug path may fuse KV RMS with RoPE above. KV
-         * storage starts here after metal_graph_kv(g) contains the RoPE row. */
+        /* The common no-debug path may fuse KV RMS with RoPE above. */
+#if defined(__APPLE__)
+        /* KV storage starts after metal_graph_kv(g) contains the RoPE row. */
         if (ok && !kv_norm_store_fused) {
             ok = fuse_kv_rope_store
                 ? (ds4_gpu_kv_rope_fp8_store_raw_tensor(
@@ -23413,6 +23486,11 @@ static bool metal_graph_encode_decode_layer_phase(
                        DS4_ROPE_YARN_BETA_FAST, DS4_ROPE_YARN_BETA_SLOW) != 0)
                 : metal_graph_decode_kv_store(metal_graph_kv(g), raw_cache, raw_cap, raw_row);
         }
+#else
+        /* The CUDA fused RoPE+store path has already written the raw row. */
+        if (ok && !fuse_kv_rope_store)
+            ok = metal_graph_decode_kv_store(metal_graph_kv(g), raw_cache, raw_cap, raw_row);
+#endif
         if (ok) ok = metal_graph_cuda_tp_attn_cache_sync_raw_row(g, il, raw_row);
         DS4_METAL_PROFILE_DECODE_STAGE("kv_path");
         if (ok) {
@@ -24166,6 +24244,35 @@ static bool metal_graph_encode_decode_layer_phase(
         layer->attn_output_b->type == DS4_TENSOR_Q8_0 &&
         !metal_graph_directional_steering_attn_enabled(g) &&
         !metal_graph_use_reference_attn_out_hc();
+#ifndef __APPLE__
+    const bool fuse_attn_out_rope_low =
+        ok &&
+        fuse_attn_out_hc &&
+        !cuda_tp_attn_heads_active &&
+        !attn_inv_rope_done &&
+        !cuda_no_attn_output_rope_low_fused() &&
+        !metal_graph_debug_wants("kqv_back", il, pos);
+#else
+    const bool fuse_attn_out_rope_low = false;
+#endif
+    if (ok && !cuda_tp_attn_heads_active && !attn_inv_rope_done &&
+        !fuse_attn_out_rope_low) {
+        ok = ds4_gpu_rope_tail_tensor(metal_graph_heads(g),
+                                      1, tp_heads, DS4_N_HEAD_DIM,
+                                      DS4_N_ROT, pos,
+                                      compressed ? (uint32_t)DS4_ROPE_ORIG_CTX : 0,
+                                      true,
+                                      freq_base,
+                                      freq_scale,
+                                      ext_factor,
+                                      attn_factor,
+                                      DS4_ROPE_YARN_BETA_FAST,
+                                      DS4_ROPE_YARN_BETA_SLOW) != 0;
+    }
+    DS4_METAL_PROFILE_DECODE_STAGE("attn_inv_rope");
+    if (ok && !cuda_tp_attn_heads_active) {
+        metal_graph_debug_dump_tensor("kqv_back", metal_graph_heads(g), q_dim, il, pos);
+    }
     const bool fuse_tp_attn_out_hc =
         cuda_tp_attn &&
         !metal_graph_use_reference_attn_out_hc() &&
@@ -24337,14 +24444,38 @@ static bool metal_graph_encode_decode_layer_phase(
             if (ok) cuda_tp_attn_hc_fused = true;
         }
     } else if (ok && fuse_attn_out_hc) {
-        ok = ds4_gpu_attention_output_low_q8_tensor(metal_graph_attn_low(g),
-                                                      model->map,
-                                                      model->size,
-                                                      layer->attn_output_a->abs_offset,
-                                                      group_dim,
-                                                      rank,
-                                                      n_groups,
-                                                      metal_graph_heads(g)) != 0;
+#ifndef __APPLE__
+        if (fuse_attn_out_rope_low) {
+            ok = ds4_gpu_attention_output_low_q8_rope_tensor(metal_graph_attn_low(g),
+                                                               model->map,
+                                                               model->size,
+                                                               layer->attn_output_a->abs_offset,
+                                                               group_dim,
+                                                               rank,
+                                                               n_groups,
+                                                               metal_graph_heads(g),
+                                                               DS4_N_HEAD_DIM,
+                                                               DS4_N_ROT,
+                                                               pos,
+                                                               compressed ? (uint32_t)DS4_ROPE_ORIG_CTX : 0,
+                                                               freq_base,
+                                                               freq_scale,
+                                                               ext_factor,
+                                                               attn_factor,
+                                                               DS4_ROPE_YARN_BETA_FAST,
+                                                               DS4_ROPE_YARN_BETA_SLOW) != 0;
+        } else
+#endif
+        {
+            ok = ds4_gpu_attention_output_low_q8_tensor(metal_graph_attn_low(g),
+                                                          model->map,
+                                                          model->size,
+                                                          layer->attn_output_a->abs_offset,
+                                                          group_dim,
+                                                          rank,
+                                                          n_groups,
+                                                          metal_graph_heads(g)) != 0;
+        }
         if (ok) {
             ok = ds4_gpu_matmul_q8_0_hc_expand_tensor(metal_graph_after_attn_hc(g),
                                                         metal_graph_attn_out(g),
@@ -24464,6 +24595,26 @@ static bool metal_graph_encode_decode_layer_phase(
     if (ok) {
         metal_graph_debug_dump_tensor("hc_attn_post", metal_graph_after_attn_hc(g), hc_dim, il, pos);
     }
+#ifndef __APPLE__
+    if (ok && cuda_fuse_hc_pre) {
+        ok = ds4_gpu_hc_decode_pre_norm_fused_tensor(metal_graph_ffn_cur(g),
+                                                       metal_graph_ffn_norm(g),
+                                                       metal_graph_hc_split(g),
+                                                       metal_graph_hc_mix(g),
+                                                       metal_graph_after_attn_hc(g),
+                                                       model->map,
+                                                       model->size,
+                                                       layer->hc_ffn_fn->abs_offset,
+                                                       layer->hc_ffn_scale->abs_offset,
+                                                       layer->hc_ffn_base->abs_offset,
+                                                       layer->ffn_norm->abs_offset,
+                                                       DS4_N_EMBD,
+                                                       DS4_N_HC,
+                                                       DS4_N_HC_SINKHORN_ITER,
+                                                       DS4_HC_EPS,
+                                                       DS4_RMS_EPS) != 0;
+    }
+#endif
     bool ffn_hc_producer_pre_norm_fused = false;
     if (ok && !tp_ablate_hcpre) {
         const bool fuse_norm_mix =
@@ -24509,7 +24660,7 @@ static bool metal_graph_encode_decode_layer_phase(
             }
         }
 #endif
-        if (ok && !ffn_hc_producer_pre_norm_fused) {
+        if (ok && !ffn_hc_producer_pre_norm_fused && !cuda_fuse_hc_pre) {
             if (fuse_norm_mix) {
                 ok = ds4_gpu_hc_rms_norm_mix_f16_tensor(
                         metal_graph_hc_mix(g), metal_graph_after_attn_hc(g),
@@ -24530,7 +24681,7 @@ static bool metal_graph_encode_decode_layer_phase(
         }
     }
     if (ok && fuse_hc_norm) {
-        if (!ffn_hc_producer_pre_norm_fused) {
+        if (!ffn_hc_producer_pre_norm_fused && !cuda_fuse_hc_pre) {
             ok = ds4_gpu_hc_split_weighted_sum_norm_tensor(metal_graph_ffn_cur(g),
                                                              metal_graph_ffn_norm(g),
                                                              metal_graph_hc_split(g),
@@ -24560,7 +24711,7 @@ static bool metal_graph_encode_decode_layer_phase(
                                                   il,
                                                   pos);
         }
-    } else if (ok) {
+    } else if (ok && !fuse_hc_norm) {
         ok = metal_graph_decode_hc_pre(metal_graph_ffn_cur(g),
                                        metal_graph_hc_split(g),
                                        metal_graph_hc_mix(g),
