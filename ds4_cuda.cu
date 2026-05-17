@@ -1592,6 +1592,81 @@ extern "C" int ds4_gpu_graph_launch(ds4_gpu_graph_handle *handle) {
     return 1;
 }
 
+/* End the active capture and reuse the cached executor across tokens.
+ *
+ * Path A (first call, *handle_inout == NULL): cudaGraphInstantiate as in the
+ * non-cached path, store new handle.
+ *
+ * Path B (subsequent calls): try cudaGraphExecUpdate to patch the existing
+ * exec with the freshly-captured graph's kernel params (cheap, no JIT). If
+ * the topology drifted (attention path swap, etc.) the update fails and we
+ * fall back to a fresh cudaGraphInstantiate, swapping the exec in place.
+ *
+ * Either way, the old cudaGraph_t is destroyed and replaced. The handle is
+ * reusable for the next iteration. */
+extern "C" int ds4_gpu_graph_capture_end_update(ds4_gpu_graph_handle **handle_inout) {
+    if (!handle_inout) return 0;
+    if (!g_graph_capture_active) {
+        fprintf(stderr, "ds4: graph capture not active (end_update)\n");
+        return 0;
+    }
+    cudaGraph_t new_graph = NULL;
+    cudaError_t err = cudaStreamEndCapture(cudaStreamPerThread, &new_graph);
+    g_graph_capture_active = 0;
+    if (err != cudaSuccess || !new_graph) {
+        fprintf(stderr, "ds4: graph end capture failed (update): %s\n",
+                cudaGetErrorString(err));
+        if (new_graph) (void)cudaGraphDestroy(new_graph);
+        return 0;
+    }
+
+    ds4_gpu_graph_handle *h = *handle_inout;
+    if (h && h->exec) {
+        /* Try the cheap path first. */
+        cudaGraphExecUpdateResultInfo info;
+        memset(&info, 0, sizeof(info));
+        err = cudaGraphExecUpdate(h->exec, new_graph, &info);
+        if (err == cudaSuccess && info.result == cudaGraphExecUpdateSuccess) {
+            if (h->graph) (void)cudaGraphDestroy(h->graph);
+            h->graph = new_graph;
+            return 1;
+        }
+        /* Update failed: topology drift (attention path swap, indexer
+         * enable/disable, etc.) or other change. Recreate the exec. */
+        (void)cudaGetLastError();  /* clear sticky error from ExecUpdate */
+        (void)cudaGraphExecDestroy(h->exec);
+        h->exec = NULL;
+        if (h->graph) (void)cudaGraphDestroy(h->graph);
+        h->graph = NULL;
+    }
+
+    cudaGraphExec_t exec = NULL;
+    err = cudaGraphInstantiate(&exec, new_graph, NULL, NULL, 0);
+    if (err != cudaSuccess) {
+        fprintf(stderr, "ds4: graph instantiate failed (update fallback): %s\n",
+                cudaGetErrorString(err));
+        (void)cudaGraphDestroy(new_graph);
+        if (h) {
+            free(h);
+            *handle_inout = NULL;
+        }
+        return 0;
+    }
+
+    if (!h) {
+        h = (ds4_gpu_graph_handle *)malloc(sizeof(*h));
+        if (!h) {
+            (void)cudaGraphExecDestroy(exec);
+            (void)cudaGraphDestroy(new_graph);
+            return 0;
+        }
+        *handle_inout = h;
+    }
+    h->graph = new_graph;
+    h->exec = exec;
+    return 1;
+}
+
 extern "C" void ds4_gpu_graph_handle_free(ds4_gpu_graph_handle *handle) {
     if (!handle) return;
     if (handle->exec) (void)cudaGraphExecDestroy(handle->exec);
