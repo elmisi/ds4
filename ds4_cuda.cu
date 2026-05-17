@@ -1469,6 +1469,90 @@ extern "C" int ds4_gpu_flush_commands(void) { return cuda_ok(cudaDeviceSynchroni
 extern "C" int ds4_gpu_end_commands(void) { return cuda_ok(cudaDeviceSynchronize(), "end commands"); }
 extern "C" int ds4_gpu_synchronize(void) { return cuda_ok(cudaDeviceSynchronize(), "synchronize"); }
 
+/* CUDA Graph capture/replay scaffolding.
+ *
+ * DS4 launches all kernels on the legacy default stream (see kernel launch
+ * sites throughout this file, none specify a stream). cudaStreamLegacy is
+ * capturable in ThreadLocal mode; we use that so concurrent device operations
+ * on other threads (model upload/prefetch streams) cannot accidentally
+ * participate in the captured graph.
+ *
+ * The handle owns both the recorded cudaGraph_t (kept for diagnostics/reuse)
+ * and the executable cudaGraphExec_t produced by cudaGraphInstantiate.
+ */
+struct ds4_gpu_graph_handle {
+    cudaGraph_t graph;
+    cudaGraphExec_t exec;
+};
+
+static int g_graph_capture_active = 0;
+
+extern "C" int ds4_gpu_graph_capture_supported(void) { return 1; }
+
+extern "C" int ds4_gpu_graph_capture_begin(void) {
+    if (g_graph_capture_active) {
+        fprintf(stderr, "ds4: graph capture already active\n");
+        return 0;
+    }
+    /* Drain pending work before capture so unrelated prior commands do not
+     * end up part of the recording. */
+    if (!cuda_ok(cudaDeviceSynchronize(), "graph capture pre-sync")) return 0;
+    if (!cuda_ok(cudaStreamBeginCapture(cudaStreamLegacy, cudaStreamCaptureModeThreadLocal),
+                 "graph begin capture")) {
+        return 0;
+    }
+    g_graph_capture_active = 1;
+    return 1;
+}
+
+extern "C" ds4_gpu_graph_handle *ds4_gpu_graph_capture_end(void) {
+    if (!g_graph_capture_active) {
+        fprintf(stderr, "ds4: graph capture not active\n");
+        return NULL;
+    }
+    cudaGraph_t graph = NULL;
+    cudaError_t err = cudaStreamEndCapture(cudaStreamLegacy, &graph);
+    g_graph_capture_active = 0;
+    if (err != cudaSuccess) {
+        fprintf(stderr, "ds4: graph end capture failed: %s\n", cudaGetErrorString(err));
+        if (graph) (void)cudaGraphDestroy(graph);
+        return NULL;
+    }
+    if (!graph) {
+        fprintf(stderr, "ds4: graph end capture returned NULL graph\n");
+        return NULL;
+    }
+    cudaGraphExec_t exec = NULL;
+    err = cudaGraphInstantiate(&exec, graph, NULL, NULL, 0);
+    if (err != cudaSuccess) {
+        fprintf(stderr, "ds4: graph instantiate failed: %s\n", cudaGetErrorString(err));
+        (void)cudaGraphDestroy(graph);
+        return NULL;
+    }
+    ds4_gpu_graph_handle *h = (ds4_gpu_graph_handle *)malloc(sizeof(*h));
+    if (!h) {
+        (void)cudaGraphExecDestroy(exec);
+        (void)cudaGraphDestroy(graph);
+        return NULL;
+    }
+    h->graph = graph;
+    h->exec = exec;
+    return h;
+}
+
+extern "C" int ds4_gpu_graph_launch(ds4_gpu_graph_handle *handle) {
+    if (!handle || !handle->exec) return 0;
+    if (!cuda_ok(cudaGraphLaunch(handle->exec, cudaStreamLegacy), "graph launch")) return 0;
+    return 1;
+}
+
+extern "C" void ds4_gpu_graph_handle_free(ds4_gpu_graph_handle *handle) {
+    if (!handle) return;
+    if (handle->exec) (void)cudaGraphExecDestroy(handle->exec);
+    if (handle->graph) (void)cudaGraphDestroy(handle->graph);
+    free(handle);
+}
+
 extern "C" int ds4_gpu_set_model_map(const void *model_map, uint64_t model_size) {
     if (!model_map || model_size == 0) return 0;
     if (g_model_host_base == model_map && g_model_registered_size == model_size) return 1;
