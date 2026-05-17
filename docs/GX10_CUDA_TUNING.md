@@ -163,6 +163,54 @@ GPU drain/synchronize is about 44-45 ms, and logits readback remains about
 0.02 ms. The branch has therefore removed several milliseconds of host encode
 work, but the GPU side is still too large for a reliable 20 t/s decode rate.
 
+## Upstream PR import pass (2026-05-17)
+
+After upstream main absorbed several GB10/Blackwell-relevant changes, four open
+upstream PRs were cherry-picked into this branch to stay close to the moving
+target without losing local decode work:
+
+- **antirez/ds4#121** (amarrmb, "skip ordered f16 matmul on Blackwell"). The
+  upstream `sm_major >= 11` gate is a strict superset of this branch's earlier
+  GB10-name-plus-`sm_12_1` check, so it replaces the local gate. The local env
+  caching from `cuda: tune GB10 one-token F16 decode` is preserved; the
+  pre-existing `cuda_use_ordered_f16_matmul()` now delegates to the new
+  `cuda_skip_ordered_f16_matmul()` so the F16 pair callsite keeps working.
+  Startup log changed from a hardcoded "GB10/sm_121" string to one that prints
+  the actual reported `sm_<major><minor>`.
+- **antirez/ds4#145** (amarrmb, "launch-bounded tile8 MoE down path"). Opt-in
+  via `DS4_CUDA_MOE_DOWN_TILE8_ROWSPAN=1`, default off. Imported additively;
+  not exercised on this branch's default decode.
+- **antirez/ds4#134** (Ghatage, "guard KV cache against page-cache pressure").
+  Server-only (`ds4_server.c`), `posix_fadvise(POSIX_FADV_DONTNEED)` after KV
+  payload reads/writes. No effect on `ds4-bench` or on this branch's CUDA
+  decode path; carried to keep the server side aligned with upstream.
+
+- **antirez/ds4#158** (Mike Hutu, "fix HMM path on coherent unified-memory
+  systems"). **Imported, measured, then reverted locally.** PR #158 replaces
+  the per-range `cudaMalloc` + `cudaMemcpy` model load with `cudaMemPrefetchAsync`
+  over the whole mmap region, dropping device memory from ~87 GB to ~26 GB on
+  this machine. The PR author reports a throughput win, but compares against
+  the first-access state of the per-range path (where each first tensor access
+  stalls), not the steady state.
+
+  Steady-state measurement at 8k/64 Promessi on this hardware:
+
+  | Path | gen t/s | device memory |
+  | --- | ---: | ---: |
+  | HMM (#158 imported) | 13.59 | ~26 GB |
+  | per-range copy (#158 reverted) | 15.77 | ~87 GB |
+
+  The −13% gen cost is exactly because every weight access under HMM traverses
+  NVLink-C2C instead of staying device-local. Reverted locally on this branch.
+  The revert is intentionally not proposed upstream: antirez may have reasons
+  to want HMM as default for other GPUs or multi-model setups, and the memory
+  saving is real even though it does not pay off on a 128 GB GB10 running one
+  model.
+
+After the import pass plus the #158 revert, the 8k/64 Promessi check measured
+**15.77 t/s generation, 395.64 t/s prefill**, an additional +0.13 t/s over the
+pre-import 15.64 t/s baseline.
+
 ## Fork scan
 
 The relevant fork ideas were:
