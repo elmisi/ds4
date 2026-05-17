@@ -89,13 +89,20 @@ static int g_quality_mode;
 static int g_cuda_sm_major;
 static int g_cuda_gb10_device;
 
-/* Per-token decode state held in __constant__ memory so that kernels can
+/* Per-token decode state held in a __device__ symbol so that kernels can
  * read pos/token/raw_row/n_raw without those values being baked into the
  * kernel launch parameters. This is what allows a single captured CUDA
  * graph to be replayed across many decode positions: the host updates the
- * constant before each launch via cudaMemcpyToSymbolAsync (which itself
- * gets captured into the graph in capture mode, so the source bytes are
- * re-read from g_decode_state_host at every launch).
+ * symbol before each launch via cudaMemcpyToSymbolAsync (which is fully
+ * stream-ordered for __device__ symbols and captures cleanly, so the
+ * source bytes are re-read from g_decode_state_host at every launch).
+ *
+ * Note: an earlier version used __constant__ here. __constant__ writes via
+ * cudaMemcpyToSymbolAsync do not interact cleanly with stream capture on
+ * sm_121 — kernels reading the symbol from inside a captured graph saw
+ * stale values for everything past the very first kernel. Switching to
+ * __device__ (a tiny 16-byte global read per kernel) is negligible vs the
+ * launch-overhead reduction graphs buy us.
  */
 struct ds4_decode_token_state {
     uint32_t token;
@@ -103,7 +110,7 @@ struct ds4_decode_token_state {
     uint32_t raw_row;
     uint32_t n_raw;
 };
-__constant__ ds4_decode_token_state g_decode_state;
+__device__ ds4_decode_token_state g_decode_state;
 static ds4_decode_token_state *g_decode_state_host;
 
 /* When set, per-token wrappers dispatch to *_dec kernels that read state
@@ -2640,17 +2647,8 @@ __global__ static void head_rms_norm_rope_tail_kernel(
 }
 
 /* Decode variant: reads pos0 from g_decode_state. n_tok=1 always for the
- * cached-graph decode caller, so this drops the n_tok dimension too.
- *
- * TODO: dispatch reverted. A previous attempt to enable this in
- * ds4_gpu_head_rms_norm_rope_tail_tensor produced logits that diverged from
- * the direct path starting at the first decode token, with no apparent bug
- * in the kernel body (matches original for n_tok=1 byte for byte). Likely a
- * subtler interaction between __constant__ memory reads and capture-mode
- * stream ordering. Re-attempt with kernel-arg pointer to a device buffer
- * instead of __constant__, or with explicit cudaDeviceSynchronize after
- * each decode_state_set. Kept here as the future-work reference. */
-__global__ static DS4_CUDA_UNUSED void head_rms_norm_rope_tail_dec_kernel(
+ * cached-graph decode caller, so this drops the n_tok dimension too. */
+__global__ static void head_rms_norm_rope_tail_dec_kernel(
         float *x,
         uint32_t n_head,
         uint32_t head_dim,
@@ -2779,8 +2777,12 @@ __global__ static void rope_tail_kernel(
 /* Decode variant: reads the (single) position from g_decode_state instead
  * of taking pos0/pos_stride as value parameters. Used when the caller is
  * inside the cached-graph decode path (n_tok=1 always for decode).
- * TODO: dispatch reverted, see head_rms_norm_rope_tail_dec_kernel comment. */
-__global__ static DS4_CUDA_UNUSED void rope_tail_dec_kernel(
+ *
+ * IMPORTANT: only callers whose pos equals g_decode_state.pos (the absolute
+ * decode position) may dispatch to this variant. Callers that pass a
+ * derived position (e.g. the compressor rope at pos+1-ratio) must bypass
+ * the dispatch wrapper and launch rope_tail_kernel directly. */
+__global__ static void rope_tail_dec_kernel(
         float *x,
         uint32_t n_head,
         uint32_t head_dim,
@@ -7035,7 +7037,11 @@ extern "C" int ds4_gpu_head_rms_norm_tensor(ds4_gpu_tensor *x, uint32_t n_tok, u
 extern "C" int ds4_gpu_head_rms_norm_rope_tail_tensor(ds4_gpu_tensor *x, uint32_t n_tok, uint32_t n_head, uint32_t head_dim, uint32_t n_rot, uint32_t pos0, uint32_t n_ctx_orig, bool inverse, float freq_base, float freq_scale, float ext_factor, float attn_factor, float beta_fast, float beta_slow, float eps) {
     if (!x || n_rot > head_dim || (n_rot & 1u) ||
         x->bytes < (uint64_t)n_tok * n_head * head_dim * sizeof(float)) return 0;
-    head_rms_norm_rope_tail_kernel<<<n_tok * n_head, 256>>>((float *)x->ptr, n_tok, n_head, head_dim, n_rot, pos0, n_ctx_orig, inverse ? 1 : 0, freq_base, freq_scale, ext_factor, attn_factor, beta_fast, beta_slow, eps);
+    if (g_use_decode_state && n_tok == 1) {
+        head_rms_norm_rope_tail_dec_kernel<<<n_head, 256>>>((float *)x->ptr, n_head, head_dim, n_rot, n_ctx_orig, inverse ? 1 : 0, freq_base, freq_scale, ext_factor, attn_factor, beta_fast, beta_slow, eps);
+    } else {
+        head_rms_norm_rope_tail_kernel<<<n_tok * n_head, 256>>>((float *)x->ptr, n_tok, n_head, head_dim, n_rot, pos0, n_ctx_orig, inverse ? 1 : 0, freq_base, freq_scale, ext_factor, attn_factor, beta_fast, beta_slow, eps);
+    }
     return cuda_ok(cudaGetLastError(), "head_rms_norm_rope_tail launch");
 }
 extern "C" int ds4_gpu_dsv4_fp8_kv_quantize_tensor(ds4_gpu_tensor *x, uint32_t n_tok, uint32_t head_dim, uint32_t n_rot) {
@@ -7054,7 +7060,11 @@ extern "C" int ds4_gpu_dsv4_indexer_qat_tensor(ds4_gpu_tensor *x, uint32_t n_row
 extern "C" int ds4_gpu_rope_tail_tensor(ds4_gpu_tensor *x, uint32_t n_tok, uint32_t n_head, uint32_t head_dim, uint32_t n_rot, uint32_t pos0, uint32_t n_ctx_orig, bool inverse, float freq_base, float freq_scale, float ext_factor, float attn_factor, float beta_fast, float beta_slow) {
     if (!x || n_rot > head_dim || (n_rot & 1) || x->bytes < (uint64_t)n_tok * n_head * head_dim * sizeof(float)) return 0;
     uint32_t pairs = n_tok * n_head * (n_rot / 2);
-    rope_tail_kernel<<<(pairs + 255) / 256, 256>>>((float *)x->ptr, n_tok, n_head, head_dim, n_rot, pos0, 1, n_ctx_orig, inverse ? 1 : 0, freq_base, freq_scale, ext_factor, attn_factor, beta_fast, beta_slow);
+    if (g_use_decode_state && n_tok == 1) {
+        rope_tail_dec_kernel<<<(pairs + 255) / 256, 256>>>((float *)x->ptr, n_head, head_dim, n_rot, n_ctx_orig, inverse ? 1 : 0, freq_base, freq_scale, ext_factor, attn_factor, beta_fast, beta_slow);
+    } else {
+        rope_tail_kernel<<<(pairs + 255) / 256, 256>>>((float *)x->ptr, n_tok, n_head, head_dim, n_rot, pos0, 1, n_ctx_orig, inverse ? 1 : 0, freq_base, freq_scale, ext_factor, attn_factor, beta_fast, beta_slow);
+    }
     return cuda_ok(cudaGetLastError(), "rope_tail launch");
 }
 extern "C" int ds4_gpu_store_raw_kv_tensor(ds4_gpu_tensor *raw_cache, const ds4_gpu_tensor *kv, uint32_t raw_cap, uint32_t row, uint32_t head_dim);
@@ -7235,10 +7245,20 @@ extern "C" int ds4_gpu_compressor_update_tensor(
     if (ok) ok = ds4_gpu_rms_norm_weight_rows_tensor(comp_row_view, comp_row_view,
                                                        model_map, model_size, norm_offset,
                                                        head_dim, 1, rms_eps);
-    if (ok) ok = ds4_gpu_rope_tail_tensor(comp_row_view, 1, 1, head_dim, n_rot,
-                                            pos + 1u - ratio, n_ctx_orig, false,
-                                            freq_base, freq_scale, ext_factor, attn_factor,
-                                            beta_fast, beta_slow);
+    if (ok) {
+        /* Bypass ds4_gpu_rope_tail_tensor: this rotation uses a *derived*
+         * position (pos+1-ratio) that does not match g_decode_state.pos,
+         * so the dec-dispatch wrapper would feed the wrong pos to the
+         * captured kernel. Call the value-parameter kernel directly. */
+        const uint32_t pairs = 1u * 1u * (n_rot / 2u);
+        rope_tail_kernel<<<(pairs + 255u) / 256u, 256>>>(
+                (float *)comp_row_view->ptr,
+                1u, 1u, head_dim, n_rot,
+                pos + 1u - ratio, 1u, n_ctx_orig, 0,
+                freq_base, freq_scale, ext_factor, attn_factor,
+                beta_fast, beta_slow);
+        ok = cuda_ok(cudaGetLastError(), "compressor rope_tail launch");
+    }
     ds4_gpu_tensor_free(comp_row_view);
     if (ok && ratio == 4u) {
         uint64_t half = 4ull * width;
