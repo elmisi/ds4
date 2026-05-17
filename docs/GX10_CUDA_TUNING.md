@@ -211,6 +211,56 @@ After the import pass plus the #158 revert, the 8k/64 Promessi check measured
 **15.77 t/s generation, 395.64 t/s prefill**, an additional +0.13 t/s over the
 pre-import 15.64 t/s baseline.
 
+## Profile and decode bottleneck (2026-05-17)
+
+A built-in `DS4_METAL_GRAPH_TOKEN_PROFILE=1` plus an `nsys profile` of a 8k/16
+run showed clearly where decode time goes on this GB10. Per-token averages:
+
+| stage | 8k | 32k |
+| --- | ---: | ---: |
+| encode (host enqueue) | ~19 ms | ~21 ms |
+| execute (GPU drain/sync) | ~44 ms | ~48 ms |
+| read (logits) | 0.015 ms | 0.015 ms |
+| total | ~63 ms | ~69 ms |
+
+`nsys` confirmed the host bottleneck: the run issued ~35,000
+`cudaLaunchKernel` calls over the bench, which works out to roughly
+1000-1500 kernel launches per decode token. At ~5-10 us launch overhead on
+Blackwell that is ~10-15 ms of pure host launch time per token, matching the
+observed 19 ms encode budget almost exactly. The conclusion is that further
+kernel tuning cannot reach 20 t/s on its own; the host enqueue cost has to be
+eliminated, which is what CUDA Graph capture/replay does.
+
+GPU side, the top kernels were MoE-dominated:
+
+| kernel | share of GPU time |
+| --- | ---: |
+| `moe_gate_up_mid_expert_tile8_rowspan` | 31% |
+| `moe_down_expert_tile16_row2048` | 25% |
+| `attention_indexed_mixed_heads8_online` | 7% |
+| all other attention | ~6% |
+
+Attention is only ~13% of GPU compute, MoE is ~56%. Optimising attention alone
+cannot meaningfully change the picture; MoE and launch overhead dominate.
+
+## Tile8 MoE down measurement (PR #145)
+
+PR #145 adds an opt-in tile8 launch-bounded variant of the MoE down path,
+opt-in via `DS4_CUDA_MOE_DOWN_TILE8_ROWSPAN=1`. Measured on this branch on
+the local Promessi sweep:
+
+| ctx | baseline gen | tile8 gen | baseline prefill | tile8 prefill |
+| ---: | ---: | ---: | ---: | ---: |
+| 8k | 15.79 | 15.76 | 393.62 | 410.99 |
+| 32k | 14.28 | 14.20 | 369.15 | 382.87 |
+
+Decode is unchanged within noise. Prefill gains +4.4% at 8k, +3.7% at 32k,
+matching the PR's claim. For coding-agent workloads with large cold prompts
+(25k-100k tokens) this saves a few seconds per cold prefill. The local
+`dgx-ctl` launcher now enables this env flag by default for the user's GB10
+deployment; the flag is off in the binary's own default so importing this
+branch into a different setup does not change behavior automatically.
+
 ## Fork scan
 
 The relevant fork ideas were:
