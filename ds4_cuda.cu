@@ -1265,6 +1265,14 @@ extern "C" int ds4_gpu_init(void) {
     }
     if (!g_cublas_ready) {
         if (!cublas_ok(cublasCreate(&g_cublas), "create handle")) return 0;
+        /* Route cuBLAS through the per-thread default stream so cuBLAS work
+         * participates in CUDA Graph captures alongside our raw kernel
+         * launches (compiled with --default-stream per-thread). Without
+         * this, cuBLAS would silently submit to the legacy null stream and
+         * either deadlock during capture or be omitted from the recorded
+         * graph. */
+        if (!cublas_ok(cublasSetStream(g_cublas, cudaStreamPerThread),
+                       "cublas set per-thread stream")) return 0;
         const cublasMath_t math_mode =
             (g_quality_mode || getenv("DS4_CUDA_NO_TF32") != NULL)
                 ? CUBLAS_DEFAULT_MATH
@@ -1469,11 +1477,13 @@ extern "C" int ds4_gpu_synchronize(void) { return cuda_ok(cudaDeviceSynchronize(
 
 /* CUDA Graph capture/replay scaffolding.
  *
- * DS4 launches all kernels on the legacy default stream (see kernel launch
- * sites throughout this file, none specify a stream). cudaStreamLegacy is
- * capturable in ThreadLocal mode; we use that so concurrent device operations
- * on other threads (model upload/prefetch streams) cannot accidentally
- * participate in the captured graph.
+ * DS4 launches all kernels on the default stream (no <<<>>> launch in this
+ * file specifies a stream). The legacy null stream is not capturable, so the
+ * build sets --default-stream per-thread; with that flag, the "default" each
+ * launch resolves to is cudaStreamPerThread, which is a real, capturable
+ * stream. cuBLAS is also routed through cudaStreamPerThread (see ds4_gpu_init
+ * where cublasSetStream is called). Capture uses ThreadLocal mode so other
+ * threads cannot accidentally participate in the recorded graph.
  *
  * The handle owns both the recorded cudaGraph_t (kept for diagnostics/reuse)
  * and the executable cudaGraphExec_t produced by cudaGraphInstantiate.
@@ -1495,7 +1505,7 @@ extern "C" int ds4_gpu_graph_capture_begin(void) {
     /* Drain pending work before capture so unrelated prior commands do not
      * end up part of the recording. */
     if (!cuda_ok(cudaDeviceSynchronize(), "graph capture pre-sync")) return 0;
-    if (!cuda_ok(cudaStreamBeginCapture(cudaStreamLegacy, cudaStreamCaptureModeThreadLocal),
+    if (!cuda_ok(cudaStreamBeginCapture(cudaStreamPerThread, cudaStreamCaptureModeThreadLocal),
                  "graph begin capture")) {
         return 0;
     }
@@ -1509,7 +1519,7 @@ extern "C" ds4_gpu_graph_handle *ds4_gpu_graph_capture_end(void) {
         return NULL;
     }
     cudaGraph_t graph = NULL;
-    cudaError_t err = cudaStreamEndCapture(cudaStreamLegacy, &graph);
+    cudaError_t err = cudaStreamEndCapture(cudaStreamPerThread, &graph);
     g_graph_capture_active = 0;
     if (err != cudaSuccess) {
         fprintf(stderr, "ds4: graph end capture failed: %s\n", cudaGetErrorString(err));
@@ -1540,7 +1550,7 @@ extern "C" ds4_gpu_graph_handle *ds4_gpu_graph_capture_end(void) {
 
 extern "C" int ds4_gpu_graph_launch(ds4_gpu_graph_handle *handle) {
     if (!handle || !handle->exec) return 0;
-    if (!cuda_ok(cudaGraphLaunch(handle->exec, cudaStreamLegacy), "graph launch")) return 0;
+    if (!cuda_ok(cudaGraphLaunch(handle->exec, cudaStreamPerThread), "graph launch")) return 0;
     return 1;
 }
 
