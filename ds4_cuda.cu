@@ -87,7 +87,6 @@ static cublasHandle_t g_cublas;
 static int g_cublas_ready;
 static int g_quality_mode;
 static int g_cuda_sm_major;
-static int g_cuda_sm_minor;
 static int g_cuda_gb10_device;
 static int g_cuda_no_q8_dp4a;
 static int g_cuda_force_ordered_f16_matmul;
@@ -1251,7 +1250,6 @@ extern "C" int ds4_gpu_init(void) {
     cudaDeviceProp prop;
     if (cudaGetDeviceProperties(&prop, dev) == cudaSuccess) {
         g_cuda_sm_major = prop.major;
-        g_cuda_sm_minor = prop.minor;
         g_cuda_gb10_device = strstr(prop.name, "GB10") != NULL;
         if ((g_cuda_gb10_device || (prop.major == 12 && prop.minor == 1)) &&
             getenv("DS4_CUDA_NO_Q8_CACHE_X") == NULL) {
