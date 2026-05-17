@@ -75,6 +75,13 @@ void ds4_gpu_graph_handle_free(ds4_gpu_graph_handle *handle);
 int ds4_gpu_decode_state_set(uint32_t token, uint32_t pos,
                               uint32_t raw_row, uint32_t n_raw);
 
+/* Toggle whether per-token wrappers in the CUDA backend dispatch to *_dec
+ * kernel variants that read state from device-resident g_decode_state. Off
+ * by default so direct execution keeps the same kernels and behaviour it
+ * had before the Phase 4 work. Enabled only inside the cached-graph capture
+ * window. Metal/CPU backends ignore the call. */
+void ds4_gpu_use_decode_state(int on);
+
 int ds4_gpu_set_model_map(const void *model_map, uint64_t model_size);
 int ds4_gpu_set_model_fd(int fd);
 int ds4_gpu_set_model_map_range(const void *model_map, uint64_t model_size, uint64_t map_offset, uint64_t map_size, uint64_t max_tensor_bytes);

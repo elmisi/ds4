@@ -106,6 +106,12 @@ struct ds4_decode_token_state {
 };
 __constant__ ds4_decode_token_state g_decode_state;
 static ds4_decode_token_state *g_decode_state_host;
+
+/* When set, per-token wrappers dispatch to *_dec kernels that read state
+ * from g_decode_state instead of receiving it as value parameters. This is
+ * enabled by the cached-graph decode path (around the capture window) and
+ * must be off in normal direct execution so existing behaviour is unchanged. */
+static int g_use_decode_state = 0;
 static int g_cuda_no_q8_dp4a;
 static int g_cuda_force_ordered_f16_matmul;
 static int g_cuda_no_ordered_f16_matmul;
@@ -1408,6 +1414,11 @@ extern "C" int ds4_gpu_decode_state_set(uint32_t token, uint32_t pos,
                    "decode state H->D");
 }
 
+/* Toggle whether per-token wrappers dispatch to *_dec kernel variants that
+ * read from g_decode_state. Enabled only inside the cached-graph capture
+ * window; direct execution leaves it off to preserve original behaviour. */
+extern "C" void ds4_gpu_use_decode_state(int on) { g_use_decode_state = on != 0 ? 1 : 0; }
+
 __global__ static void fill_f32_kernel(float *x, uint64_t n, float v);
 
 extern "C" ds4_gpu_tensor *ds4_gpu_tensor_alloc(uint64_t bytes) {
@@ -1791,6 +1802,20 @@ __global__ static void embed_token_hc_kernel(float *out, const unsigned short *w
     uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
     uint32_t n = n_embd * n_hc;
     if (i >= n) return;
+    uint32_t e = i % n_embd;
+    out[i] = __half2float(reinterpret_cast<const __half *>(w)[(uint64_t)token * n_embd + e]);
+}
+
+/* Same as embed_token_hc_kernel but reads the token id from g_decode_state
+ * instead of taking it as a value parameter. Used by the cached-graph decode
+ * path so a single captured graph can serve different tokens at replay time
+ * (the host updates g_decode_state.token via ds4_gpu_decode_state_set, the
+ * captured cudaMemcpyToSymbolAsync re-reads it at every cudaGraphLaunch). */
+__global__ static void embed_token_hc_dec_kernel(float *out, const unsigned short *w, uint32_t n_embd, uint32_t n_hc) {
+    uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
+    uint32_t n = n_embd * n_hc;
+    if (i >= n) return;
+    const uint32_t token = g_decode_state.token;
     uint32_t e = i % n_embd;
     out[i] = __half2float(reinterpret_cast<const __half *>(w)[(uint64_t)token * n_embd + e]);
 }
@@ -6017,7 +6042,11 @@ extern "C" int ds4_gpu_embed_token_hc_tensor(ds4_gpu_tensor *out_hc, const void 
     const char *wptr = cuda_model_range_ptr(model_map, weight_offset, weight_bytes, "token_embd");
     if (!wptr) return 0;
     uint32_t n = n_embd * n_hc;
-    embed_token_hc_kernel<<<(n + 255) / 256, 256>>>((float *)out_hc->ptr, (const unsigned short *)wptr, token, n_embd, n_hc);
+    if (g_use_decode_state) {
+        embed_token_hc_dec_kernel<<<(n + 255) / 256, 256>>>((float *)out_hc->ptr, (const unsigned short *)wptr, n_embd, n_hc);
+    } else {
+        embed_token_hc_kernel<<<(n + 255) / 256, 256>>>((float *)out_hc->ptr, (const unsigned short *)wptr, token, n_embd, n_hc);
+    }
     return cuda_ok(cudaGetLastError(), "embed token launch");
 }
 
