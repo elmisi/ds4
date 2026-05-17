@@ -4447,6 +4447,15 @@ int ds4_gpu_synchronize(void) {
     return ds4_gpu_finish_command_buffer(cb, 1, "synchronize");
 }
 
+/* CUDA Graph capture is CUDA-only. Metal callers must use direct command
+ * encoding; the supported() probe lets callers branch without #ifdef. */
+struct ds4_gpu_graph_handle { int unused; };
+int ds4_gpu_graph_capture_supported(void) { return 0; }
+int ds4_gpu_graph_capture_begin(void) { return 0; }
+ds4_gpu_graph_handle *ds4_gpu_graph_capture_end(void) { return NULL; }
+int ds4_gpu_graph_launch(ds4_gpu_graph_handle *handle) { (void)handle; return 0; }
+void ds4_gpu_graph_handle_free(ds4_gpu_graph_handle *handle) { (void)handle; }
+
 void ds4_gpu_cleanup(void) {
     if (!g_initialized) return;
 
