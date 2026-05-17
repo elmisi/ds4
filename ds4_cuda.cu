@@ -2639,6 +2639,83 @@ __global__ static void head_rms_norm_rope_tail_kernel(
     }
 }
 
+/* Decode variant: reads pos0 from g_decode_state. n_tok=1 always for the
+ * cached-graph decode caller, so this drops the n_tok dimension too.
+ *
+ * TODO: dispatch reverted. A previous attempt to enable this in
+ * ds4_gpu_head_rms_norm_rope_tail_tensor produced logits that diverged from
+ * the direct path starting at the first decode token, with no apparent bug
+ * in the kernel body (matches original for n_tok=1 byte for byte). Likely a
+ * subtler interaction between __constant__ memory reads and capture-mode
+ * stream ordering. Re-attempt with kernel-arg pointer to a device buffer
+ * instead of __constant__, or with explicit cudaDeviceSynchronize after
+ * each decode_state_set. Kept here as the future-work reference. */
+__global__ static DS4_CUDA_UNUSED void head_rms_norm_rope_tail_dec_kernel(
+        float *x,
+        uint32_t n_head,
+        uint32_t head_dim,
+        uint32_t n_rot,
+        uint32_t n_ctx_orig,
+        int inverse,
+        float freq_base,
+        float freq_scale,
+        float ext_factor,
+        float attn_factor,
+        float beta_fast,
+        float beta_slow,
+        float eps) {
+    uint32_t row = blockIdx.x;
+    if (row >= n_head) return;
+    float *xr = x + (uint64_t)row * head_dim;
+    float sum = 0.0f;
+    for (uint32_t i = threadIdx.x; i < head_dim; i += blockDim.x) {
+        float v = xr[i];
+        sum += v * v;
+    }
+    __shared__ float partial[256];
+    partial[threadIdx.x] = sum;
+    __syncthreads();
+    for (uint32_t stride = blockDim.x >> 1; stride > 0; stride >>= 1) {
+        if (threadIdx.x < stride) partial[threadIdx.x] += partial[threadIdx.x + stride];
+        __syncthreads();
+    }
+    const float scale = rsqrtf(partial[0] / (float)head_dim + eps);
+    const uint32_t n_nope = head_dim - n_rot;
+    for (uint32_t i = threadIdx.x; i < n_nope; i += blockDim.x) {
+        xr[i] *= scale;
+    }
+
+    const uint32_t pos0 = g_decode_state.pos;
+    float corr0 = 0.0f, corr1 = 0.0f;
+    if (ext_factor != 0.0f) {
+        float denom = 2.0f * logf(freq_base);
+        corr0 = floorf((float)n_rot * logf((float)n_ctx_orig / (beta_fast * 2.0f * (float)M_PI)) / denom);
+        corr1 = ceilf((float)n_rot * logf((float)n_ctx_orig / (beta_slow * 2.0f * (float)M_PI)) / denom);
+        corr0 = fmaxf(0.0f, corr0);
+        corr1 = fminf((float)(n_rot - 1), corr1);
+    }
+    for (uint32_t pair = threadIdx.x; pair < n_rot / 2; pair += blockDim.x) {
+        uint32_t i = pair * 2u;
+        float theta_extrap = (float)pos0 * powf(freq_base, -((float)i) / (float)n_rot);
+        float theta_interp = freq_scale * theta_extrap;
+        float theta = theta_interp;
+        float mscale = attn_factor;
+        if (ext_factor != 0.0f) {
+            float ramp_mix = rope_yarn_ramp_dev(corr0, corr1, (int)i) * ext_factor;
+            theta = theta_interp * (1.0f - ramp_mix) + theta_extrap * ramp_mix;
+            mscale *= 1.0f + 0.1f * logf(1.0f / freq_scale);
+        }
+        float c = cosf(theta) * mscale;
+        float s = sinf(theta) * mscale;
+        if (inverse) s = -s;
+        float *tail = xr + n_nope;
+        float x0 = tail[i] * scale;
+        float x1 = tail[i + 1] * scale;
+        tail[i] = x0 * c - x1 * s;
+        tail[i + 1] = x0 * s + x1 * c;
+    }
+}
+
 __device__ static float rope_yarn_ramp_dev(float low, float high, int i0) {
     float y = ((float)(i0 / 2) - low) / fmaxf(0.001f, high - low);
     return 1.0f - fminf(1.0f, fmaxf(0.0f, y));
@@ -2693,6 +2770,61 @@ __global__ static void rope_tail_kernel(
     if (inverse) s = -s;
 
     float *tail = x + ((uint64_t)t * n_head + h) * head_dim + n_nope;
+    float x0 = tail[i];
+    float x1 = tail[i + 1];
+    tail[i] = x0 * c - x1 * s;
+    tail[i + 1] = x0 * s + x1 * c;
+}
+
+/* Decode variant: reads the (single) position from g_decode_state instead
+ * of taking pos0/pos_stride as value parameters. Used when the caller is
+ * inside the cached-graph decode path (n_tok=1 always for decode).
+ * TODO: dispatch reverted, see head_rms_norm_rope_tail_dec_kernel comment. */
+__global__ static DS4_CUDA_UNUSED void rope_tail_dec_kernel(
+        float *x,
+        uint32_t n_head,
+        uint32_t head_dim,
+        uint32_t n_rot,
+        uint32_t n_ctx_orig,
+        int inverse,
+        float freq_base,
+        float freq_scale,
+        float ext_factor,
+        float attn_factor,
+        float beta_fast,
+        float beta_slow) {
+    uint32_t gid = blockIdx.x * blockDim.x + threadIdx.x;
+    uint32_t pairs = n_head * (n_rot / 2);
+    if (gid >= pairs) return;
+    uint32_t pair = gid % (n_rot / 2);
+    uint32_t h = gid / (n_rot / 2);
+    uint32_t n_nope = head_dim - n_rot;
+    uint32_t i = pair * 2;
+    const uint32_t pos0 = g_decode_state.pos;
+
+    float corr0 = 0.0f, corr1 = 0.0f;
+    if (ext_factor != 0.0f) {
+        float denom = 2.0f * logf(freq_base);
+        corr0 = floorf((float)n_rot * logf((float)n_ctx_orig / (beta_fast * 2.0f * (float)M_PI)) / denom);
+        corr1 = ceilf((float)n_rot * logf((float)n_ctx_orig / (beta_slow * 2.0f * (float)M_PI)) / denom);
+        corr0 = fmaxf(0.0f, corr0);
+        corr1 = fminf((float)(n_rot - 1), corr1);
+    }
+
+    float theta_extrap = (float)pos0 * powf(freq_base, -((float)i) / (float)n_rot);
+    float theta_interp = freq_scale * theta_extrap;
+    float theta = theta_interp;
+    float mscale = attn_factor;
+    if (ext_factor != 0.0f) {
+        float ramp_mix = rope_yarn_ramp_dev(corr0, corr1, (int)i) * ext_factor;
+        theta = theta_interp * (1.0f - ramp_mix) + theta_extrap * ramp_mix;
+        mscale *= 1.0f + 0.1f * logf(1.0f / freq_scale);
+    }
+    float c = cosf(theta) * mscale;
+    float s = sinf(theta) * mscale;
+    if (inverse) s = -s;
+
+    float *tail = x + (uint64_t)h * head_dim + n_nope;
     float x0 = tail[i];
     float x1 = tail[i + 1];
     tail[i] = x0 * c - x1 * s;
