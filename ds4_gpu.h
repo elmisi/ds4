@@ -39,6 +39,30 @@ int ds4_gpu_flush_commands(void);
 int ds4_gpu_end_commands(void);
 int ds4_gpu_synchronize(void);
 
+/* CUDA Graph capture and replay (Phase 4 decode optimisation).
+ *
+ * Decode currently issues ~1000-1500 kernel launches per token. On GB10 each
+ * launch costs roughly 5-10 us of host time, which accounts for the entire
+ * ~19 ms per-token encode budget observed in profiling. Capturing the decode
+ * tape once into a CUDA Graph and replaying it with cudaGraphLaunch reduces
+ * that overhead to a single launch.
+ *
+ * Capture wraps a sequence of ds4_gpu_* tensor operations between
+ * ds4_gpu_graph_capture_begin() and ds4_gpu_graph_capture_end(). No GPU work
+ * is actually executed during capture; the handle returned must be launched
+ * via ds4_gpu_graph_launch() to run.
+ *
+ * Implementation status: CUDA only. Metal and CPU backends return failure
+ * from these entry points; callers must fall back to direct command encoding.
+ */
+typedef struct ds4_gpu_graph_handle ds4_gpu_graph_handle;
+
+int ds4_gpu_graph_capture_supported(void);
+int ds4_gpu_graph_capture_begin(void);
+ds4_gpu_graph_handle *ds4_gpu_graph_capture_end(void);
+int ds4_gpu_graph_launch(ds4_gpu_graph_handle *handle);
+void ds4_gpu_graph_handle_free(ds4_gpu_graph_handle *handle);
+
 int ds4_gpu_set_model_map(const void *model_map, uint64_t model_size);
 int ds4_gpu_set_model_fd(int fd);
 int ds4_gpu_set_model_map_range(const void *model_map, uint64_t model_size, uint64_t map_offset, uint64_t map_size);
