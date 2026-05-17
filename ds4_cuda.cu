@@ -2916,6 +2916,92 @@ __global__ static void quantize_group_heads_inverse_rope_q8_0_kernel(
     }
 }
 
+/* Decode variant: reads pos from g_decode_state. Single decode caller
+ * (ds4_gpu_attention_output_low_q8_rope_tensor) always uses the absolute
+ * decode position, so the dispatch is safe under g_use_decode_state. */
+__global__ static void quantize_group_heads_inverse_rope_q8_0_dec_kernel(
+        int8_t *xq,
+        float *xscale,
+        const float *x,
+        uint32_t group_dim,
+        uint32_t n_groups,
+        uint32_t blocks,
+        uint32_t head_dim,
+        uint32_t n_rot,
+        uint32_t n_ctx_orig,
+        float freq_base,
+        float freq_scale,
+        float ext_factor,
+        float attn_factor,
+        float beta_fast,
+        float beta_slow) {
+    uint32_t b = blockIdx.x;
+    uint32_t group = blockIdx.y;
+    if (b >= blocks || group >= n_groups) return;
+    const uint32_t group_heads = group_dim / head_dim;
+    const uint32_t n_nope = head_dim - n_rot;
+    const uint32_t i0 = b * 32u;
+    const uint32_t bn = group_dim - i0 < 32u ? group_dim - i0 : 32u;
+    const uint32_t idx = i0 + threadIdx.x;
+    const uint32_t pos = g_decode_state.pos;
+    float v = 0.0f;
+    if (threadIdx.x < bn) {
+        const uint32_t local_head = idx / head_dim;
+        const uint32_t d = idx - local_head * head_dim;
+        const uint32_t head = group * group_heads + local_head;
+        const float *hr = x + (uint64_t)head * head_dim;
+        v = hr[d];
+        if (d >= n_nope && n_rot != 0) {
+            const uint32_t j = d - n_nope;
+            const uint32_t pair_i = j & ~1u;
+            float corr0 = 0.0f;
+            float corr1 = 0.0f;
+            if (ext_factor != 0.0f) {
+                const float denom = 2.0f * logf(freq_base);
+                corr0 = floorf((float)n_rot * logf((float)n_ctx_orig / (beta_fast * 2.0f * (float)M_PI)) / denom);
+                corr1 = ceilf((float)n_rot * logf((float)n_ctx_orig / (beta_slow * 2.0f * (float)M_PI)) / denom);
+                corr0 = fmaxf(0.0f, corr0);
+                corr1 = fminf((float)(n_rot - 1u), corr1);
+            }
+            const float theta_extrap = (float)pos * powf(freq_base, -((float)pair_i) / (float)n_rot);
+            const float theta_interp = freq_scale * theta_extrap;
+            float theta = theta_interp;
+            float mscale = attn_factor;
+            if (ext_factor != 0.0f) {
+                const float ramp_mix = rope_yarn_ramp_dev(corr0, corr1, (int)pair_i) * ext_factor;
+                theta = theta_interp * (1.0f - ramp_mix) + theta_extrap * ramp_mix;
+                mscale *= 1.0f + 0.1f * logf(1.0f / freq_scale);
+            }
+            const float c = cosf(theta) * mscale;
+            const float s = -sinf(theta) * mscale;
+            const float x0 = hr[n_nope + pair_i];
+            const float x1 = hr[n_nope + pair_i + 1u];
+            v = (j & 1u) ? (x0 * s + x1 * c) : (x0 * c - x1 * s);
+        }
+    }
+
+    const float a = threadIdx.x < bn ? fabsf(v) : 0.0f;
+    __shared__ float vals[32];
+    vals[threadIdx.x] = a;
+    __syncthreads();
+    for (uint32_t stride = 16u; stride > 0; stride >>= 1) {
+        if (threadIdx.x < stride) vals[threadIdx.x] = fmaxf(vals[threadIdx.x], vals[threadIdx.x + stride]);
+        __syncthreads();
+    }
+    const float dscale = vals[0] / 127.0f;
+    const float id = dscale != 0.0f ? 1.0f / dscale : 0.0f;
+    const uint64_t qb = (uint64_t)group * blocks + b;
+    if (threadIdx.x == 0) xscale[qb] = dscale;
+    int8_t *dst = xq + qb * 32u;
+    if (threadIdx.x < bn) {
+        int q = (int)lrintf(v * id);
+        q = q > 127 ? 127 : (q < -128 ? -128 : q);
+        dst[threadIdx.x] = (int8_t)q;
+    } else {
+        dst[threadIdx.x] = 0;
+    }
+}
+
 __device__ static float dsv4_e4m3fn_value_dev(int i) {
     int exp = (i >> 3) & 15;
     int mant = i & 7;
@@ -8474,22 +8560,40 @@ extern "C" int ds4_gpu_attention_output_low_q8_rope_tensor(
     float *xscale = (float *)((char *)tmp + scale_offset);
     const int use_dp4a = cuda_q8_use_dp4a();
     dim3 qgrid((unsigned)blocks_a, (unsigned)n_groups, 1);
-    quantize_group_heads_inverse_rope_q8_0_kernel<<<qgrid, 32>>>(xq,
-                                                                 xscale,
-                                                                 (const float *)heads->ptr,
-                                                                 (uint32_t)group_dim,
-                                                                 n_groups,
-                                                                 (uint32_t)blocks_a,
-                                                                 head_dim,
-                                                                 n_rot,
-                                                                 pos,
-                                                                 n_ctx_orig,
-                                                                 freq_base,
-                                                                 freq_scale,
-                                                                 ext_factor,
-                                                                 attn_factor,
-                                                                 beta_fast,
-                                                                 beta_slow);
+    if (g_use_decode_state) {
+        quantize_group_heads_inverse_rope_q8_0_dec_kernel<<<qgrid, 32>>>(xq,
+                                                                          xscale,
+                                                                          (const float *)heads->ptr,
+                                                                          (uint32_t)group_dim,
+                                                                          n_groups,
+                                                                          (uint32_t)blocks_a,
+                                                                          head_dim,
+                                                                          n_rot,
+                                                                          n_ctx_orig,
+                                                                          freq_base,
+                                                                          freq_scale,
+                                                                          ext_factor,
+                                                                          attn_factor,
+                                                                          beta_fast,
+                                                                          beta_slow);
+    } else {
+        quantize_group_heads_inverse_rope_q8_0_kernel<<<qgrid, 32>>>(xq,
+                                                                     xscale,
+                                                                     (const float *)heads->ptr,
+                                                                     (uint32_t)group_dim,
+                                                                     n_groups,
+                                                                     (uint32_t)blocks_a,
+                                                                     head_dim,
+                                                                     n_rot,
+                                                                     pos,
+                                                                     n_ctx_orig,
+                                                                     freq_base,
+                                                                     freq_scale,
+                                                                     ext_factor,
+                                                                     attn_factor,
+                                                                     beta_fast,
+                                                                     beta_slow);
+    }
     if (!cuda_ok(cudaGetLastError(), "attention_output_low_q8_rope prequant launch")) return 0;
     dim3 grid_a(((unsigned)low_dim + 7u) / 8u, 1, 1);
     grouped_q8_0_a_preq_warp8_kernel<<<grid_a, 256>>>((float *)low->ptr,
