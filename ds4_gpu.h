@@ -63,6 +63,19 @@ ds4_gpu_graph_handle *ds4_gpu_graph_capture_end(void);
 int ds4_gpu_graph_launch(ds4_gpu_graph_handle *handle);
 void ds4_gpu_graph_handle_free(ds4_gpu_graph_handle *handle);
 
+/* End capture and reuse the executor across tokens via cudaGraphExecUpdate.
+ *
+ * Pass *handle_inout = NULL on the first decode token: a fresh exec is
+ * instantiated and stored in *handle_inout. Subsequent tokens pass the same
+ * handle: cudaGraphExecUpdate tries to update the existing exec with the new
+ * graph's kernel params, avoiding the per-token cudaGraphInstantiate cost
+ * (~17 ms on GB10). If topology changed (e.g. an attention path switches
+ * indexed/raw), update fails and a fresh exec is instantiated transparently.
+ *
+ * Returns 1 on success, 0 on failure. On failure the handle is left valid
+ * (either updated or replaced); callers should still launch it. */
+int ds4_gpu_graph_capture_end_update(ds4_gpu_graph_handle **handle_inout);
+
 /* Update the per-token decode state seen by kernels that previously took
  * pos/token/raw_row/n_raw as value parameters. The backend keeps this state
  * in device-resident memory (CUDA __constant__) so a single captured graph

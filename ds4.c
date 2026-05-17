@@ -13334,13 +13334,25 @@ static bool metal_graph_eval_token_raw_swa(
     bool ok = true;
     double t_encoded = 0.0;
     if (cuda_graph_decode_mode() && ds4_gpu_graph_capture_supported()) {
-        /* Phase 4: enable decode-state-aware kernel dispatch and upload the
-         * per-token state. Wrappers converted to read from g_decode_state
-         * (so far: embed_token_hc; others to follow) will dispatch to their
-         * *_dec variants. The cudaMemcpyToSymbolAsync issued by
-         * ds4_gpu_decode_state_set is itself recorded into the captured
-         * graph, so future cached-graph replays only need to update the
-         * pinned host source before launching. */
+        /* Phase 4c: cache the executor across tokens via cudaGraphExecUpdate.
+         *
+         * First call captures + instantiates a fresh exec. Subsequent calls
+         * still capture (so attention kernel args, which take per-layer
+         * n_comp/comp_mask that don't live in g_decode_state, are re-recorded
+         * with current values), then patch the cached exec via ExecUpdate
+         * instead of paying the ~17 ms instantiate cost per token. On
+         * topology change ExecUpdate fails and a fresh exec is rebuilt
+         * inside ds4_gpu_graph_capture_end_update.
+         *
+         * Per-token state that DOES live in g_decode_state (token, pos,
+         * raw_row, n_raw) is updated via cudaMemcpyToSymbolAsync inside
+         * the capture window, so kernels that read from g_decode_state see
+         * the fresh value at every launch.
+         *
+         * The cached handle is thread-local-static; on backend shutdown it
+         * leaks the exec, but that's acceptable for a process-lifetime
+         * cache. Acceptable because the engine has an instance lock. */
+        static __thread ds4_gpu_graph_handle *cached_handle = NULL;
         const uint32_t raw_row = pos % g->raw_cap;
         const uint32_t n_raw = metal_graph_raw_span_for_batch(g, pos, 1);
         ds4_gpu_use_decode_state(1);
@@ -13348,15 +13360,14 @@ static bool metal_graph_eval_token_raw_swa(
         if (ok) ok = ds4_gpu_graph_capture_begin() != 0;
         if (ok) ok = metal_graph_encode_token_raw_swa(g, model, weights, token, pos, logits != NULL, false);
         t_encoded = (profile || throttle) ? now_sec() : 0.0;
-        ds4_gpu_graph_handle *h = ok ? ds4_gpu_graph_capture_end() : NULL;
         if (ok) {
-            if (h && ds4_gpu_graph_launch(h)) {
-                /* graph launched successfully */
-            } else {
-                ok = false;
-            }
+            ok = ds4_gpu_graph_capture_end_update(&cached_handle) != 0;
         }
-        if (h) ds4_gpu_graph_handle_free(h);
+        if (ok && cached_handle) {
+            ok = ds4_gpu_graph_launch(cached_handle) != 0;
+        } else if (ok) {
+            ok = false;
+        }
         ds4_gpu_use_decode_state(0);
     } else {
         ok = ds4_gpu_begin_commands() != 0;
