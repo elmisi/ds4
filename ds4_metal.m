@@ -3989,6 +3989,11 @@ int ds4_gpu_graph_capture_begin(void) { return 0; }
 ds4_gpu_graph_handle *ds4_gpu_graph_capture_end(void) { return NULL; }
 int ds4_gpu_graph_launch(ds4_gpu_graph_handle *handle) { (void)handle; return 0; }
 void ds4_gpu_graph_handle_free(ds4_gpu_graph_handle *handle) { (void)handle; }
+int ds4_gpu_decode_state_set(uint32_t token, uint32_t pos,
+                              uint32_t raw_row, uint32_t n_raw) {
+    (void)token; (void)pos; (void)raw_row; (void)n_raw;
+    return 1;  /* No-op on Metal: kernels still take per-token state as value args. */
+}
 
 void ds4_gpu_cleanup(void) {
     if (!g_initialized) return;
