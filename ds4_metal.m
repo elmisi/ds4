@@ -4460,6 +4460,7 @@ int ds4_gpu_decode_state_set(uint32_t token, uint32_t pos,
     (void)token; (void)pos; (void)raw_row; (void)n_raw;
     return 1;  /* No-op on Metal: kernels still take per-token state as value args. */
 }
+void ds4_gpu_use_decode_state(int on) { (void)on; }
 
 void ds4_gpu_cleanup(void) {
     if (!g_initialized) return;
