@@ -13334,7 +13334,18 @@ static bool metal_graph_eval_token_raw_swa(
     bool ok = true;
     double t_encoded = 0.0;
     if (cuda_graph_decode_mode() && ds4_gpu_graph_capture_supported()) {
-        ok = ds4_gpu_graph_capture_begin() != 0;
+        /* Phase 4: enable decode-state-aware kernel dispatch and upload the
+         * per-token state. Wrappers converted to read from g_decode_state
+         * (so far: embed_token_hc; others to follow) will dispatch to their
+         * *_dec variants. The cudaMemcpyToSymbolAsync issued by
+         * ds4_gpu_decode_state_set is itself recorded into the captured
+         * graph, so future cached-graph replays only need to update the
+         * pinned host source before launching. */
+        const uint32_t raw_row = pos % g->raw_cap;
+        const uint32_t n_raw = metal_graph_raw_span_for_batch(g, pos, 1);
+        ds4_gpu_use_decode_state(1);
+        ok = ds4_gpu_decode_state_set((uint32_t)token, pos, raw_row, n_raw) != 0;
+        if (ok) ok = ds4_gpu_graph_capture_begin() != 0;
         if (ok) ok = metal_graph_encode_token_raw_swa(g, model, weights, token, pos, logits != NULL, false);
         t_encoded = (profile || throttle) ? now_sec() : 0.0;
         ds4_gpu_graph_handle *h = ok ? ds4_gpu_graph_capture_end() : NULL;
@@ -13346,6 +13357,7 @@ static bool metal_graph_eval_token_raw_swa(
             }
         }
         if (h) ds4_gpu_graph_handle_free(h);
+        ds4_gpu_use_decode_state(0);
     } else {
         ok = ds4_gpu_begin_commands() != 0;
         if (ok) ok = metal_graph_encode_token_raw_swa(g, model, weights, token, pos, logits != NULL, true);
