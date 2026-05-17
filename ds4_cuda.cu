@@ -2959,6 +2959,153 @@ __global__ static void indexer_hadamard_fp4_kernel(float *x, uint32_t n_rows, ui
     xr[tid] = dsv4_e2m1fn_dequant_dev(fminf(6.0f, fmaxf(-6.0f, v / scale))) * scale;
 }
 
+__global__ static void kv_rope_fp8_store_raw_kernel(
+        float *kv,
+        float *raw,
+        uint32_t raw_cap,
+        uint32_t raw_row,
+        uint32_t head_dim,
+        uint32_t n_rot,
+        uint32_t pos,
+        uint32_t n_ctx_orig,
+        float freq_base,
+        float freq_scale,
+        float ext_factor,
+        float attn_factor,
+        float beta_fast,
+        float beta_slow) {
+    const uint32_t tid = threadIdx.x;
+    const uint32_t n_nope = head_dim - n_rot;
+    __shared__ float scratch[64];
+
+    float corr0 = 0.0f;
+    float corr1 = 0.0f;
+    if (ext_factor != 0.0f) {
+        const float denom = 2.0f * logf(freq_base);
+        corr0 = floorf((float)n_rot * logf((float)n_ctx_orig / (beta_fast * 2.0f * (float)M_PI)) / denom);
+        corr1 = ceilf((float)n_rot * logf((float)n_ctx_orig / (beta_slow * 2.0f * (float)M_PI)) / denom);
+        corr0 = fmaxf(0.0f, corr0);
+        corr1 = fminf((float)(n_rot - 1u), corr1);
+    }
+    for (uint32_t pair = tid; pair < n_rot / 2u; pair += blockDim.x) {
+        const uint32_t i = pair * 2u;
+        const float theta_extrap = (float)pos * powf(freq_base, -((float)i) / (float)n_rot);
+        const float theta_interp = freq_scale * theta_extrap;
+        float theta = theta_interp;
+        float mscale = attn_factor;
+        if (ext_factor != 0.0f) {
+            const float ramp_mix = rope_yarn_ramp_dev(corr0, corr1, (int)i) * ext_factor;
+            theta = theta_interp * (1.0f - ramp_mix) + theta_extrap * ramp_mix;
+            mscale *= 1.0f + 0.1f * logf(1.0f / freq_scale);
+        }
+        const float c = cosf(theta) * mscale;
+        const float s = sinf(theta) * mscale;
+        float *tail = kv + n_nope;
+        const float x0 = tail[i];
+        const float x1 = tail[i + 1u];
+        tail[i] = x0 * c - x1 * s;
+        tail[i + 1u] = x0 * s + x1 * c;
+    }
+    __syncthreads();
+
+    for (uint32_t off = 0; off < n_nope; off += 64u) {
+        float v = 0.0f;
+        if (off + tid < n_nope) v = kv[off + tid];
+        scratch[tid] = off + tid < n_nope ? fabsf(v) : 0.0f;
+        __syncthreads();
+        for (uint32_t stride = 32u; stride > 0; stride >>= 1) {
+            if (tid < stride) scratch[tid] = fmaxf(scratch[tid], scratch[tid + stride]);
+            __syncthreads();
+        }
+        const float scale = exp2f(ceilf(log2f(fmaxf(scratch[0], 1.0e-4f) / 448.0f)));
+        if (off + tid < n_nope) {
+            const float q = dsv4_e4m3fn_dequant_dev(fminf(448.0f, fmaxf(-448.0f, v / scale))) * scale;
+            kv[off + tid] = q;
+        }
+        __syncthreads();
+    }
+
+    const uint32_t row = raw_row % raw_cap;
+    for (uint32_t d = tid; d < head_dim; d += blockDim.x) {
+        raw[(uint64_t)row * head_dim + d] = __half2float(__float2half(kv[d]));
+    }
+}
+
+/* Decode variant: reads pos and raw_row from g_decode_state. raw_cap is
+ * still a kernel arg because it is a fixed graph-shape constant per
+ * session, not per-token state. */
+__global__ static void kv_rope_fp8_store_raw_dec_kernel(
+        float *kv,
+        float *raw,
+        uint32_t raw_cap,
+        uint32_t head_dim,
+        uint32_t n_rot,
+        uint32_t n_ctx_orig,
+        float freq_base,
+        float freq_scale,
+        float ext_factor,
+        float attn_factor,
+        float beta_fast,
+        float beta_slow) {
+    const uint32_t tid = threadIdx.x;
+    const uint32_t n_nope = head_dim - n_rot;
+    __shared__ float scratch[64];
+
+    const uint32_t pos = g_decode_state.pos;
+    const uint32_t raw_row = g_decode_state.raw_row;
+
+    float corr0 = 0.0f;
+    float corr1 = 0.0f;
+    if (ext_factor != 0.0f) {
+        const float denom = 2.0f * logf(freq_base);
+        corr0 = floorf((float)n_rot * logf((float)n_ctx_orig / (beta_fast * 2.0f * (float)M_PI)) / denom);
+        corr1 = ceilf((float)n_rot * logf((float)n_ctx_orig / (beta_slow * 2.0f * (float)M_PI)) / denom);
+        corr0 = fmaxf(0.0f, corr0);
+        corr1 = fminf((float)(n_rot - 1u), corr1);
+    }
+    for (uint32_t pair = tid; pair < n_rot / 2u; pair += blockDim.x) {
+        const uint32_t i = pair * 2u;
+        const float theta_extrap = (float)pos * powf(freq_base, -((float)i) / (float)n_rot);
+        const float theta_interp = freq_scale * theta_extrap;
+        float theta = theta_interp;
+        float mscale = attn_factor;
+        if (ext_factor != 0.0f) {
+            const float ramp_mix = rope_yarn_ramp_dev(corr0, corr1, (int)i) * ext_factor;
+            theta = theta_interp * (1.0f - ramp_mix) + theta_extrap * ramp_mix;
+            mscale *= 1.0f + 0.1f * logf(1.0f / freq_scale);
+        }
+        const float c = cosf(theta) * mscale;
+        const float s = sinf(theta) * mscale;
+        float *tail = kv + n_nope;
+        const float x0 = tail[i];
+        const float x1 = tail[i + 1u];
+        tail[i] = x0 * c - x1 * s;
+        tail[i + 1u] = x0 * s + x1 * c;
+    }
+    __syncthreads();
+
+    for (uint32_t off = 0; off < n_nope; off += 64u) {
+        float v = 0.0f;
+        if (off + tid < n_nope) v = kv[off + tid];
+        scratch[tid] = off + tid < n_nope ? fabsf(v) : 0.0f;
+        __syncthreads();
+        for (uint32_t stride = 32u; stride > 0; stride >>= 1) {
+            if (tid < stride) scratch[tid] = fmaxf(scratch[tid], scratch[tid + stride]);
+            __syncthreads();
+        }
+        const float scale = exp2f(ceilf(log2f(fmaxf(scratch[0], 1.0e-4f) / 448.0f)));
+        if (off + tid < n_nope) {
+            const float q = dsv4_e4m3fn_dequant_dev(fminf(448.0f, fmaxf(-448.0f, v / scale))) * scale;
+            kv[off + tid] = q;
+        }
+        __syncthreads();
+    }
+
+    const uint32_t row = raw_row % raw_cap;
+    for (uint32_t d = tid; d < head_dim; d += blockDim.x) {
+        raw[(uint64_t)row * head_dim + d] = __half2float(__float2half(kv[d]));
+    }
+}
 __global__ static void store_raw_kv_batch_kernel(float *raw, const float *kv, uint32_t raw_cap, uint32_t pos0, uint32_t n_tokens, uint32_t head_dim) {
     uint64_t gid = (uint64_t)blockIdx.x * blockDim.x + threadIdx.x;
     uint64_t n = (uint64_t)n_tokens * head_dim;
@@ -2967,6 +3114,17 @@ __global__ static void store_raw_kv_batch_kernel(float *raw, const float *kv, ui
     uint32_t t = gid / head_dim;
     uint32_t row = (pos0 + t) % raw_cap;
     raw[(uint64_t)row * head_dim + d] = __half2float(__float2half(kv[(uint64_t)t * head_dim + d]));
+}
+
+/* Decode variant: reads raw_row from g_decode_state. n_tokens=1 always.
+ * The dispatch wrapper only routes here when g_use_decode_state is on,
+ * which is restricted to the per-token decode capture window. */
+__global__ static void store_raw_kv_dec_kernel(float *raw, const float *kv,
+                                                uint32_t raw_cap, uint32_t head_dim) {
+    uint64_t gid = (uint64_t)blockIdx.x * blockDim.x + threadIdx.x;
+    if (gid >= head_dim) return;
+    const uint32_t row = g_decode_state.raw_row % raw_cap;
+    raw[(uint64_t)row * head_dim + gid] = __half2float(__float2half(kv[gid]));
 }
 
 __global__ static void attention_prefill_raw_kernel(
@@ -6783,6 +6941,56 @@ extern "C" int ds4_gpu_rope_tail_tensor(ds4_gpu_tensor *x, uint32_t n_tok, uint3
     return cuda_ok(cudaGetLastError(), "rope_tail launch");
 }
 extern "C" int ds4_gpu_store_raw_kv_tensor(ds4_gpu_tensor *raw_cache, const ds4_gpu_tensor *kv, uint32_t raw_cap, uint32_t row, uint32_t head_dim);
+extern "C" int ds4_gpu_kv_rope_fp8_store_raw_tensor(
+        ds4_gpu_tensor *kv,
+        ds4_gpu_tensor *raw_cache,
+        uint32_t          raw_cap,
+        uint32_t          raw_row,
+        uint32_t          head_dim,
+        uint32_t          n_rot,
+        uint32_t          pos,
+        uint32_t          n_ctx_orig,
+        float             freq_base,
+        float             freq_scale,
+        float             ext_factor,
+        float             attn_factor,
+        float             beta_fast,
+        float             beta_slow) {
+    if (!kv || !raw_cache || raw_cap == 0 || n_rot > head_dim || (n_rot & 1u) ||
+        kv->bytes < (uint64_t)head_dim * sizeof(float) ||
+        raw_cache->bytes < (uint64_t)raw_cap * head_dim * sizeof(float)) return 0;
+    if (g_use_decode_state) {
+        kv_rope_fp8_store_raw_dec_kernel<<<1, 64>>>((float *)kv->ptr,
+                                                    (float *)raw_cache->ptr,
+                                                    raw_cap,
+                                                    head_dim,
+                                                    n_rot,
+                                                    n_ctx_orig,
+                                                    freq_base,
+                                                    freq_scale,
+                                                    ext_factor,
+                                                    attn_factor,
+                                                    beta_fast,
+                                                    beta_slow);
+    } else {
+        kv_rope_fp8_store_raw_kernel<<<1, 64>>>((float *)kv->ptr,
+                                                (float *)raw_cache->ptr,
+                                                raw_cap,
+                                                raw_row,
+                                                head_dim,
+                                                n_rot,
+                                                pos,
+                                                n_ctx_orig,
+                                                freq_base,
+                                                freq_scale,
+                                                ext_factor,
+                                                attn_factor,
+                                                beta_fast,
+                                                beta_slow);
+    }
+    return cuda_ok(cudaGetLastError(), "kv_rope_fp8_store_raw launch");
+}
+
 extern "C" int ds4_gpu_kv_fp8_store_raw_tensor(
         ds4_gpu_tensor *kv,
         ds4_gpu_tensor *raw_cache,
@@ -6797,7 +7005,11 @@ extern "C" int ds4_gpu_store_raw_kv_tensor(ds4_gpu_tensor *raw_cache, const ds4_
     if (!raw_cache || !kv || raw_cap == 0 ||
         raw_cache->bytes < (uint64_t)raw_cap * head_dim * sizeof(float) ||
         kv->bytes < (uint64_t)head_dim * sizeof(float)) return 0;
-    store_raw_kv_batch_kernel<<<(head_dim + 255) / 256, 256>>>((float *)raw_cache->ptr, (const float *)kv->ptr, raw_cap, row, 1, head_dim);
+    if (g_use_decode_state) {
+        store_raw_kv_dec_kernel<<<(head_dim + 255) / 256, 256>>>((float *)raw_cache->ptr, (const float *)kv->ptr, raw_cap, head_dim);
+    } else {
+        store_raw_kv_batch_kernel<<<(head_dim + 255) / 256, 256>>>((float *)raw_cache->ptr, (const float *)kv->ptr, raw_cap, row, 1, head_dim);
+    }
     return cuda_ok(cudaGetLastError(), "store_raw_kv launch");
 }
 extern "C" int ds4_gpu_store_raw_kv_batch_tensor(ds4_gpu_tensor *raw_cache, const ds4_gpu_tensor *kv, uint32_t raw_cap, uint32_t pos0, uint32_t n_tokens, uint32_t head_dim) {
