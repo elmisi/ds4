@@ -89,6 +89,23 @@ static int g_quality_mode;
 static int g_cuda_sm_major;
 static int g_cuda_sm_minor;
 static int g_cuda_gb10_device;
+
+/* Per-token decode state held in __constant__ memory so that kernels can
+ * read pos/token/raw_row/n_raw without those values being baked into the
+ * kernel launch parameters. This is what allows a single captured CUDA
+ * graph to be replayed across many decode positions: the host updates the
+ * constant before each launch via cudaMemcpyToSymbolAsync (which itself
+ * gets captured into the graph in capture mode, so the source bytes are
+ * re-read from g_decode_state_host at every launch).
+ */
+struct ds4_decode_token_state {
+    uint32_t token;
+    uint32_t pos;
+    uint32_t raw_row;
+    uint32_t n_raw;
+};
+__constant__ ds4_decode_token_state g_decode_state;
+static ds4_decode_token_state *g_decode_state_host;
 static int g_cuda_no_q8_dp4a;
 static int g_cuda_force_ordered_f16_matmul;
 static int g_cuda_no_ordered_f16_matmul;
@@ -1282,6 +1299,16 @@ extern "C" int ds4_gpu_init(void) {
         (void)cublasSetMathMode(g_cublas, math_mode);
         g_cublas_ready = 1;
     }
+    if (!g_decode_state_host) {
+        /* Pinned host buffer is the source of cudaMemcpyToSymbolAsync into
+         * g_decode_state. The pinned address must stay stable for the life
+         * of the process so it can serve as the source for captured graph
+         * replays. */
+        if (!cuda_ok(cudaMallocHost((void **)&g_decode_state_host,
+                                    sizeof(ds4_decode_token_state)),
+                     "alloc decode state host buffer")) return 0;
+        memset(g_decode_state_host, 0, sizeof(ds4_decode_token_state));
+    }
     return 1;
 }
 
@@ -1348,6 +1375,37 @@ extern "C" void ds4_gpu_cleanup(void) {
         (void)cudaStreamDestroy(g_model_prefetch_stream);
         g_model_prefetch_stream = NULL;
     }
+    if (g_decode_state_host) {
+        (void)cudaFreeHost(g_decode_state_host);
+        g_decode_state_host = NULL;
+    }
+}
+
+/* Update the device-resident per-token decode state.
+ *
+ * The source bytes live in g_decode_state_host (pinned host memory). The
+ * cudaMemcpyToSymbolAsync is stream-ordered and capturable: when issued
+ * during graph capture it becomes part of the recorded graph, and each
+ * graph launch re-reads from the pinned source. So between launches the
+ * host only needs to update g_decode_state_host; the captured graph will
+ * pick up the new values at the next launch.
+ *
+ * In direct (non-capturing) mode this is simply a per-token H->D copy of
+ * 16 bytes, which is well below the threshold where the launch overhead
+ * matters.
+ */
+extern "C" int ds4_gpu_decode_state_set(uint32_t token, uint32_t pos,
+                                          uint32_t raw_row, uint32_t n_raw) {
+    if (!g_decode_state_host) return 0;
+    g_decode_state_host->token = token;
+    g_decode_state_host->pos = pos;
+    g_decode_state_host->raw_row = raw_row;
+    g_decode_state_host->n_raw = n_raw;
+    return cuda_ok(cudaMemcpyToSymbolAsync(g_decode_state, g_decode_state_host,
+                                           sizeof(ds4_decode_token_state),
+                                           0, cudaMemcpyHostToDevice,
+                                           cudaStreamPerThread),
+                   "decode state H->D");
 }
 
 __global__ static void fill_f32_kernel(float *x, uint64_t n, float v);

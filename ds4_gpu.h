@@ -63,6 +63,18 @@ ds4_gpu_graph_handle *ds4_gpu_graph_capture_end(void);
 int ds4_gpu_graph_launch(ds4_gpu_graph_handle *handle);
 void ds4_gpu_graph_handle_free(ds4_gpu_graph_handle *handle);
 
+/* Update the per-token decode state seen by kernels that previously took
+ * pos/token/raw_row/n_raw as value parameters. The backend keeps this state
+ * in device-resident memory (CUDA __constant__) so a single captured graph
+ * can be replayed across many decode positions: the host updates this state
+ * before each ds4_gpu_graph_launch, the capture re-reads it at every replay.
+ *
+ * In direct (non-capturing) mode this is called before each token's encode
+ * sequence to keep kernels seeing the same values they previously received
+ * as value parameters. Returns 0 on backends that do not implement it. */
+int ds4_gpu_decode_state_set(uint32_t token, uint32_t pos,
+                              uint32_t raw_row, uint32_t n_raw);
+
 int ds4_gpu_set_model_map(const void *model_map, uint64_t model_size);
 int ds4_gpu_set_model_fd(int fd);
 int ds4_gpu_set_model_map_range(const void *model_map, uint64_t model_size, uint64_t map_offset, uint64_t map_size, uint64_t max_tensor_bytes);
