@@ -13303,6 +13303,12 @@ static bool metal_graph_encode_layer_batch(
 }
 
 /* Execute one Metal decode token and read back logits. */
+static int cuda_graph_decode_mode(void) {
+    static int cached = -1;
+    if (cached < 0) cached = getenv("DS4_CUDA_GRAPH_DECODE") != NULL ? 1 : 0;
+    return cached;
+}
+
 static bool metal_graph_eval_token_raw_swa(
         ds4_gpu_graph *g,
         const ds4_model       *model,
@@ -13314,9 +13320,37 @@ static bool metal_graph_eval_token_raw_swa(
     const bool throttle = graph_power_throttle_enabled(g);
     const double t0 = (profile || throttle) ? now_sec() : 0.0;
 
-    bool ok = ds4_gpu_begin_commands() != 0;
-    if (ok) ok = metal_graph_encode_token_raw_swa(g, model, weights, token, pos, logits != NULL, true);
-    const double t_encoded = (profile || throttle) ? now_sec() : 0.0;
+    /* CUDA Graph capture-and-replay path (Phase 3 verification). When
+     * DS4_CUDA_GRAPH_DECODE is set, the decode kernel sequence is captured
+     * into a CUDA graph and then launched as a single host call instead of
+     * being submitted kernel-by-kernel. The capture per-token is wasteful
+     * (cudaGraphInstantiate is not cheap) but proves end-to-end correctness
+     * before Phase 4 caches the graph across tokens.
+     *
+     * allow_split_flush must stay false: the split path calls
+     * ds4_gpu_flush_commands which is cudaDeviceSynchronize, not capturable.
+     * On CUDA the split default is already 0 so this is consistent.
+     */
+    bool ok = true;
+    double t_encoded = 0.0;
+    if (cuda_graph_decode_mode() && ds4_gpu_graph_capture_supported()) {
+        ok = ds4_gpu_graph_capture_begin() != 0;
+        if (ok) ok = metal_graph_encode_token_raw_swa(g, model, weights, token, pos, logits != NULL, false);
+        t_encoded = (profile || throttle) ? now_sec() : 0.0;
+        ds4_gpu_graph_handle *h = ok ? ds4_gpu_graph_capture_end() : NULL;
+        if (ok) {
+            if (h && ds4_gpu_graph_launch(h)) {
+                /* graph launched successfully */
+            } else {
+                ok = false;
+            }
+        }
+        if (h) ds4_gpu_graph_handle_free(h);
+    } else {
+        ok = ds4_gpu_begin_commands() != 0;
+        if (ok) ok = metal_graph_encode_token_raw_swa(g, model, weights, token, pos, logits != NULL, true);
+        t_encoded = (profile || throttle) ? now_sec() : 0.0;
+    }
     if (ok) ok = ds4_gpu_end_commands() != 0;
     const double t_done = (profile || throttle) ? now_sec() : 0.0;
 
