@@ -1,0 +1,75 @@
+{
+  "label": "k4_renorm",
+  "passed": 3,
+  "total": 4,
+  "results": [
+    {
+      "id": "merge_intervals",
+      "ok": true,
+      "elapsed_s": 12.700398206710815,
+      "usage": {
+        "prompt_tokens": 129,
+        "completion_tokens": 224,
+        "total_tokens": 353,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 129
+        }
+      },
+      "error": "",
+      "text": "```python\ndef merge_intervals(intervals):\n    \"\"\"Return merged closed intervals sorted by start.\n\n    intervals is an iterable of [start, end] pairs. Intervals that overlap or\n    touch must be merged, so [1, 3] and [3, 5] become [1, 5]. The input must not\n    be mutated. Raise ValueError if an interval has start > end.\n    \"\"\"\n    result = []\n    # Sort by start, then end\n    sorted_intervals = sorted(intervals, key=lambda x: (x[0], x[1]))\n    for interval in sorted_intervals:\n        if interval[0] > interval[1]:\n            raise ValueError(\"Invalid interval: start > end\")\n        if not result or result[-1][1] < interval[0]:\n            # No overlap\n            result.append([interval[0], interval[1]])\n        else:\n            # Overlap or touch, merge\n            result[-1][1] = max(result[-1][1], interval[1])\n    return result\n```",
+      "code": "def merge_intervals(intervals):\n    \"\"\"Return merged closed intervals sorted by start.\n\n    intervals is an iterable of [start, end] pairs. Intervals that overlap or\n    touch must be merged, so [1, 3] and [3, 5] become [1, 5]. The input must not\n    be mutated. Raise ValueError if an interval has start > end.\n    \"\"\"\n    result = []\n    # Sort by start, then end\n    sorted_intervals = sorted(intervals, key=lambda x: (x[0], x[1]))\n    for interval in sorted_intervals:\n        if interval[0] > interval[1]:\n            raise ValueError(\"Invalid interval: start > end\")\n        if not result or result[-1][1] < interval[0]:\n            # No overlap\n            result.append([interval[0], interval[1]])\n        else:\n            # Overlap or touch, merge\n            result[-1][1] = max(result[-1][1], interval[1])\n    return result"
+    },
+    {
+      "id": "top_k_frequent",
+      "ok": true,
+      "elapsed_s": 9.648737668991089,
+      "usage": {
+        "prompt_tokens": 105,
+        "completion_tokens": 167,
+        "total_tokens": 272,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 105
+        }
+      },
+      "error": "",
+      "text": "```python\nfrom collections import Counter\n\ndef top_k_frequent(items, k):\n    \"\"\"Return the k most frequent strings.\n\n    Sort by descending frequency; break ties lexicographically ascending.\n    If k is larger than the number of distinct items, return every distinct\n    item. If k <= 0, return [].\n    \"\"\"\n    if k <= 0:\n        return []\n    counter = Counter(items)\n    # Sort by (-frequency, string) so that higher frequency comes first,\n    # and ties are broken lexicographically ascending.\n    sorted_items = sorted(counter.items(), key=lambda x: (-x[1], x[0]))\n    # Take top k, but if k > number of distinct items, take all.\n    return [item for item, _ in sorted_items[:k]]\n```",
+      "code": "from collections import Counter\n\ndef top_k_frequent(items, k):\n    \"\"\"Return the k most frequent strings.\n\n    Sort by descending frequency; break ties lexicographically ascending.\n    If k is larger than the number of distinct items, return every distinct\n    item. If k <= 0, return [].\n    \"\"\"\n    if k <= 0:\n        return []\n    counter = Counter(items)\n    # Sort by (-frequency, string) so that higher frequency comes first,\n    # and ties are broken lexicographically ascending.\n    sorted_items = sorted(counter.items(), key=lambda x: (-x[1], x[0]))\n    # Take top k, but if k > number of distinct items, take all.\n    return [item for item, _ in sorted_items[:k]]"
+    },
+    {
+      "id": "lru_cache",
+      "ok": true,
+      "elapsed_s": 10.285348892211914,
+      "usage": {
+        "prompt_tokens": 126,
+        "completion_tokens": 180,
+        "total_tokens": 306,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 126
+        }
+      },
+      "error": "",
+      "text": "```python\n\nclass LRUCache:\n    def __init__(self, capacity):\n        if capacity <= 0:\n            raise ValueError(\"Capacity must be positive\")\n        self.capacity = capacity\n        self.cache = {}\n        self.order = []\n        self.size = 0\n\n    def get(self, key):\n        if key in self.cache:\n            self.order.remove(key)\n            self.order.append(key)\n            return self.cache[key]\n        return -1\n\n    def put(self, key, value):\n        if key in self.cache:\n            self.order.remove(key)\n        else:\n            if self.size == self.capacity:\n                oldest = self.order.pop(0)\n                del self.cache[oldest]\n                self.size -= 1\n            self.size += 1\n        self.cache[key] = value\n        self.order.append(key)\n\n```",
+      "code": "class LRUCache:\n    def __init__(self, capacity):\n        if capacity <= 0:\n            raise ValueError(\"Capacity must be positive\")\n        self.capacity = capacity\n        self.cache = {}\n        self.order = []\n        self.size = 0\n\n    def get(self, key):\n        if key in self.cache:\n            self.order.remove(key)\n            self.order.append(key)\n            return self.cache[key]\n        return -1\n\n    def put(self, key, value):\n        if key in self.cache:\n            self.order.remove(key)\n        else:\n            if self.size == self.capacity:\n                oldest = self.order.pop(0)\n                del self.cache[oldest]\n                self.size -= 1\n            self.size += 1\n        self.cache[key] = value\n        self.order.append(key)"
+    },
+    {
+      "id": "parse_duration",
+      "ok": false,
+      "elapsed_s": 23.51134181022644,
+      "usage": {
+        "prompt_tokens": 144,
+        "completion_tokens": 432,
+        "total_tokens": 576,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 144
+        }
+      },
+      "error": "Traceback (most recent call last):\n  File \"<string>\", line 72, in <module>\nAssertionError: expected ValueError for '0s'",
+      "text": "```python\ndef parse_duration(text):\n    \"\"\"Parse duration strings into total seconds.\n\n    Valid chunks are positive integer + unit, with unit one of d, h, m, s.\n    Chunks may have optional spaces between them: \"1h30m\", \"2d 3h 4m 5s\".\n    Units may appear at most once. Reject empty strings, repeated units,\n    negative numbers, decimals, unknown units, or trailing junk by raising\n    ValueError.\n    \"\"\"\n    if not text or text.isspace():\n        raise ValueError(\"empty string\")\n\n    text = text.strip()\n    if not text:\n        raise ValueError(\"empty string\")\n\n    seen = set()\n    total = 0\n    i = 0\n    n = len(text)\n\n    while i < n:\n        # skip spaces\n        if text[i].isspace():\n            i += 1\n            continue\n\n        # parse number (must be positive integer)\n        num_start = i\n        while i < n and text[i].isdigit():\n            i += 1\n        if num_start == i:\n            raise ValueError(\"missing number\")\n        num = int(text[num_start:i])\n\n        # parse unit\n        if i >= n:\n            raise ValueError(\"missing unit\")\n        unit = text[i]\n        i += 1\n\n        if unit not in ('d', 'h', 'm', 's'):\n            raise ValueError(\"unknown unit\")\n        if unit in seen:\n            raise ValueError(\"duplicate unit\")\n        seen.add(unit)\n\n        if unit == 'd':\n            total += num * 86400\n        elif unit == 'h':\n            total += num * 3600\n        elif unit == 'm':\n            total += num * 60\n        else:  # 's'\n            total += num\n\n    # check for trailing junk (non-space, non-digit, non-unit)\n    # already handled by parsing loop, but ensure no leftover\n    # also check that all required units? no, only reject repeats and unknown\n\n    return total\n```",
+      "code": "def parse_duration(text):\n    \"\"\"Parse duration strings into total seconds.\n\n    Valid chunks are positive integer + unit, with unit one of d, h, m, s.\n    Chunks may have optional spaces between them: \"1h30m\", \"2d 3h 4m 5s\".\n    Units may appear at most once. Reject empty strings, repeated units,\n    negative numbers, decimals, unknown units, or trailing junk by raising\n    ValueError.\n    \"\"\"\n    if not text or text.isspace():\n        raise ValueError(\"empty string\")\n\n    text = text.strip()\n    if not text:\n        raise ValueError(\"empty string\")\n\n    seen = set()\n    total = 0\n    i = 0\n    n = len(text)\n\n    while i < n:\n        # skip spaces\n        if text[i].isspace():\n            i += 1\n            continue\n\n        # parse number (must be positive integer)\n        num_start = i\n        while i < n and text[i].isdigit():\n            i += 1\n        if num_start == i:\n            raise ValueError(\"missing number\")\n        num = int(text[num_start:i])\n\n        # parse unit\n        if i >= n:\n            raise ValueError(\"missing unit\")\n        unit = text[i]\n        i += 1\n\n        if unit not in ('d', 'h', 'm', 's'):\n            raise ValueError(\"unknown unit\")\n        if unit in seen:\n            raise ValueError(\"duplicate unit\")\n        seen.add(unit)\n\n        if unit == 'd':\n            total += num * 86400\n        elif unit == 'h':\n            total += num * 3600\n        elif unit == 'm':\n            total += num * 60\n        else:  # 's'\n            total += num\n\n    # check for trailing junk (non-space, non-digit, non-unit)\n    # already handled by parsing loop, but ensure no leftover\n    # also check that all required units? no, only reject repeats and unknown\n\n    return total"
+    }
+  ]
+}

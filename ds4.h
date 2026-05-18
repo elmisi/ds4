@@ -151,6 +151,7 @@ int ds4_token_assistant(ds4_engine *e);
 int ds4_session_create(ds4_session **out, ds4_engine *e, int ctx_size);
 void ds4_session_free(ds4_session *s);
 void ds4_session_set_progress(ds4_session *s, ds4_session_progress_fn fn, void *ud);
+int ds4_session_adaptive_shadow_report(ds4_session *s, FILE *fp, bool reset);
 
 typedef enum {
     DS4_SESSION_REWRITE_ERROR = -1,
@@ -175,6 +176,8 @@ int ds4_session_sample(ds4_session *s, float temperature, int top_k, float top_p
 int ds4_session_top_logprobs(ds4_session *s, ds4_token_score *out, int k);
 int ds4_session_token_logprob(ds4_session *s, int token, ds4_token_score *out);
 int ds4_session_eval(ds4_session *s, int token, char *err, size_t errlen);
+int ds4_session_eval_greedy(ds4_session *s, int token, int *next_token,
+                            char *err, size_t errlen);
 int ds4_session_eval_speculative_argmax(ds4_session *s, int first_token,
                                         int max_tokens, int eos_token,
                                         int *accepted, int accepted_cap,

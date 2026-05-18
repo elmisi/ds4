@@ -1,0 +1,75 @@
+{
+  "label": "k6_shadow_m62_m78",
+  "passed": 3,
+  "total": 4,
+  "results": [
+    {
+      "id": "merge_intervals",
+      "ok": true,
+      "elapsed_s": 14.757457733154297,
+      "usage": {
+        "prompt_tokens": 129,
+        "completion_tokens": 242,
+        "total_tokens": 371,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 129
+        }
+      },
+      "error": "",
+      "text": "```python\ndef merge_intervals(intervals):\n    \"\"\"Return merged closed intervals sorted by start.\n\n    intervals is an iterable of [start, end] pairs. Intervals that overlap or\n    touch must be merged, so [1, 3] and [3, 5] become [1, 5]. The input must not\n    be mutated. Raise ValueError if an interval has start > end.\n    \"\"\"\n    # Validate and collect intervals\n    valid = []\n    for interval in intervals:\n        start, end = interval\n        if start > end:\n            raise ValueError(f\"Invalid interval: start {start} > end {end}\")\n        valid.append([start, end])\n    \n    if not valid:\n        return []\n    \n    # Sort by start\n    valid.sort(key=lambda x: x[0])\n    \n    merged = [valid[0]]\n    for current in valid[1:]:\n        last = merged[-1]\n        if current[0] <= last[1]:  # overlap or touch\n            last[1] = max(last[1], current[1])\n        else:\n            merged.append(current)\n    \n    return merged\n```",
+      "code": "def merge_intervals(intervals):\n    \"\"\"Return merged closed intervals sorted by start.\n\n    intervals is an iterable of [start, end] pairs. Intervals that overlap or\n    touch must be merged, so [1, 3] and [3, 5] become [1, 5]. The input must not\n    be mutated. Raise ValueError if an interval has start > end.\n    \"\"\"\n    # Validate and collect intervals\n    valid = []\n    for interval in intervals:\n        start, end = interval\n        if start > end:\n            raise ValueError(f\"Invalid interval: start {start} > end {end}\")\n        valid.append([start, end])\n    \n    if not valid:\n        return []\n    \n    # Sort by start\n    valid.sort(key=lambda x: x[0])\n    \n    merged = [valid[0]]\n    for current in valid[1:]:\n        last = merged[-1]\n        if current[0] <= last[1]:  # overlap or touch\n            last[1] = max(last[1], current[1])\n        else:\n            merged.append(current)\n    \n    return merged"
+    },
+    {
+      "id": "top_k_frequent",
+      "ok": true,
+      "elapsed_s": 6.674943208694458,
+      "usage": {
+        "prompt_tokens": 105,
+        "completion_tokens": 102,
+        "total_tokens": 207,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 105
+        }
+      },
+      "error": "",
+      "text": "```python\ndef top_k_frequent(items, k):\n    if k <= 0:\n        return []\n    freq = {}\n    for item in items:\n        freq[item] = freq.get(item, 0) + 1\n    distinct = list(freq.items())\n    distinct.sort(key=lambda x: (-x[1], x[0]))\n    if k > len(distinct):\n        k = len(distinct)\n    return [item for item, _ in distinct[:k]]\n```",
+      "code": "def top_k_frequent(items, k):\n    if k <= 0:\n        return []\n    freq = {}\n    for item in items:\n        freq[item] = freq.get(item, 0) + 1\n    distinct = list(freq.items())\n    distinct.sort(key=lambda x: (-x[1], x[0]))\n    if k > len(distinct):\n        k = len(distinct)\n    return [item for item, _ in distinct[:k]]"
+    },
+    {
+      "id": "lru_cache",
+      "ok": false,
+      "elapsed_s": 10.980199813842773,
+      "usage": {
+        "prompt_tokens": 126,
+        "completion_tokens": 177,
+        "total_tokens": 303,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 126
+        }
+      },
+      "error": "Traceback (most recent call last):\n  File \"<string>\", line 78, in <module>\nAssertionError",
+      "text": "```python\n\nclass LRUCache:\n    def __init__(self, capacity):\n        if capacity <= 0:\n            raise ValueError(\"capacity must be positive\")\n        self.capacity = capacity\n        self.cache = {}\n        self.order = []\n        self.size = 0\n\n    def get(self, key):\n        if key in self.cache:\n            self.order.remove(key)\n            self.order.append(key)\n            return self.cache[key]\n        return -1\n\n    def put(self, key, value):\n        if key in self.cache:\n            self.order.remove(key)\n        elif self.size == self.capacity:\n            lru = self.order.pop(0)\n            del self.cache[lru]\n            self.size -= 1\n        self.cache[key] = value\n        self.order.append(key)\n        self.size += 1\n\n```",
+      "code": "class LRUCache:\n    def __init__(self, capacity):\n        if capacity <= 0:\n            raise ValueError(\"capacity must be positive\")\n        self.capacity = capacity\n        self.cache = {}\n        self.order = []\n        self.size = 0\n\n    def get(self, key):\n        if key in self.cache:\n            self.order.remove(key)\n            self.order.append(key)\n            return self.cache[key]\n        return -1\n\n    def put(self, key, value):\n        if key in self.cache:\n            self.order.remove(key)\n        elif self.size == self.capacity:\n            lru = self.order.pop(0)\n            del self.cache[lru]\n            self.size -= 1\n        self.cache[key] = value\n        self.order.append(key)\n        self.size += 1"
+    },
+    {
+      "id": "parse_duration",
+      "ok": true,
+      "elapsed_s": 22.281620740890503,
+      "usage": {
+        "prompt_tokens": 144,
+        "completion_tokens": 377,
+        "total_tokens": 521,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 144
+        }
+      },
+      "error": "",
+      "text": "```python\ndef parse_duration(text):\n    if not text:\n        raise ValueError(\"empty string\")\n    \n    units = {'d': 86400, 'h': 3600, 'm': 60, 's': 1}\n    seen = set()\n    total = 0\n    i = 0\n    n = len(text)\n    \n    while i < n:\n        # skip spaces\n        while i < n and text[i] == ' ':\n            i += 1\n        if i >= n:\n            break\n        \n        # parse number\n        start = i\n        while i < n and text[i].isdigit():\n            i += 1\n        if start == i:\n            raise ValueError(\"missing number\")\n        num_str = text[start:i]\n        # no leading zeros? not required but reject negative? already positive digits\n        # parse integer\n        num = int(num_str)\n        if num <= 0:\n            raise ValueError(\"non-positive number\")\n        \n        # skip spaces between number and unit\n        while i < n and text[i] == ' ':\n            i += 1\n        if i >= n:\n            raise ValueError(\"missing unit\")\n        \n        unit = text[i]\n        if unit not in units:\n            raise ValueError(\"unknown unit\")\n        if unit in seen:\n            raise ValueError(\"duplicate unit\")\n        seen.add(unit)\n        \n        total += num * units[unit]\n        i += 1\n    \n    if not seen:\n        raise ValueError(\"no units found\")\n    \n    # check trailing junk (non-space, non-digit already handled)\n    # but also ensure no leftover non-space\n    while i < n:\n        if text[i] != ' ':\n            raise ValueError(\"trailing junk\")\n        i += 1\n    \n    return total\n```",
+      "code": "def parse_duration(text):\n    if not text:\n        raise ValueError(\"empty string\")\n    \n    units = {'d': 86400, 'h': 3600, 'm': 60, 's': 1}\n    seen = set()\n    total = 0\n    i = 0\n    n = len(text)\n    \n    while i < n:\n        # skip spaces\n        while i < n and text[i] == ' ':\n            i += 1\n        if i >= n:\n            break\n        \n        # parse number\n        start = i\n        while i < n and text[i].isdigit():\n            i += 1\n        if start == i:\n            raise ValueError(\"missing number\")\n        num_str = text[start:i]\n        # no leading zeros? not required but reject negative? already positive digits\n        # parse integer\n        num = int(num_str)\n        if num <= 0:\n            raise ValueError(\"non-positive number\")\n        \n        # skip spaces between number and unit\n        while i < n and text[i] == ' ':\n            i += 1\n        if i >= n:\n            raise ValueError(\"missing unit\")\n        \n        unit = text[i]\n        if unit not in units:\n            raise ValueError(\"unknown unit\")\n        if unit in seen:\n            raise ValueError(\"duplicate unit\")\n        seen.add(unit)\n        \n        total += num * units[unit]\n        i += 1\n    \n    if not seen:\n        raise ValueError(\"no units found\")\n    \n    # check trailing junk (non-space, non-digit already handled)\n    # but also ensure no leftover non-space\n    while i < n:\n        if text[i] != ' ':\n            raise ValueError(\"trailing junk\")\n        i += 1\n    \n    return total"
+    }
+  ]
+}

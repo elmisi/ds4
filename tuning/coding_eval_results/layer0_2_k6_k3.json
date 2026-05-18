@@ -1,0 +1,75 @@
+{
+  "label": "layer0_2_k6_k3",
+  "passed": 4,
+  "total": 4,
+  "results": [
+    {
+      "id": "merge_intervals",
+      "ok": true,
+      "elapsed_s": 14.110226154327393,
+      "usage": {
+        "prompt_tokens": 129,
+        "completion_tokens": 265,
+        "total_tokens": 394,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 129
+        }
+      },
+      "error": "",
+      "text": "```python\ndef merge_intervals(intervals):\n    \"\"\"Return merged closed intervals sorted by start.\n\n    intervals is an iterable of [start, end] pairs. Intervals that overlap or\n    touch must be merged, so [1, 3] and [3, 5] become [1, 5]. The input must not\n    be mutated. Raise ValueError if an interval has start > end.\n    \"\"\"\n    # Validate and collect intervals\n    valid = []\n    for interval in intervals:\n        start, end = interval\n        if start > end:\n            raise ValueError(f\"Invalid interval: start > end\")\n        valid.append([start, end])\n    \n    if not valid:\n        return []\n    \n    # Sort by start\n    valid.sort(key=lambda x: x[0])\n    \n    merged = []\n    current_start, current_end = valid[0]\n    \n    for i in range(1, len(valid)):\n        start, end = valid[i]\n        if start <= current_end:  # overlap or touch\n            current_end = max(current_end, end)\n        else:\n            merged.append([current_start, current_end])\n            current_start, current_end = start, end\n    \n    merged.append([current_start, current_end])\n    return merged\n```",
+      "code": "def merge_intervals(intervals):\n    \"\"\"Return merged closed intervals sorted by start.\n\n    intervals is an iterable of [start, end] pairs. Intervals that overlap or\n    touch must be merged, so [1, 3] and [3, 5] become [1, 5]. The input must not\n    be mutated. Raise ValueError if an interval has start > end.\n    \"\"\"\n    # Validate and collect intervals\n    valid = []\n    for interval in intervals:\n        start, end = interval\n        if start > end:\n            raise ValueError(f\"Invalid interval: start > end\")\n        valid.append([start, end])\n    \n    if not valid:\n        return []\n    \n    # Sort by start\n    valid.sort(key=lambda x: x[0])\n    \n    merged = []\n    current_start, current_end = valid[0]\n    \n    for i in range(1, len(valid)):\n        start, end = valid[i]\n        if start <= current_end:  # overlap or touch\n            current_end = max(current_end, end)\n        else:\n            merged.append([current_start, current_end])\n            current_start, current_end = start, end\n    \n    merged.append([current_start, current_end])\n    return merged"
+    },
+    {
+      "id": "top_k_frequent",
+      "ok": true,
+      "elapsed_s": 17.750467777252197,
+      "usage": {
+        "prompt_tokens": 105,
+        "completion_tokens": 338,
+        "total_tokens": 443,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 105
+        }
+      },
+      "error": "",
+      "text": "```python\nimport collections\nimport heapq\n\ndef top_k_frequent(items, k):\n    if k <= 0:\n        return []\n    freq = collections.Counter(items)\n    # Use min-heap of size k to keep top k by frequency (negated for max-heap behavior)\n    heap = []\n    for item, count in freq.items():\n        heapq.heappush(heap, (count, item))\n        if len(heap) > k:\n            heapq.heappop(heap)\n    # Extract items from heap, sort by frequency descending, then lexicographically ascending\n    result = []\n    while heap:\n        count, item = heapq.heappop(heap)\n        result.append(item)\n    # Since we popped smallest first, reverse to get descending frequency order\n    result.reverse()\n    # For ties, we need to sort by frequency descending, then lexicographically ascending\n    # The heap ensures frequency order but not lexicographic order for ties, so we re-sort\n    # Actually, we need to sort by (-count, item) for correct tie-breaking\n    # Rebuild with correct ordering\n    # Better approach: sort by (-freq[item], item) and take first k\n    # But we already have heap, so let's just do a full sort\n    # Actually, simpler: just sort all items by (-freq[item], item) and take first k\n    freq = collections.Counter(items)\n    distinct = list(freq.keys())\n    distinct.sort(key=lambda x: (-freq[x], x))\n    return distinct[:k] if k > 0 else []\n```",
+      "code": "import collections\nimport heapq\n\ndef top_k_frequent(items, k):\n    if k <= 0:\n        return []\n    freq = collections.Counter(items)\n    # Use min-heap of size k to keep top k by frequency (negated for max-heap behavior)\n    heap = []\n    for item, count in freq.items():\n        heapq.heappush(heap, (count, item))\n        if len(heap) > k:\n            heapq.heappop(heap)\n    # Extract items from heap, sort by frequency descending, then lexicographically ascending\n    result = []\n    while heap:\n        count, item = heapq.heappop(heap)\n        result.append(item)\n    # Since we popped smallest first, reverse to get descending frequency order\n    result.reverse()\n    # For ties, we need to sort by frequency descending, then lexicographically ascending\n    # The heap ensures frequency order but not lexicographic order for ties, so we re-sort\n    # Actually, we need to sort by (-count, item) for correct tie-breaking\n    # Rebuild with correct ordering\n    # Better approach: sort by (-freq[item], item) and take first k\n    # But we already have heap, so let's just do a full sort\n    # Actually, simpler: just sort all items by (-freq[item], item) and take first k\n    freq = collections.Counter(items)\n    distinct = list(freq.keys())\n    distinct.sort(key=lambda x: (-freq[x], x))\n    return distinct[:k] if k > 0 else []"
+    },
+    {
+      "id": "lru_cache",
+      "ok": true,
+      "elapsed_s": 10.54360842704773,
+      "usage": {
+        "prompt_tokens": 126,
+        "completion_tokens": 195,
+        "total_tokens": 321,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 126
+        }
+      },
+      "error": "",
+      "text": "```python\nclass LRUCache:\n    def __init__(self, capacity):\n        if capacity <= 0:\n            raise ValueError(\"Capacity must be positive\")\n        self.capacity = capacity\n        self.cache = {}\n        self.order = []\n        self.size = 0\n\n    def get(self, key):\n        if key in self.cache:\n            self.order.remove(key)\n            self.order.append(key)\n            return self.cache[key]\n        return -1\n\n    def put(self, key, value):\n        if key in self.cache:\n            self.order.remove(key)\n            self.order.append(key)\n            self.cache[key] = value\n        else:\n            if self.size >= self.capacity:\n                lru = self.order.pop(0)\n                del self.cache[lru]\n                self.size -= 1\n            self.order.append(key)\n            self.cache[key] = value\n            self.size += 1\n```",
+      "code": "class LRUCache:\n    def __init__(self, capacity):\n        if capacity <= 0:\n            raise ValueError(\"Capacity must be positive\")\n        self.capacity = capacity\n        self.cache = {}\n        self.order = []\n        self.size = 0\n\n    def get(self, key):\n        if key in self.cache:\n            self.order.remove(key)\n            self.order.append(key)\n            return self.cache[key]\n        return -1\n\n    def put(self, key, value):\n        if key in self.cache:\n            self.order.remove(key)\n            self.order.append(key)\n            self.cache[key] = value\n        else:\n            if self.size >= self.capacity:\n                lru = self.order.pop(0)\n                del self.cache[lru]\n                self.size -= 1\n            self.order.append(key)\n            self.cache[key] = value\n            self.size += 1"
+    },
+    {
+      "id": "parse_duration",
+      "ok": true,
+      "elapsed_s": 16.59487748146057,
+      "usage": {
+        "prompt_tokens": 144,
+        "completion_tokens": 320,
+        "total_tokens": 464,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 144
+        }
+      },
+      "error": "",
+      "text": "```python\ndef parse_duration(text):\n    text = text.strip()\n    if not text:\n        raise ValueError(\"empty string\")\n    \n    total = 0\n    units = {'d': 86400, 'h': 3600, 'm': 60, 's': 1}\n    used = set()\n    \n    i = 0\n    n = len(text)\n    while i < n:\n        # skip spaces\n        if text[i] == ' ':\n            i += 1\n            continue\n        \n        # parse number\n        num_start = i\n        while i < n and text[i].isdigit():\n            i += 1\n        if i == num_start:\n            raise ValueError(\"missing number\")\n        number = int(text[num_start:i])\n        if number <= 0:\n            raise ValueError(\"non-positive number\")\n        \n        # skip spaces before unit\n        while i < n and text[i] == ' ':\n            i += 1\n        if i >= n:\n            raise ValueError(\"missing unit\")\n        \n        # parse unit\n        unit_start = i\n        while i < n and text[i].isalpha():\n            i += 1\n        if i == unit_start:\n            raise ValueError(\"missing unit\")\n        unit = text[unit_start:i]\n        if unit not in units:\n            raise ValueError(\"unknown unit\")\n        if unit in used:\n            raise ValueError(\"repeated unit\")\n        used.add(unit)\n        \n        total += number * units[unit]\n    \n    return total\n```",
+      "code": "def parse_duration(text):\n    text = text.strip()\n    if not text:\n        raise ValueError(\"empty string\")\n    \n    total = 0\n    units = {'d': 86400, 'h': 3600, 'm': 60, 's': 1}\n    used = set()\n    \n    i = 0\n    n = len(text)\n    while i < n:\n        # skip spaces\n        if text[i] == ' ':\n            i += 1\n            continue\n        \n        # parse number\n        num_start = i\n        while i < n and text[i].isdigit():\n            i += 1\n        if i == num_start:\n            raise ValueError(\"missing number\")\n        number = int(text[num_start:i])\n        if number <= 0:\n            raise ValueError(\"non-positive number\")\n        \n        # skip spaces before unit\n        while i < n and text[i] == ' ':\n            i += 1\n        if i >= n:\n            raise ValueError(\"missing unit\")\n        \n        # parse unit\n        unit_start = i\n        while i < n and text[i].isalpha():\n            i += 1\n        if i == unit_start:\n            raise ValueError(\"missing unit\")\n        unit = text[unit_start:i]\n        if unit not in units:\n            raise ValueError(\"unknown unit\")\n        if unit in used:\n            raise ValueError(\"repeated unit\")\n        used.add(unit)\n        \n        total += number * units[unit]\n    \n    return total"
+    }
+  ]
+}
