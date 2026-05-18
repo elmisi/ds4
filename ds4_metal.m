@@ -13736,6 +13736,20 @@ int ds4_gpu_router_select_tensor(
     return 1;
 }
 
+int ds4_gpu_router_adaptive_shadow_tensor(
+        ds4_gpu_tensor       *stats,
+        const ds4_gpu_tensor *weights,
+        uint32_t                layer,
+        float                   k3_mass,
+        float                   k4_mass) {
+    (void)stats;
+    (void)weights;
+    (void)layer;
+    (void)k3_mass;
+    (void)k4_mass;
+    return 1;
+}
+
 int ds4_gpu_router_select_batch_tensor(
         ds4_gpu_tensor       *selected,
         ds4_gpu_tensor       *weights,

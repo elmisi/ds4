@@ -10272,7 +10272,13 @@ decode_again:
         if (in_tool_call && !dsml_decode_state_uses_payload_sampling(dsml_state)) {
             temperature = 0.0f;
         }
+        const bool greedy_decode = temperature <= 0.0f;
         int token = ds4_session_sample(s->session, temperature, top_k, top_p, min_p, &rng);
+        if (token < 0) {
+            finish = "error";
+            snprintf(err, sizeof(err), "sampling failed");
+            break;
+        }
         if (token == ds4_token_eos(s->engine)) {
             finish = "stop";
             break;
@@ -10280,7 +10286,7 @@ decode_again:
 
         int toks[17];
         int ntok = 0;
-        if (temperature <= 0.0f &&
+        if (greedy_decode &&
             ds4_engine_mtp_draft_tokens(s->engine) > 1 &&
             getenv("DS4_MTP_SPEC_DISABLE") == NULL)
         {
@@ -10296,6 +10302,19 @@ decode_again:
                 finish = "error";
                 break;
             }
+        } else if (greedy_decode &&
+                   ds4_engine_mtp_draft_tokens(s->engine) <= 1 &&
+                   getenv("DS4_SERVER_DISABLE_GREEDY_TOP") == NULL)
+        {
+            int next_token = -1;
+            if (ds4_session_eval_greedy(s->session, token, &next_token,
+                                        err, sizeof(err)) != 0) {
+                finish = "error";
+                break;
+            }
+            (void)next_token;
+            toks[0] = token;
+            ntok = 1;
         } else {
             if (ds4_session_eval(s->session, token, err, sizeof(err)) != 0) {
                 finish = "error";
@@ -10861,6 +10880,10 @@ decode_again:
                        final_finish,
                        now_sec() - t0);
         }
+    }
+    if (ds4_session_adaptive_shadow_report(s->session, stderr, true) != 0) {
+        server_log(DS4_LOG_WARNING,
+                   "ds4-server: adaptive shadow report failed");
     }
     free(parsed_content);
     free(parsed_reasoning);

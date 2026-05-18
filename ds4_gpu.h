@@ -200,6 +200,28 @@ int ds4_gpu_matmul_q8_0_tensor(
         const ds4_gpu_tensor *x,
         uint64_t                n_tok);
 
+int ds4_gpu_matmul_q8_0_pair_tensor(
+        ds4_gpu_tensor       *out0,
+        ds4_gpu_tensor       *out1,
+        const void             *model_map,
+        uint64_t                model_size,
+        uint64_t                weight0_offset,
+        uint64_t                weight1_offset,
+        uint64_t                in_dim,
+        uint64_t                out0_dim,
+        uint64_t                out1_dim,
+        const ds4_gpu_tensor *x,
+        uint64_t                n_tok);
+
+int ds4_gpu_matmul_q8_0_top1_tensor(
+        ds4_gpu_tensor       *selected,
+        const void             *model_map,
+        uint64_t                model_size,
+        uint64_t                weight_offset,
+        uint64_t                in_dim,
+        uint64_t                out_dim,
+        const ds4_gpu_tensor *x);
+
 int ds4_gpu_shared_gate_up_swiglu_q8_0_tensor(
         ds4_gpu_tensor       *gate,
         ds4_gpu_tensor       *up,
@@ -722,6 +744,17 @@ int ds4_gpu_router_select_tensor(
         bool                    hash_mode,
         const ds4_gpu_tensor *logits);
 
+int ds4_gpu_router_renorm_topk_tensor(
+        ds4_gpu_tensor       *weights,
+        uint32_t                n_expert);
+
+int ds4_gpu_router_adaptive_shadow_tensor(
+        ds4_gpu_tensor       *stats,
+        const ds4_gpu_tensor *weights,
+        uint32_t                layer,
+        float                   k3_mass,
+        float                   k4_mass);
+
 int ds4_gpu_router_select_batch_tensor(
         ds4_gpu_tensor       *selected,
         ds4_gpu_tensor       *weights,
@@ -844,6 +877,24 @@ int ds4_gpu_hc_split_weighted_sum_tensor(
         float                   eps);
 
 int ds4_gpu_hc_decode_pre_norm_fused_tensor(
+        ds4_gpu_tensor       *out,
+        ds4_gpu_tensor       *norm_out,
+        ds4_gpu_tensor       *split,
+        ds4_gpu_tensor       *mix_out,
+        const ds4_gpu_tensor *residual_hc,
+        const void             *model_map,
+        uint64_t                model_size,
+        uint64_t                fn_weight_offset,
+        uint64_t                scale_offset,
+        uint64_t                base_offset,
+        uint64_t                norm_weight_offset,
+        uint32_t                n_embd,
+        uint32_t                n_hc,
+        uint32_t                sinkhorn_iters,
+        float                   eps,
+        float                   norm_eps);
+
+int ds4_gpu_hc_decode_pre_norm_f32_fused_tensor(
         ds4_gpu_tensor       *out,
         ds4_gpu_tensor       *norm_out,
         ds4_gpu_tensor       *split,

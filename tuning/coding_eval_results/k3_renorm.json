@@ -1,0 +1,75 @@
+{
+  "label": "k3_renorm",
+  "passed": 3,
+  "total": 4,
+  "results": [
+    {
+      "id": "merge_intervals",
+      "ok": true,
+      "elapsed_s": 13.764351844787598,
+      "usage": {
+        "prompt_tokens": 129,
+        "completion_tokens": 260,
+        "total_tokens": 389,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 129
+        }
+      },
+      "error": "",
+      "text": "```python\ndef merge_intervals(intervals):\n    \"\"\"Return merged closed intervals sorted by start.\n    \n    intervals is an iterable of [start, end] pairs. Intervals that overlap or\n    touch must be merged, so [1, 3] and [3, 5] become [1, 5]. The input must not\n    be mutated. Raise ValueError if an interval has start > end.\n    \"\"\"\n    # Validate input and collect intervals\n    validated = []\n    for interval in intervals:\n        start, end = interval\n        if start > end:\n            raise ValueError(f\"Invalid interval: start > end\")\n        validated.append([start, end])\n    \n    if not validated:\n        return []\n    \n    # Sort by start\n    validated.sort(key=lambda x: x[0])\n    \n    merged = [validated[0]]\n    for cur in validated[1:]:\n        prev = merged[-1]\n        # If intervals overlap or touch (end >= current start)\n        if prev[1] >= cur[0]:\n            # Merge: update end to max of both ends\n            prev[1] = max(prev[1], cur[1])\n        else:\n            merged.append(cur)\n    \n    return merged\n```",
+      "code": "def merge_intervals(intervals):\n    \"\"\"Return merged closed intervals sorted by start.\n    \n    intervals is an iterable of [start, end] pairs. Intervals that overlap or\n    touch must be merged, so [1, 3] and [3, 5] become [1, 5]. The input must not\n    be mutated. Raise ValueError if an interval has start > end.\n    \"\"\"\n    # Validate input and collect intervals\n    validated = []\n    for interval in intervals:\n        start, end = interval\n        if start > end:\n            raise ValueError(f\"Invalid interval: start > end\")\n        validated.append([start, end])\n    \n    if not validated:\n        return []\n    \n    # Sort by start\n    validated.sort(key=lambda x: x[0])\n    \n    merged = [validated[0]]\n    for cur in validated[1:]:\n        prev = merged[-1]\n        # If intervals overlap or touch (end >= current start)\n        if prev[1] >= cur[0]:\n            # Merge: update end to max of both ends\n            prev[1] = max(prev[1], cur[1])\n        else:\n            merged.append(cur)\n    \n    return merged"
+    },
+    {
+      "id": "top_k_frequent",
+      "ok": true,
+      "elapsed_s": 33.29533338546753,
+      "usage": {
+        "prompt_tokens": 105,
+        "completion_tokens": 650,
+        "total_tokens": 755,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 105
+        }
+      },
+      "error": "",
+      "text": "```python\nfrom collections import Counter\nimport heapq\n\ndef top_k_frequent(items, k):\n    \"\"\"Return the k most frequent strings.\n\n    Sort by descending frequency; break ties lexicographically ascending.\n    If k is larger than the number of distinct items, return every distinct\n    item. If k <= 0, return [].\n    \"\"\"\n    if k <= 0:\n        return []\n    \n    # Count frequencies\n    freq = Counter(items)\n    \n    # If k >= number of distinct items, return all sorted\n    if k >= len(freq):\n        return sorted(freq.keys())\n    \n    # Use heap of size k for top k frequent items\n    # Min-heap on (-freq, item) so that we can get top k by frequency\n    # Actually we want max frequency, so we use negative count\n    heap = []\n    for item, count in freq.items():\n        # Push (-count, item) so that we can pop least frequent\n        # But we want top k, so we use min-heap on ( -count, -item )? No.\n        # Use tuple (-count, item) for max-heap behavior? Actually we want\n        # to keep top k frequent, so we use min-heap on (count, -item)?? \n        # Let's just use nsmallest approach or use heapq with custom logic.\n        # Simpler: use heapq.nlargest with key\n        pass\n    \n    # Use nsmallest with key=(-freq[item], item) to get top k sorted by -freq then item\n    # Actually we want descending frequency, then lexicographic ascending.\n    # So we can use nlargest with key = (freq[item], -item)?? No.\n    # Use sorted with key = (-freq[item], item) and take first k.\n    # But that's O(n log n). For large n, use heap.\n    \n    # Better: use heapq.nlargest with key = lambda x: (-freq[x], x)\n    # But nlargest returns in descending order of key, so we need to reverse.\n    # Actually nlargest returns sorted in descending order of key.\n    # We want descending frequency, then ascending lexicographically.\n    # So key = ( -freq[item], item ) gives smallest for -freq (most frequent) and then smallest item.\n    # nlargest(k, freq, key=lambda x: (-freq[x], x)) returns the k largest based on that key.\n    # But that key is a tuple, and nlargest compares tuples. So it will give the largest tuples,\n    # which are the ones with smallest -freq (most frequent) and then largest item? Wait.\n    # Let's just use sorted and slice.\n    \n    # For correctness and simplicity, use sorted with key and slice.\n    distinct = list(freq.keys())\n    # Sort by descending frequency (-freq[item]), then ascending item\n    distinct.sort(key=lambda x: (-freq[x], x))\n    return distinct[:k]\n```",
+      "code": "from collections import Counter\nimport heapq\n\ndef top_k_frequent(items, k):\n    \"\"\"Return the k most frequent strings.\n\n    Sort by descending frequency; break ties lexicographically ascending.\n    If k is larger than the number of distinct items, return every distinct\n    item. If k <= 0, return [].\n    \"\"\"\n    if k <= 0:\n        return []\n    \n    # Count frequencies\n    freq = Counter(items)\n    \n    # If k >= number of distinct items, return all sorted\n    if k >= len(freq):\n        return sorted(freq.keys())\n    \n    # Use heap of size k for top k frequent items\n    # Min-heap on (-freq, item) so that we can get top k by frequency\n    # Actually we want max frequency, so we use negative count\n    heap = []\n    for item, count in freq.items():\n        # Push (-count, item) so that we can pop least frequent\n        # But we want top k, so we use min-heap on ( -count, -item )? No.\n        # Use tuple (-count, item) for max-heap behavior? Actually we want\n        # to keep top k frequent, so we use min-heap on (count, -item)?? \n        # Let's just use nsmallest approach or use heapq with custom logic.\n        # Simpler: use heapq.nlargest with key\n        pass\n    \n    # Use nsmallest with key=(-freq[item], item) to get top k sorted by -freq then item\n    # Actually we want descending frequency, then lexicographic ascending.\n    # So we can use nlargest with key = (freq[item], -item)?? No.\n    # Use sorted with key = (-freq[item], item) and take first k.\n    # But that's O(n log n). For large n, use heap.\n    \n    # Better: use heapq.nlargest with key = lambda x: (-freq[x], x)\n    # But nlargest returns in descending order of key, so we need to reverse.\n    # Actually nlargest returns sorted in descending order of key.\n    # We want descending frequency, then ascending lexicographically.\n    # So key = ( -freq[item], item ) gives smallest for -freq (most frequent) and then smallest item.\n    # nlargest(k, freq, key=lambda x: (-freq[x], x)) returns the k largest based on that key.\n    # But that key is a tuple, and nlargest compares tuples. So it will give the largest tuples,\n    # which are the ones with smallest -freq (most frequent) and then largest item? Wait.\n    # Let's just use sorted and slice.\n    \n    # For correctness and simplicity, use sorted with key and slice.\n    distinct = list(freq.keys())\n    # Sort by descending frequency (-freq[item]), then ascending item\n    distinct.sort(key=lambda x: (-freq[x], x))\n    return distinct[:k]"
+    },
+    {
+      "id": "lru_cache",
+      "ok": true,
+      "elapsed_s": 9.698482275009155,
+      "usage": {
+        "prompt_tokens": 126,
+        "completion_tokens": 180,
+        "total_tokens": 306,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 126
+        }
+      },
+      "error": "",
+      "text": "```python\nclass LRUCache:\n    def __init__(self, capacity):\n        if capacity <= 0:\n            raise ValueError(\"Capacity must be positive\")\n        self.capacity = capacity\n        self.cache = {}\n        self.order = []\n        self.size = 0\n\n    def get(self, key):\n        if key in self.cache:\n            self.order.remove(key)\n            self.order.append(key)\n            return self.cache[key]\n        return -1\n\n    def put(self, key, value):\n        if key in self.cache:\n            self.order.remove(key)\n        else:\n            if self.size == self.capacity:\n                oldest = self.order.pop(0)\n                del self.cache[oldest]\n                self.size -= 1\n            self.size += 1\n        self.cache[key] = value\n        self.order.append(key)\n```",
+      "code": "class LRUCache:\n    def __init__(self, capacity):\n        if capacity <= 0:\n            raise ValueError(\"Capacity must be positive\")\n        self.capacity = capacity\n        self.cache = {}\n        self.order = []\n        self.size = 0\n\n    def get(self, key):\n        if key in self.cache:\n            self.order.remove(key)\n            self.order.append(key)\n            return self.cache[key]\n        return -1\n\n    def put(self, key, value):\n        if key in self.cache:\n            self.order.remove(key)\n        else:\n            if self.size == self.capacity:\n                oldest = self.order.pop(0)\n                del self.cache[oldest]\n                self.size -= 1\n            self.size += 1\n        self.cache[key] = value\n        self.order.append(key)"
+    },
+    {
+      "id": "parse_duration",
+      "ok": false,
+      "elapsed_s": 21.246421337127686,
+      "usage": {
+        "prompt_tokens": 144,
+        "completion_tokens": 415,
+        "total_tokens": 559,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 144
+        }
+      },
+      "error": "Traceback (most recent call last):\n  File \"<string>\", line 62, in <module>\n  File \"<string>\", line 34, in parse_duration\nValueError: Invalid chunk: 45",
+      "text": "```python\nimport re\n\ndef parse_duration(text):\n    if not isinstance(text, str) or not text.strip():\n        raise ValueError(\"Invalid duration string\")\n    \n    text = text.strip()\n    if not text:\n        raise ValueError(\"Empty duration string\")\n    \n    # Normalize spaces around units to allow splitting\n    # Insert space before any unit letter (d, h, m, s) if not already space\n    text = re.sub(r'(?<=\\d)([dhms])', r' \\1', text)\n    # Remove spaces that are not part of chunks (multiple spaces)\n    text = re.sub(r'\\s+', ' ', text).strip()\n    \n    chunks = text.split()\n    if not chunks:\n        raise ValueError(\"No duration chunks found\")\n    \n    seen_units = set()\n    total = 0\n    multipliers = {'d': 86400, 'h': 3600, 'm': 60, 's': 1}\n    \n    for chunk in chunks:\n        chunk = chunk.strip()\n        if not chunk:\n            continue\n        \n        # Find the unit suffix (last letter)\n        # Ensure there is at least one digit before unit\n        match = re.match(r'^(\\d+)([dhms])$', chunk)\n        if not match:\n            raise ValueError(f\"Invalid chunk: {chunk}\")\n        \n        value_str, unit = match.groups()\n        value = int(value_str)\n        \n        if value <= 0:\n            raise ValueError(f\"Non-positive value: {value}\")\n        \n        if unit in seen_units:\n            raise ValueError(f\"Duplicate unit: {unit}\")\n        seen_units.add(unit)\n        \n        if unit not in multipliers:\n            raise ValueError(f\"Unknown unit: {unit}\")\n        \n        total += value * multipliers[unit]\n    \n    # Check for trailing junk after last chunk (e.g., extra letters)\n    # This is already caught by the regex matching whole chunk\n    return total\n```",
+      "code": "import re\n\ndef parse_duration(text):\n    if not isinstance(text, str) or not text.strip():\n        raise ValueError(\"Invalid duration string\")\n    \n    text = text.strip()\n    if not text:\n        raise ValueError(\"Empty duration string\")\n    \n    # Normalize spaces around units to allow splitting\n    # Insert space before any unit letter (d, h, m, s) if not already space\n    text = re.sub(r'(?<=\\d)([dhms])', r' \\1', text)\n    # Remove spaces that are not part of chunks (multiple spaces)\n    text = re.sub(r'\\s+', ' ', text).strip()\n    \n    chunks = text.split()\n    if not chunks:\n        raise ValueError(\"No duration chunks found\")\n    \n    seen_units = set()\n    total = 0\n    multipliers = {'d': 86400, 'h': 3600, 'm': 60, 's': 1}\n    \n    for chunk in chunks:\n        chunk = chunk.strip()\n        if not chunk:\n            continue\n        \n        # Find the unit suffix (last letter)\n        # Ensure there is at least one digit before unit\n        match = re.match(r'^(\\d+)([dhms])$', chunk)\n        if not match:\n            raise ValueError(f\"Invalid chunk: {chunk}\")\n        \n        value_str, unit = match.groups()\n        value = int(value_str)\n        \n        if value <= 0:\n            raise ValueError(f\"Non-positive value: {value}\")\n        \n        if unit in seen_units:\n            raise ValueError(f\"Duplicate unit: {unit}\")\n        seen_units.add(unit)\n        \n        if unit not in multipliers:\n            raise ValueError(f\"Unknown unit: {unit}\")\n        \n        total += value * multipliers[unit]\n    \n    # Check for trailing junk after last chunk (e.g., extra letters)\n    # This is already caught by the regex matching whole chunk\n    return total"
+    }
+  ]
+}

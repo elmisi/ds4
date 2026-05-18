@@ -160,6 +160,7 @@ void ds4_session_set_progress(ds4_session *s, ds4_session_progress_fn fn, void *
 /* UI-only progress. It may report fine-grained progress inside a prefill chunk;
  * callers must not treat it as a durable KV checkpoint boundary. */
 void ds4_session_set_display_progress(ds4_session *s, ds4_session_progress_fn fn, void *ud);
+int ds4_session_adaptive_shadow_report(ds4_session *s, FILE *fp, bool reset);
 
 typedef enum {
     DS4_SESSION_REWRITE_ERROR = -1,
@@ -185,6 +186,8 @@ int ds4_session_top_logprobs(ds4_session *s, ds4_token_score *out, int k);
 int ds4_session_token_logprob(ds4_session *s, int token, ds4_token_score *out);
 int ds4_session_copy_logits(ds4_session *s, float *out, int cap);
 int ds4_session_eval(ds4_session *s, int token, char *err, size_t errlen);
+int ds4_session_eval_greedy(ds4_session *s, int token, int *next_token,
+                            char *err, size_t errlen);
 int ds4_session_eval_speculative_argmax(ds4_session *s, int first_token,
                                         int max_tokens, int eos_token,
                                         int *accepted, int accepted_cap,
