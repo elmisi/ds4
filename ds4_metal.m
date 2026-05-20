@@ -4419,6 +4419,8 @@ int ds4_gpu_synchronize(void) {
 struct ds4_gpu_graph_handle { int unused; };
 int ds4_gpu_graph_capture_supported(void) { return 0; }
 int ds4_gpu_graph_capture_begin(void) { return 0; }
+int ds4_gpu_graph_capture_begin_no_sync(void) { return 0; }
+int ds4_gpu_graph_capture_abort(void) { return 0; }
 ds4_gpu_graph_handle *ds4_gpu_graph_capture_end(void) { return NULL; }
 int ds4_gpu_graph_launch(ds4_gpu_graph_handle *handle) { (void)handle; return 0; }
 void ds4_gpu_graph_handle_free(ds4_gpu_graph_handle *handle) { (void)handle; }
@@ -13747,6 +13749,20 @@ int ds4_gpu_router_adaptive_shadow_tensor(
     (void)layer;
     (void)k3_mass;
     (void)k4_mass;
+    return 1;
+}
+
+int ds4_gpu_router_expert_stats_tensor(
+        ds4_gpu_tensor       *stats,
+        ds4_gpu_tensor       *prev,
+        const ds4_gpu_tensor *selected,
+        uint32_t                layer,
+        uint32_t                n_selected) {
+    (void)stats;
+    (void)prev;
+    (void)selected;
+    (void)layer;
+    (void)n_selected;
     return 1;
 }
 

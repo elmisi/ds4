@@ -59,6 +59,8 @@ typedef struct ds4_gpu_graph_handle ds4_gpu_graph_handle;
 
 int ds4_gpu_graph_capture_supported(void);
 int ds4_gpu_graph_capture_begin(void);
+int ds4_gpu_graph_capture_begin_no_sync(void);
+int ds4_gpu_graph_capture_abort(void);
 ds4_gpu_graph_handle *ds4_gpu_graph_capture_end(void);
 int ds4_gpu_graph_launch(ds4_gpu_graph_handle *handle);
 void ds4_gpu_graph_handle_free(ds4_gpu_graph_handle *handle);
@@ -174,6 +176,13 @@ int ds4_gpu_indexer_topk_tensor(
         uint32_t                n_comp,
         uint32_t                n_tokens,
         uint32_t                top_k);
+
+int ds4_gpu_logits_top2_tensor(
+        ds4_gpu_tensor       *selected,
+        ds4_gpu_tensor       *values,
+        const ds4_gpu_tensor *scores,
+        uint32_t                n_comp,
+        uint32_t                n_tokens);
 
 int ds4_gpu_dsv4_topk_mask_tensor(
         ds4_gpu_tensor       *mask,
@@ -755,6 +764,13 @@ int ds4_gpu_router_adaptive_shadow_tensor(
         float                   k3_mass,
         float                   k4_mass);
 
+int ds4_gpu_router_expert_stats_tensor(
+        ds4_gpu_tensor       *stats,
+        ds4_gpu_tensor       *prev,
+        const ds4_gpu_tensor *selected,
+        uint32_t                layer,
+        uint32_t                n_selected);
+
 int ds4_gpu_router_select_batch_tensor(
         ds4_gpu_tensor       *selected,
         ds4_gpu_tensor       *weights,
@@ -826,6 +842,87 @@ int ds4_gpu_routed_moe_batch_tensor(
         uint32_t                layer_index,
         uint32_t                n_tokens,
         bool                   *mid_is_f16);
+
+int ds4_gpu_routed_pack_layout_bench(
+        const ds4_gpu_tensor *expert_major,
+        const ds4_gpu_tensor *row_major,
+        uint64_t                row_bytes,
+        uint64_t                expert_bytes,
+        uint32_t                rows,
+        const int32_t          *experts,
+        uint32_t                n_experts,
+        uint32_t                iterations);
+
+int ds4_gpu_routed_pack_gate_up_pair_bench(
+        const ds4_gpu_tensor *gate_major,
+        const ds4_gpu_tensor *up_major,
+        const ds4_gpu_tensor *pair_pack,
+        uint64_t                row_bytes,
+        uint64_t                expert_bytes,
+        uint64_t                block_bytes,
+        uint32_t                rows,
+        const int32_t          *experts,
+        uint32_t                n_experts,
+        uint32_t                iterations,
+        int                     pair_layout);
+
+int ds4_gpu_routed_pack_gate_up_pair_compute_test(
+        const ds4_gpu_tensor *gate_major,
+        const ds4_gpu_tensor *up_major,
+        const ds4_gpu_tensor *pair_pack,
+        uint64_t                row_bytes,
+        uint64_t                expert_bytes,
+        uint64_t                block_bytes,
+        uint32_t                rows,
+        const int32_t          *experts,
+        uint32_t                n_experts,
+        uint32_t                iterations,
+        float                   clamp);
+
+int ds4_gpu_routed_pack_down_compute_test(
+        const ds4_gpu_tensor *expert_major,
+        const ds4_gpu_tensor *row_major,
+        uint64_t                row_bytes,
+        uint64_t                expert_bytes,
+        uint32_t                rows,
+        const int32_t          *experts,
+        uint32_t                n_experts,
+        uint32_t                iterations);
+
+int ds4_gpu_q8_aligned_bench(
+        const ds4_gpu_tensor *original,
+        const ds4_gpu_tensor *aligned,
+        uint64_t                in_dim,
+        uint64_t                out_dim,
+        uint64_t                block_stride,
+        uint32_t                iterations);
+
+int ds4_gpu_q8_soa_bench(
+        const ds4_gpu_tensor *original,
+        const ds4_gpu_tensor *scales,
+        const ds4_gpu_tensor *quants,
+        uint64_t                in_dim,
+        uint64_t                out_dim,
+        uint32_t                iterations);
+
+int ds4_gpu_q8_hc_expand_cache_bench(
+        const void             *model_map,
+        uint64_t                model_size,
+        uint64_t                weight_offset,
+        uint64_t                in_dim,
+        uint64_t                out_dim,
+        uint32_t                n_embd,
+        uint32_t                n_hc,
+        uint32_t                iterations);
+
+int ds4_gpu_attention_output_a_cache_bench(
+        const void             *model_map,
+        uint64_t                model_size,
+        uint64_t                out_a_offset,
+        uint64_t                group_dim,
+        uint64_t                rank,
+        uint32_t                n_groups,
+        uint32_t                iterations);
 
 /* =========================================================================
  * Hyper-Connection Kernels.
