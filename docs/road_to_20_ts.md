@@ -19,11 +19,10 @@ Branch: `gx10-cuda-graph-decode` (pushed to fork `origin`, never to upstream).
   t/s** on the 64-token prime prompt; adding `DS4_MOE_ACTIVE_EXPERTS_RENORM=1`
   measured **21.41-21.44 t/s**. A later coding smoke found K=3 + renorm also
   holds roughly **20.1-20.3 t/s** in the server decode logs, with much better
-  code-format discipline than K=2. The best current coding smoke is a per-layer
-  profile: K=6 on layers 0-2, K=3 + renorm everywhere else. It passed **4/4**
-  coding tasks while holding **~20.0 t/s** in server decode logs. These modes
-  are not equivalent to the full model: they use fewer routed experts than
-  top-6 in most decode layers.
+  code-format discipline than K=2. The per-layer profile K=6 on layers 0-2 and
+  K=3 + renorm elsewhere passed the first 4-task smoke, but a 12-task coding
+  eval at **ctx=256000** showed regressions relative to full K=6. These modes
+  are therefore diagnostics/quality tradeoffs, not the default path.
 - **Phase 4 (CUDA Graph) complete**: capture, dec-kernel infrastructure, and
   `cudaGraphExecUpdate`-based cached exec all working and bit-equivalent to
   direct mode. Does **not** improve wall-clock — see "Why graph capture did
@@ -37,23 +36,137 @@ Branch: `gx10-cuda-graph-decode` (pushed to fork `origin`, never to upstream).
   MTP HC function tensors as F16 even though the MTP tensors are F32. This
   produced NaNs before attention. The CUDA HC pre-norm path now handles both
   F16 base tensors and F32 MTP tensors correctly.
-- **MTP speculative decode still does not beat baseline.** With draft=2 the
-  verifier is now down to ~103-109 ms after Q8 microbatch fixes, and MTP lands
-  around 13.8 t/s despite good acceptance. The remaining cost is structural:
-  one normal target decode, two MTP draft-head calls, and a target verifier.
+- **MTP speculative decode has a quality-first candidate, but still does not
+  beat baseline.** Router-exact + K2 body with
+  `DS4_MTP_BATCH_MARGIN_GUARD=0.25` scored **10/12** on the 12-task coding eval
+  at `ctx=256000`, same two persistent failures as no-MTP/full-K, **15.90
+  t/s** suite-sum and **16.78 t/s** server decode-only in the warmed run.
+  Adding guarded partial-prefix commit,
+  `DS4_MTP_CAPTURE_PREFIX1=1 DS4_MTP_CAPTURE_PREFIX1_MIN_MARGIN=2.0`, also
+  scored **10/12** in two full-suite runs and improved the first suite-sum to
+  **16.42 t/s** by reducing exact replay cost. The second repeat kept the same
+  failures but measured **15.16 t/s** because the first task was cold/slow and
+  `parse_duration` generated a longer answer. The current best MTP variant adds
+  `DS4_MTP_DRAFT2_SKIP_MIN_MARGIN=2.0`, which scored **10/12** twice with the
+  same failures and measured **16.87** and **16.82 t/s**. Pure
+  `DS4_MTP_CAPTURE_PREFIX1=1` is rejected for now: it was faster (**16.67
+  t/s**) but regressed quality to **9/12** with an extra `parse_duration`
+  failure.
+- **2026-05-21 MTP/output-projection probes did not change the recommendation.**
+  A narrow `attn_output_b` batch2 SoA switch passed full coding quality
+  (**10/12**, same failures) and reached **16.87 t/s** warmed, effectively tied
+  with draft2-skip but not better. A fresh no-MTP graph+SoA warm comparison also
+  scored **10/12** at **16.83 t/s** on the same harness, with steadier server
+  decode chunks around **17.4-17.9 t/s**. A targeted `attn_output_b`
+  F16/cuBLAS decode probe was also neutral/slower in the intrusive stage
+  profile, so the remaining gap to 20 is still in exact decode kernel
+  throughput, not MTP orchestration or a simple F16-cache switch.
+- **The 20 t/s target is low-resident-context server decode, not a nearly full
+  256k window.** The production server still allocates `--ctx 256000`, but the
+  expected win condition is the beginning of an agent/coding session, followed
+  by normal context-length degradation. On the current exact SoA+graph path,
+  a prompt-minimal non-thinking server request at `ctx=256000` measured
+  **18.09 t/s avg** for 128 generated tokens, and the matching CLI top-only
+  path measured **18.06-18.42 t/s**. The remaining full-quality gap to 20 t/s
+  is therefore about **10-11%** on low-context decode.
 - **For full-quality decode, the closest route is still normal no-MTP decode.**
   The third pass found small default wins in the Q/KV projection path and shared
   expert gate/up path, but also ruled out several tempting "spend more memory
-  for speed" ideas. The remaining full-quality gap to 20 t/s is about 5-6
-  ms/token, not a launch or graph issue.
+  for speed" ideas. The remaining gap is not a launch or graph issue.
+- **`ctx=256k` allocated is not the same as 256k tokens resident.** A 12.5k
+  prompt with `--ctx 256000` still measures around **20.28 t/s** in CLI graph
+  token-profile mode, but a real 250k-token prompt drops to **9.41 t/s** with
+  default SoA. The long-context profile shifts the bottleneck from MoE/Q8-only
+  thinking to attention plus indexer: at `pos=250566`, `attention` is
+  **31.43 ms/token** and `compressor_indexer` is **27.23 ms/token** over the
+  layer stack. Exact 20 t/s at a nearly full 256k context is therefore a
+  different and harder problem than 20 t/s at short or medium effective
+  context.
+- **Fresh upstream baseline is materially lower.** A separate worktree at
+  `upstream/main` commit `c9dd949` (`cuda: fix compressed prefill RoPE
+  positions`) was built with `make cuda-spark` and measured on the same
+  8192/64 `ds4-bench` prompt. It produced **13.58 t/s**, then **13.39 t/s**
+  on a repeat with `DS4_CUDA_GRAPH_DECODE=1` in the environment. The current
+  branch baseline is therefore not just SoA: the pre-existing CUDA decode work
+  already moved the bench to **15.27 t/s** before the new SoA A+B opt-in.
+- **Hot-expert cache was measured, not assumed.** A new device-side
+  `DS4_MOE_EXPERT_STATS=1` profiler records expert IDs and prev-token overlap.
+  On the 12-task coding suite at ctx=256k, a per-layer top64 hot set covered
+  only **76.7%** of selected experts when learned globally, while the oracle
+  per-request top64 upper bound was **87.0%**. Prev-token overlap averaged
+  **1.88/6 experts**. Static or rolling hot caches are not enough unless the
+  hot path is roughly 2x faster, which is unlikely if it still reads the same
+  quantized bytes.
+- **Native routed-pack smoke reached real compute tests and produced useful
+  negative results.** Byte-for-byte one-layer gate/up/down packs work under the
+  memory cap, and block-level gate/up pairing looked +8.1% in a raw read
+  microbench. The real `decode_lut_qwarp32` compute test was bit-exact but
+  much slower: paired block-pack was **0.466x** the current separate layout,
+  and a K=6 multi-expert shared-xq/LUT kernel was **0.681x**. A down-projection
+  row-major compute test was also bit-exact but only **0.859x** the current
+  expert-major layout. Do not promote these layouts; the qwarp
+  lane-contiguous block stream is more important than simple expert adjacency.
+- **Several further exact micro-ideas were ruled out.** `DS4_CUDA_MOE_DOWN_SUM6_PARALLEL=1`
+  did not improve the small down kernel; `DS4_CUDA_MOE_DECODE_GATE_SPAN`
+  variants around the current 128-row gate/up shape regressed; H16, no-aux, and
+  pair2 decode gate/up probes were byte-identical or structurally exact but
+  slower; fused gate/up-to-midq removed a launch but `midq` was too small to
+  matter; row4 down-sum grouping was byte-identical but slower; and a dense Q8
+  aligned pack (`DS4_CUDA_Q8_ALIGN_SMOKE=1`) was exact but slower because
+  padding bytes cost more than aligned loads save.
+- **One exact memory-for-speed path finally moved a real kernel.** A Q8 SoA
+  cache for `attn_output_a/b` (`DS4_CUDA_Q8_SOA_CACHE=1`) stores scales and
+  quant bytes separately, keeping the same 34 logical bytes per block while
+  letting the kernel use aligned weight loads. The one-layer microbench is
+  **1.081x** faster for A and **1.123x** faster for B; the 8192/64
+  `ds4-bench` smoke improved from **15.27** to **15.82-15.88 t/s** across
+  repeat runs. It costs about **2.86 GiB** for all 43 attention-output-A/B
+  tensors, passed a `--ctx 256000` smoke, and `cmp` returned 0 on stored
+  coding-prompt logprob JSON. Server graph smoke at 8192/64 reached
+  **18.18 t/s avg** on the prime-list prompt. After the later MoE H16/no-aux
+  probes were made opt-in only, the same 8192/64 `ds4-bench` control still
+  measured **15.84 t/s**, confirming the speed path stayed in the expected
+  band. A first 12-task coding eval at `ctx=256000` found **9/12** for SoA
+  A+B vs **10/12** for the current no-SoA full-K control, but the follow-up
+  isolated the extra `flatten_dict` failure and found greedy run-to-run
+  sensitivity even on the no-SoA path. Repeated production-context evals then
+  cleared the suspected SoA-specific quality loss: no-SoA, default SoA, and
+  B-forced SoA all measured **30/36** on 12 tasks x 3 repeats at
+  `ctx=256000`, with the same two persistent failures (`lru_cache`,
+  `parse_csv_line`) and `flatten_dict` at **3/3** in every mode. Default SoA
+  was fastest in that protocol: server final-decode average **17.91 t/s** vs
+  **17.40 t/s** no-SoA and **17.68 t/s** B-forced.
+- **`ds4-eval` has now been added as a small extra sanity gate.** The main
+  quality gate for the 20 t/s work remains coding-oriented eval plus
+  deterministic logprob comparison, because that is the user workload. A quick
+  `ds4-eval` smoke on the SoA A+B speed path, `--questions 2 --tokens
+  512 --nothink --plain --warm-weights`, passed **2/2**. A full default
+  `ds4-eval` run is much longer: it is a 92-question GPQA/SuperGPQA/AIME/COMPSEC
+  integration suite with a default 16k token budget per question.
+- **Several larger SoA extensions were measured and deliberately not promoted.**
+  `attn_q_b` was strong in isolation (**1.167x**) but did not improve the
+  full decode (`15.81 t/s`). `attn_q_a/attn_kv` were also strong in isolation
+  (**1.250x** and **1.330x**) but the fused pair path regressed to **15.69
+  t/s**. SoA+shared-activation-cache was noisy (**15.96**, then **15.65
+  t/s**). Shared-expert SoA fit in memory (**3.93 GiB** total SoA cache) and
+  passed 256k, but was neutral (**15.83 t/s**) and changed logit JSON at the
+  ~1e-6 level, so it remains experimental.
+- **Long-context attention shortcuts produced speed but failed the quality
+  gate.** Forcing the existing WMMA indexer-score path for one-token decode
+  regressed 250k decode (**8.20 t/s**). A one-token heads8 attention route
+  improved 250k decode to **9.66 t/s**, and a narrower parallel-dot variant
+  reached **10.50 t/s**, but both changed the greedy token on a 12.5k-token
+  logprob check at generation step 1 (`" disp"` -> `" hai"`). They remain
+  diagnostics, not full-quality candidates. Two exact-shaped follow-ups did
+  not open the path either: larger heads8 online row stages were neutral or
+  slower, and a pair2 indexer score kernel changed the greedy sequence.
 - **Outside-the-box shortcuts were tested.** Server greedy top-only avoids
   full logits readback but is neutral, because exact argmax still has to scan
   the full output head. A direct exact output-head top1 kernel was also slower
   than the existing full-logits Q8 path in server A/B, so it is opt-in only
   (`DS4_CUDA_OUTPUT_TOP1=1`). Reduced active MoE experts is the first shortcut
-  that actually crosses 20 t/s in the server path. K=2 is fastest but visibly
-  degraded on coding; the current practical candidate is the layer-profiled
-  K6/K3 mode.
+  that actually crosses 20 t/s in the server path, but the broader coding eval
+  says it is not quality-preserving.
 
 ## Hardware and model context
 
@@ -726,14 +839,791 @@ command above omits it, so this should be a lower-bound speed measurement. This
 is the first result in this log that meets the 20 t/s goal and improves the
 small coding smoke over both full K=6 and uniform K=3.
 
+### Long-context reality check at ~250k resident tokens
+
+This section is a stress test, not the primary 20 t/s target. The clarified
+target is **~20 t/s at the start of a session with `--ctx 256000` allocated**;
+normal degradation as resident context grows is acceptable. The 250k frontier
+is still useful because it exposes which ideas only work by changing attention
+or indexer numerics, but it should not be used as the pass/fail bar for the
+20 t/s effort.
+
+The earlier `ctx=256000` coding and server tests allocate the production
+context size, but most prompts in that suite do not fill it. A separate
+frontier test used a truncated `promessi_sposi.txt` prompt with **250558**
+raw tokens (`/tmp/ds4-promessi-790k.txt`) and measured decode at a **250000**
+token frontier:
+
+```sh
+DS4_CUDA_GRAPH_DECODE=1 \
+DS4_CUDA_Q8_SOA_CACHE=1 \
+DS4_METAL_GRAPH_TOKEN_PROFILE=1 \
+./ds4-bench --cuda -m ds4flash.gguf \
+  --prompt-file /tmp/ds4-promessi-790k.txt \
+  --ctx-start 250000 --ctx-max 250000 --ctx-alloc 256000 \
+  --step-incr 1 --gen-tokens 16 \
+  --csv /tmp/ds4-bench-soa-graph-ctx250k.csv
+```
+
+Result:
+
+```text
+ctx_tokens,prefill_tokens,prefill_tps,gen_tokens,gen_tps,kvcache_bytes
+250000,250000,233.33,16,9.41,3464990668
+```
+
+The per-token graph profile averaged about **105.88 ms/token** at positions
+250000-250015. By contrast, the same 12.5k-token prompt at `--ctx 256000`
+measured **20.28 t/s** in CLI generation reporting and ~65.7 ms average
+graph-token total. The allocation itself is not the problem: the real number
+of resident KV/compressed rows is.
+
+The non-graph stage profile at `pos=250566` is compatible with the graph token
+time and shows the new bottleneck:
+
+| Decode stage | Stack over 43 layers |
+|---|---:|
+| `attention` | **31.427 ms** |
+| `compressor_indexer` | **27.232 ms** |
+| `routed_moe` | **16.081 ms** |
+| `attn_output` | **14.066 ms** |
+| `q_path` | **9.269 ms** |
+| shared expert gate/up/down | **6.391 ms** |
+
+Inside the ratio-4 indexer at `comp=62641`:
+
+| Indexer substage | Stack over 21 ratio-4 layers |
+|---|---:|
+| `decode_score` | **17.289 ms** |
+| `decode_topk` | **4.170 ms** |
+| `decode_attention` | **4.160 ms** |
+
+The prefill indexer profile also scales linearly with compressed rows:
+`score` grew from ~2.8 ms/chunk/layer at `pos=2048` to ~191.5
+ms/chunk/layer at `pos=247808`; `topk` grew from ~0.5 to ~51.6 ms. This
+does not directly set decode speed, but it confirms that long-context indexer
+cost is fundamentally proportional to compressed-row count.
+
+Three one-token long-context attention/indexer probes were measured:
+
+| Probe | Switch | 250k gen t/s | Quality/logprob result |
+|---|---|---:|---|
+| Force one-token indexer score through the existing WMMA batch path | `DS4_CUDA_NO_INDEXER_DIRECT_ONE=1` | **8.20** | Slower; not pursued. |
+| Route one-token decode attention through the heads8 online kernels | `DS4_CUDA_DECODE_HEADS8_ATTENTION=1` | **9.66** | Changed the greedy token at step 1 on the 12.5k logprob check (`" disp"` -> `" hai"`). |
+| Parallelize only the one-token attention dot, keeping the existing score-buffer softmax/value pass | `DS4_CUDA_DECODE_PARALLEL_ATTENTION_DOT=1` | **10.50** | Also changed the greedy token at step 1 (`" disp"` -> `" hai"`). |
+| Increase the online heads8 row stage size from 4 to 8 rows | `DS4_CUDA_DECODE_HEADS8_ROWS=8` | **9.47** | Same checksum at 250k, but only +0.06 t/s; a 64k proxy showed it slower than default. |
+| Pair two compressed rows per one-token indexer-score block | `DS4_CUDA_INDEXER_DIRECT_ONE_PAIR2=1` | not benchmarked | Failed the 12.5k logprob gate; greedy diverged from step 1. |
+
+The dot-parallel flag is the best speed probe so far for long context
+(~**+11.6%** over the 9.41 t/s control), but it is not quality-preserving
+under the current bar because changing the dot summation order is enough to
+flip close logits. It should remain a diagnostic only. The default quality path
+therefore stays exact SoA; getting near 20 t/s at a genuinely full 256k context
+needs either an exact attention/indexer redesign that preserves numeric
+behavior, or a verifier/fallback scheme that can prove fast-path agreement
+before committing tokens.
+
+Because a full 250k resident-context benchmark costs roughly 18 minutes of
+prefill on this machine, row-stage tuning was also checked on a shorter
+resident-context proxy. A `/tmp/ds4-promessi-205k.txt` prompt contains 65482
+raw tokens and was measured at `ctx-start=64000`, enough to exercise the
+long-context online attention fallback:
+
+| Online heads8 row stage | 64k gen t/s | Avg graph-token total | Checksum |
+|---|---:|---:|---:|
+| default 4 rows | **13.55** | **73.451 ms** | 904891788 |
+| 8 rows | **13.43** | 74.088 ms | 904891788 |
+| 16 rows | **13.36** | 74.506 ms | 904891788 |
+
+The row-stage idea is therefore behavior-stable but not a performance lever.
+The pair2 indexer idea was more aggressive and looked exact-shaped on paper,
+but in practice changed the selected tokens (`48076,11062,...` became
+`48076,41995,...`), so it is rejected for quality-sensitive coding use.
+
+After the target clarification, the low-context exact baseline was remeasured
+with the production allocation:
+
+| Mode | Context allocation | Resident prompt | Tokens | Decode result |
+|---|---:|---:|---:|---:|
+| CLI top-only, SoA+graph | 256000 | 25 tokens | 256 | **18.06 t/s** |
+| CLI top-only, SoA+graph + graph-token profile | 256000 | 25 tokens | 128 | **18.42 t/s** reported, ~18.28 t/s by token totals |
+| Server `/v1/completions`, `deepseek-chat`, SoA+graph | 256000 | 25 tokens | 128 | **18.09 t/s avg** |
+| `ds4-bench`, full-logits greedy | 256000 | 2048 tokens | 128 | **16.47 t/s** |
+| `ds4-bench`, full-logits greedy | 256000 | 8192 tokens | 128 | **15.99 t/s** |
+
+The 20 t/s work should optimize the first three rows. `ds4-bench` remains
+useful as a stable primitive benchmark, but it reads full logits every token and
+is stricter than the top-only/server target path.
+
+Follow-up low-context checks after the target clarification:
+
+| Probe | Result |
+|---|---:|
+| CLI SoA+graph repeat, 128 tokens | **18.47 t/s** |
+| Force `attn_output_b` through generic SoA decode | **18.45 t/s** |
+| Add `attn_q_b` SoA cache | **18.38 t/s** |
+| Add `attn_q_a/attn_kv` SoA cache | **18.37 t/s** |
+| Disable decode MoE LUT gate | **15.98 t/s** |
+| Server SoA+graph repeat, 128 tokens | **17.93 t/s avg** |
+| Server SoA+graph + direct output top1 | **18.08 t/s avg** |
+
+These keep the target honest: the remaining gap is not in the already-tested
+Q8 SoA extension flags, and direct output top1 is at best a small/noisy server
+win, not the missing 10%.
+
+Hardware state during a 256-token low-context run was also sampled. The GPU was
+in P0 and about 91-95% utilized, but SM clocks stayed around **2457 MHz** while
+`nvidia-smi -q` reports a **3003 MHz** max clock. Power draw was about **43 W**
+and GPU temperature about **54-55 C**. A later privileged clock-lock attempt
+accepted `sudo nvidia-smi -lgc 3003,3003`, but a real decode run still stayed
+at **2476 MHz** under load and measured **17.92 t/s**, effectively unchanged.
+On this GB10/driver stack, `nvidia-smi` clock lock alone is therefore not an
+available route to the missing 10%.
+
+### Extended coding eval at ctx=256k
+
+The 4-task smoke was too small. A 12-task eval (`tuning/coding_eval_extended.py`)
+was run through the server at `--ctx 256000`, `--tokens 1000`, `temperature=0`.
+It adds common coding-agent tasks: grouping anagrams, flattening nested dicts,
+sliding windows, bracket validation, CSV parsing, topological sort, edit
+distance, and binary-search bounds.
+
+| Mode | ctx | Unit tests | Server decode logs | Failures |
+|---|---:|---:|---:|---|
+| Full K=6 | 8192 | 10/12 | ~17.5 t/s | `lru_cache`, `parse_csv_line` |
+| K=6 on layers 0-2, K=3 + renorm elsewhere | 8192 | 10/12 | ~20.0 t/s | `merge_intervals`, `parse_csv_line` |
+| Full K=6 | 256000 | 10/12 | ~17.5 t/s | `lru_cache`, `parse_csv_line` |
+| K=6 on layers 0-2, K=3 + renorm elsewhere | 256000 | 10/12 | ~20.0 t/s | `parse_duration`, `parse_csv_line` |
+| Current no-SoA full K=6 control | 256000 | 10/12 | ~17.1-17.5 t/s | `lru_cache`, `parse_csv_line` |
+| SoA A+B full K=6 (`DS4_CUDA_Q8_SOA_CACHE=1`) | 256000 | 9/12 single sample | ~17.8-17.9 t/s | `lru_cache`, `flatten_dict`, `parse_csv_line` |
+| Current no-SoA full K=6, repeated | 256000 | 30/36 | 17.40 t/s final-decode avg | `lru_cache` 0/3, `parse_csv_line` 0/3 |
+| SoA default full K=6, repeated | 256000 | 30/36 | 17.91 t/s final-decode avg | `lru_cache` 0/3, `parse_csv_line` 0/3 |
+| SoA B-forced full K=6, repeated | 256000 | 30/36 | 17.68 t/s final-decode avg | `lru_cache` 0/3, `parse_csv_line` 0/3 |
+
+Takeaway: same pass count is not enough. The layer-profile mode regressed
+tasks that full K=6 passed (`merge_intervals` at 8k, `parse_duration` at
+256k). It also passed `lru_cache` where full K=6 failed, which means the
+reduced-K mode changes behavior rather than being a harmless acceleration.
+With the quality constraint, this mode should stay opt-in only.
+
+Fresh SoA controls on 2026-05-19 first looked like a second quality warning:
+the SoA A+B path still passed the short byte-identical logprob check and gave a
+real speed gain, but the 12-task coding eval at `ctx=256000` dropped from
+**10/12** to **9/12**. The new failure was `flatten_dict`: no-SoA + graph
+generated a harness-passing solution, while SoA generated a valid-looking
+normal-Python solution that used `type(...)` inside an error message; the eval
+harness exposes a restricted builtin set and therefore raised `NameError`.
+
+A first direct logprob dump on that prompt showed the first selected token
+divergence at generation step 23:
+
+```text
+no-SoA: selected ' must'   logit=42.7325974 logprob=-0.585161805
+SoA:    selected ' cannot' logit=42.6642227 logprob=-0.668570459
+```
+
+The competing logits were close and swapped order (`' cannot'` was second for
+no-SoA at logit 42.502327; `' must'` was second for SoA at logit 42.6130142).
+The textual fork was only an error string (`"Separator must..."` vs
+`"Separator cannot..."`).
+
+The follow-up changed the interpretation. A fresh no-SoA run after rebuild also
+selected `' cannot'` at the same step, so the earlier no-SoA/SoA diff was not a
+clean SoA-only delta. Two no-SoA runs with `DS4_CUDA_FORCE_ORDERED_F16_MATMUL=1`
+still differed (`"Separator must..."` vs `"Separator cannot..."`), and two
+no-SoA `--quality` runs also diverged later in the same prompt. The prompt sits
+on a close-logit boundary where greedy CUDA decode is not bit-stable enough for
+a single-answer verdict.
+
+Targeted server repeats at `ctx=256000` therefore used pass rate instead of
+single-run text equality. On the same `flatten_dict` task, no-SoA passed **8/8**
+with client-observed throughput **15.30-16.20 t/s** and server decode logs
+around **17.0-17.1 t/s**. SoA A+B passed **8/8** with client-observed
+throughput **15.93-16.51 t/s** and server decode logs around
+**17.35-17.47 t/s**. At that stage, SoA was not cleared as full-quality by the
+short `cmp=0`, but it was also not convicted by the single 9/12 sample. The
+correct gate became repeated coding eval at production context.
+
+That full repeated gate was then run:
+
+```sh
+DS4_CUDA_GRAPH_DECODE=1 \
+./ds4-server -m ds4flash.gguf --ctx 256000 \
+  --host 127.0.0.1 --port 8130 --tokens 1000
+
+python3 tuning/coding_eval_extended.py \
+  --base-url http://127.0.0.1:8130 \
+  --label no_soa_graph_repeat3_ctx256k_20260519 \
+  --out-dir /tmp/ds4-repeat-quality \
+  --max-tokens 1000 \
+  --repeat 3
+```
+
+And repeated for default SoA (`DS4_CUDA_Q8_SOA_CACHE=1`) and B-forced SoA
+(`DS4_CUDA_Q8_SOA_CACHE=1 DS4_CUDA_Q8_SOA_ATTN_OUTPUT_B_DECODE=1`). Results:
+
+| Mode | Passes | Client t/s avg | Server final-decode avg | Per-task failures |
+|---|---:|---:|---:|---|
+| no-SoA graph | 30/36 | 16.06 | 17.40 | `lru_cache` 0/3, `parse_csv_line` 0/3 |
+| SoA default graph | 30/36 | 16.51 | 17.91 | `lru_cache` 0/3, `parse_csv_line` 0/3 |
+| SoA B-forced graph | 30/36 | 16.31 | 17.68 | `lru_cache` 0/3, `parse_csv_line` 0/3 |
+
+All other tasks were **3/3** in all three modes, including `flatten_dict`.
+This is the strongest quality result so far for default SoA: it improves
+throughput in the production-context coding harness without a measured pass-rate
+regression. It is still not enough to reach 20 t/s, but it is no longer merely
+a risky speed-only experiment.
+
+The eval harness now supports that gate directly:
+
+```sh
+python3 tuning/coding_eval_extended.py \
+  --base-url http://127.0.0.1:8128 \
+  --label soa_ab_flatten_repeat_ctx256k \
+  --out-dir /tmp/ds4-soa-coding-eval \
+  --max-tokens 1000 \
+  --only flatten_dict \
+  --repeat 8
+```
+
+`--only` accepts comma-separated task ids and can be passed multiple times.
+Omit it for full-suite repeats; for example `--repeat 3` runs 36 coding
+requests and reports both global pass count and per-task pass totals in JSON.
+
+### Expert locality probe for no-sacrifice cache ideas
+
+To test the "execute all 6 experts faster" idea, `DS4_MOE_EXPERT_STATS=1`
+records selected routed expert IDs on device after top-6 routing. It adds no
+host synchronization during decode and reports at request end. Optional
+`DS4_MOE_EXPERT_STATS_DUMP=/tmp/file.csv` writes per-request
+`seq,layer,expert,count` rows. `tuning/moe_expert_stats.py` summarizes the CSV
+and server log.
+
+Run used:
+
+```sh
+DS4_CUDA_GRAPH_DECODE=1 \
+DS4_MOE_EXPERT_STATS=1 \
+DS4_MOE_EXPERT_STATS_DUMP=/tmp/ds4-moe-temporal-stats.csv \
+./ds4-server -m ds4flash.gguf --ctx 256000 \
+  --host 127.0.0.1 --port 8121 --tokens 1000
+
+python3 tuning/coding_eval_extended.py \
+  --base-url http://127.0.0.1:8121 \
+  --label ext_k6_temporal_ctx256k \
+  --out-dir /tmp/ds4-moe-temporal-eval \
+  --max-tokens 1000
+
+python3 tuning/moe_expert_stats.py \
+  --csv /tmp/ds4-moe-temporal-stats.csv \
+  --log /tmp/ds4-moe-temporal-server.log
+```
+
+Quality remained the same as the full-K baseline: **10/12** passed, failures
+`lru_cache` and `parse_csv_line`. The profiler covered ~2970 generated tokens
+across 12 coding requests.
+
+Static per-layer hot-set coverage, learned over the whole coding run:
+
+| Hot experts/layer | Selected-expert coverage |
+|---:|---:|
+| 4 | 20.1% |
+| 8 | 31.0% |
+| 16 | 44.4% |
+| 32 | 59.5% |
+| 64 | 76.7% |
+| 96 | 86.6% |
+| 128 | 92.8% |
+
+Even an oracle per-request hot set is limited:
+
+| Hot experts/layer | Mean | Min | Max |
+|---:|---:|---:|---:|
+| 16 | 53.0% | 47.0% | 60.9% |
+| 32 | 70.3% | 63.6% | 78.1% |
+| 64 | 87.0% | 80.3% | 92.8% |
+
+Worst aggregate layers remain the early router layers:
+
+| Hot set | Weakest layers |
+|---|---|
+| top16 | L01 17.3%, L00 17.9%, L02 19.6%, L37 29.8% |
+| top32 | L01 30.0%, L00 31.1%, L02 32.9%, L35 46.5% |
+| top64 | L00 50.4%, L01 50.9%, L02 51.7%, L35 67.0% |
+
+Temporal locality is also weak. Overlap between the current top-6 and the
+previous token's top-6 in the same layer averaged **1.88/6** experts, or
+**31.3%** selected-expert hit rate:
+
+| Overlap count | Share of layer/token transitions |
+|---:|---:|
+| 0 | 21.3% |
+| 1 | 22.1% |
+| 2 | 22.7% |
+| 3 | 19.2% |
+| 4 | 11.0% |
+| 5 | 3.5% |
+| 6 | 0.3% |
+
+The memory picture matters. In this GGUF, routed expert tensors are about
+**72.56 GiB** of the **80.76 GiB** model file:
+
+| Routed tensor group | Size |
+|---|---:|
+| `ffn_gate_exps` | 22.17 GiB |
+| `ffn_up_exps` | 22.17 GiB |
+| `ffn_down_exps` | 28.22 GiB |
+
+A duplicate all-expert hot cache is impossible inside the 110 GiB steady-state
+budget. A static top64/layer cache would still miss about one quarter of expert
+weight reads and would need an implausibly large hot-path speedup to close the
+full 5-6 ms/token gap by itself. The only cache-shaped idea that still looks
+worth exploring is **not** a hot subset: it is replacing the original routed
+tensor cache with an all-expert native layout, so memory stays roughly flat
+instead of duplicating 72 GiB.
+
 ## Open avenues for the next session
 
 In rough order of effort vs likely payoff:
 
-### 1. Validate layer-profiled reduced-K coding mode (highest immediate payoff)
+### 1. Native routed-expert pack, replacing the GGUF layout (open, but not naive)
 
-The best current coding candidate is K=6 on layers 0-2 and K=3 + renorm on all
-other layers:
+Hot-subset caching does not have enough locality. The remaining no-sacrifice
+MoE idea is to repack **all** routed expert tensors into a CUDA-native layout
+at startup and stop caching the original routed GGUF spans. This preserves all
+six experts and all quantized values, but changes memory layout so the decode
+kernels can read more coalesced, prearranged blocks.
+
+Important constraint: do not duplicate the routed tensors. They are 72.56 GiB,
+so the implementation must either:
+
+- skip startup CUDA range-cache preload for `ffn_gate_exps`, `ffn_up_exps`,
+  and `ffn_down_exps` when native-pack mode is enabled; then build native packs
+  from the CPU mmap, or
+- build packs first and teach routed MoE kernels to use pack pointers instead
+  of `cuda_model_range_ptr()` for those tensors.
+
+This is a real kernel/data-layout project, not an env-toggle experiment. To
+reach 20 t/s from ~17.6 t/s by improving routed MoE alone, the routed path
+needs to save about **6.8 ms/token**, roughly **43%** of the current routed MoE
+budget. With 100% routed coverage that means the native layout must make the
+routed path about **1.8x faster**. This is ambitious, but it attacks the actual
+bottleneck without changing model behavior.
+
+#### Upstream/fork reconnaissance for this direction
+
+Before writing the native pack, upstream and the public fork graph were checked
+to avoid duplicating existing work. GitHub reports 881 forks of `antirez/ds4`;
+875 public forks were accessible through the API, with 1187 branch heads and
+316 unique head commits. No branch found implements the exact path proposed
+here: a CUDA-native, all-routed-expert pack that replaces the original routed
+GGUF ranges while preserving all six experts and all quantized values.
+
+Closest branches found:
+
+| Area | Branches | What it tells us |
+|---|---|---|
+| Upstream | `antirez/ds4` `main`, `rocm`, `responses-api` | No native routed pack. CUDA routed MoE still reads model-range-backed GGUF spans. |
+| Expert sharding / streaming | `mirkodandrea/ds4` `moe-expert-sharding`, `speculative-shared-expert`; `Haimrich/ds4` `stream_experts` | Useful as tensor-enumeration and residency thinking, but moves experts to CPU/TCP or streaming paths. This solves memory, not GB10 decode speed. |
+| Partial CUDA cache / CPU-GPU hybrid | `ddxxlao/ds4` `codex/cuda-partial-weight-cache`, `codex/cpu-gpu-hybrid-inference` | Good small-VRAM strategy. It intentionally avoids full residency, so it is the wrong trade-off for a stable 110 GiB GB10 server. |
+| Q4 cache / batching | `ngc-shj/ds4` `perf/q4-only`, `perf/batched-decode-poc` | Strong confirmation that decode is weight-bandwidth-bound and layout/cache can move tok/s materially. Not exact for us because it changes dense-weight numeric format and does not solve routed IQ2/Q2 packing. |
+| MoE microkernels | `berschmitt/ds4` `codex/moe-decode-h16-lut`, `codex/moe-decode-gate-pair2`; `amarrmb/ds4` `cuda-moe-down-tile8-rowspan` | Useful kernel shapes and A/B toggles, but they operate inside the existing GGUF-oriented layout. |
+| Q2/MoE primitive plans | `cghart/ds4` `cuda-gb10-q2-foundation` | Useful correctness-harness and primitive-test ideas, not a production replacement cache. |
+| Other adjacent work | `adis-b/ds4-64gb` sparse residency/sub-2bit, tensor-parallel branches, KV-fp16 branches | Not the no-quality-loss 20 t/s path for this machine. |
+
+Strategic result: this route is open territory. The useful things to borrow
+are the split/enumeration discipline from the sharding forks, the
+layout-is-the-lever lesson from `ngc-shj`, and the decode MoE microkernel
+experiments from `berschmitt`/`amarrmb`. The design here should stay stricter:
+all experts, exact quantized values, replacement residency rather than duplicate
+residency, and a numerical equivalence gate before enabling any server path.
+
+Immediate implementation plan:
+
+1. Add a CUDA routed-pack metadata/budget pass behind an env flag. This must
+   report gate/up/down bytes, raw replacement floor, duplicate-cache cost, and
+   compatibility of the layer tensor shapes.
+2. Add a pack descriptor that can eventually hold per-layer device pointers,
+   row/expert strides, and tensor types without changing execution yet.
+3. Pack one tensor class for one layer into a scratch native layout and compare
+   byte/row reads against the existing GGUF layout.
+4. Add a microbenchmark for selected top-6 expert access in current layout vs
+   packed layout.
+5. Add a compute-equivalence microbenchmark before routing inference through
+   any pack. Raw read bandwidth alone is not predictive enough.
+6. Only after equivalence and compute speed data, route `ds4_gpu_routed_moe_*`
+   through the pack with fallback to the current path.
+
+Phase 0 has started with:
+
+```sh
+DS4_CUDA_ROUTED_PACK_PLAN=1 \
+DS4_CUDA_ROUTED_PACK_BUDGET_GB=110 \
+./ds4-server -m ds4flash.gguf --ctx 256000 --host 127.0.0.1 --port 8121 --tokens 16
+```
+
+This is diagnostic-only. It does not allocate a native pack and does not change
+inference. The expected report is a sanity gate for the next patch: all 43
+layers must have uniform routed tensor shapes/types, the raw routed floor should
+remain about 72.56 GiB, and the duplicate-cache cost should exceed the 110 GiB
+server budget. If that report changes, stop before writing pack kernels.
+
+Observed on the GB10 with `DS4_CUDA_DIRECT_MODEL=1` and `--ctx 256000`:
+
+```text
+layers=43 compatible=43 incompatible=0
+gate=iq2_xxs 22.17 GiB, up=iq2_xxs 22.17 GiB, down=q2_k 28.22 GiB, total=72.56 GiB
+gate_row=1056, gate_expert=2162688, down_row=672, down_expert=2752512, experts=256
+tensor_total=80.76 GiB, non_routed=8.20 GiB
+replacement=80.76 GiB, duplicate=153.32 GiB, budget=110.00 GiB
+replacement_headroom=29.24 GiB, duplicate_headroom=-43.32 GiB
+```
+
+The first pack smoke is also available:
+
+```sh
+DS4_CUDA_DIRECT_MODEL=1 \
+DS4_CUDA_ROUTED_PACK_SMOKE=1 \
+./ds4 --cuda -m ds4flash.gguf --ctx 256000 -n 1 -p "test"
+```
+
+Controls:
+
+| Env | Default | Meaning |
+|---|---:|---|
+| `DS4_CUDA_ROUTED_PACK_SMOKE_LAYER` | `0` | Layer to pack. |
+| `DS4_CUDA_ROUTED_PACK_SMOKE_TENSOR` | `gate` | One of `gate`, `up`, `down`. |
+| `DS4_CUDA_ROUTED_PACK_SMOKE_LAYOUT` | `row-major` | `row-major` packs as row -> expert -> row bytes; `expert-major` preserves the GGUF order. |
+| `DS4_CUDA_ROUTED_PACK_SMOKE_LIMIT_MB` | `768` | Hard cap for this one temporary device allocation. |
+| `DS4_CUDA_ROUTED_PACK_SMOKE_CHECK_MB` | `16` | Chunk size for readback verification. |
+
+Observed at ctx=256k with direct-model weights:
+
+| Tensor | Temporary device allocation | Layout | Result |
+|---|---:|---|---|
+| `blk.0.ffn_gate_exps` | 528 MiB | row-major | Byte-for-byte verified; hash `e0a0aee60b83c1b8`. |
+| `blk.0.ffn_down_exps` | 672 MiB | row-major | Byte-for-byte verified; hash `799b7a84a2290241`. |
+
+This is the first concrete native-layout step. It deliberately allocates only
+one tensor and frees it immediately. The row-major layout is the one worth
+benchmarking next because the six selected experts for the same output row live
+close together (`expert * row_bytes`) instead of megabytes apart
+(`expert * expert_bytes`).
+
+The same smoke can run a read-only layout microbench:
+
+```sh
+DS4_CUDA_DIRECT_MODEL=1 \
+DS4_CUDA_ROUTED_PACK_SMOKE=1 \
+DS4_CUDA_ROUTED_PACK_SMOKE_BENCH=1 \
+DS4_CUDA_ROUTED_PACK_SMOKE_BENCH_ITERS=200 \
+./ds4 --cuda -m ds4flash.gguf --ctx 256000 -n 1 -p "test"
+```
+
+It allocates two temporary copies of the selected tensor: current
+expert-major and row-major. The combined allocation is capped by
+`DS4_CUDA_ROUTED_PACK_SMOKE_BENCH_LIMIT_MB` (default 1536 MiB).
+
+Observed:
+
+| Tensor | Expert-major read | Row-major read | Interpretation |
+|---|---:|---:|---|
+| `blk.0.ffn_gate_exps` | 756.8 GiB/s | 737.9 GiB/s | Row-major is not automatically faster for simple fused top-6 reads. |
+| `blk.0.ffn_down_exps` | 750.5 GiB/s | 626.4 GiB/s | Down row-major is materially worse in this naive read kernel. |
+
+This is an important negative result. Plain row-major packing alone is not the
+win. The next pack candidate should target **gate/up pairing** or a kernel shape
+that actually removes work: current gate and up are separate 22 GiB tensors
+read with the same activation row. A useful native pack may need to co-locate
+`gate(row, expert)` and `up(row, expert)`, not merely reorder experts within one
+tensor.
+
+The next smoke tests that gate/up idea directly:
+
+```sh
+DS4_CUDA_DIRECT_MODEL=1 \
+DS4_CUDA_ROUTED_PACK_PAIR_SMOKE=1 \
+DS4_CUDA_ROUTED_PACK_PAIR_SMOKE_BENCH=1 \
+DS4_CUDA_ROUTED_PACK_PAIR_SMOKE_BENCH_ITERS=400 \
+./ds4 --cuda -m ds4flash.gguf --ctx 256000 -n 1 -p "test"
+```
+
+Controls:
+
+| Env | Default | Meaning |
+|---|---:|---|
+| `DS4_CUDA_ROUTED_PACK_PAIR_SMOKE_LAYER` | `0` | Layer to pack. |
+| `DS4_CUDA_ROUTED_PACK_PAIR_SMOKE_LAYOUT` | `expert-major-pair` | `expert-major-pair`, `row-major-pair`, or `expert-major-block-pair`. |
+| `DS4_CUDA_ROUTED_PACK_PAIR_SMOKE_LIMIT_MB` | `1152` | Hard cap for the temporary paired pack. |
+| `DS4_CUDA_ROUTED_PACK_PAIR_SMOKE_BENCH_LIMIT_MB` | `2304` | Hard cap for paired pack + separate gate/up comparison tensors. |
+| `DS4_CUDA_ROUTED_PACK_PAIR_SMOKE_COMPUTE` | unset | Also run an exact synthetic gate/up/mid compute comparison. Requires `expert-major-block-pair`. |
+| `DS4_CUDA_ROUTED_PACK_PAIR_SMOKE_COMPUTE_LIMIT_MB` | `2304` | Hard cap for paired pack + separate gate/up comparison tensors. |
+| `DS4_CUDA_ROUTED_PACK_PAIR_SMOKE_COMPUTE_ITERS` | `200` | Iterations for the compute comparison. |
+
+Observed at ctx=256k:
+
+| Gate/up pair layout | Pack size | Bench result |
+|---|---:|---|
+| `row-major-pair` (`row -> expert -> gate,up`) | 1056 MiB | Worse than separate tensors: 282.8 GiB/s vs 409.2 GiB/s in the read kernel. This fights the row-parallel access pattern. |
+| `expert-major-pair` (`expert -> row -> gate row,up row`) | 1056 MiB | Neutral: 435.3 GiB/s vs 436.2 GiB/s. Co-locating whole rows alone does not move the needle. |
+| `expert-major-block-pair` (`expert -> row -> block -> gate block,up block`) | 1056 MiB | Positive in the block-ordered microbench: 140.8 GiB/s vs 130.3 GiB/s with 400 iterations, about **+8.1%**. |
+
+The block-pair result was the first positive layout signal in a raw read
+microbench, but the real compute smoke refuted it as an inference kernel
+candidate:
+
+```sh
+DS4_CUDA_DIRECT_MODEL=1 \
+DS4_CUDA_ROUTED_PACK_PAIR_SMOKE=1 \
+DS4_CUDA_ROUTED_PACK_PAIR_SMOKE_LAYOUT=expert-major-block-pair \
+DS4_CUDA_ROUTED_PACK_PAIR_SMOKE_COMPUTE=1 \
+DS4_CUDA_ROUTED_PACK_PAIR_SMOKE_COMPUTE_ITERS=200 \
+./ds4 --cuda -m ds4flash.gguf --ctx 256000 -n 1 -p "test"
+```
+
+Observed:
+
+| Compute path | Output diff vs current separate LUT path | Time, 200 iters | Effective read BW | Speedup |
+|---|---:|---:|---:|---:|
+| Current separate `decode_lut_qwarp32` | reference | 30.235 ms | 159.9 GiB/s | 1.000x |
+| Paired block-pack LUT kernel | gate/up/mid all 0 | 64.894 ms | 74.5 GiB/s | 0.466x |
+| Separate-layout multi-expert row40 LUT kernel | gate/up/mid all 0 | 44.400 ms | 108.9 GiB/s | 0.681x |
+
+Takeaway: the byte layout is exact, but block-level gate/up interleaving breaks
+the qwarp memory pattern. In the real dot-product, the eight lanes want adjacent
+IQ2 blocks for the same tensor (`66, 66, 66...` stride). The block-pair layout
+makes each lane's gate stream step by 132 bytes and then read up from the
+interleaved half, which loses coalescing. The multi-expert K=6 experiment also
+failed: sharing one xq/LUT load across all selected experts reduces block-level
+parallelism more than it saves. Both remain useful diagnostics, but neither
+should be promoted to the server path.
+
+The next native-pack suspicion was the routed down projection, because the
+current down kernel sums six selected experts for the same output row. A
+row-major layout could in theory place those six rows close together:
+
+```sh
+DS4_CUDA_DIRECT_MODEL=1 \
+DS4_CUDA_ROUTED_PACK_SMOKE=1 \
+DS4_CUDA_ROUTED_PACK_SMOKE_TENSOR=down \
+DS4_CUDA_ROUTED_PACK_SMOKE_LAYOUT=row-major \
+DS4_CUDA_ROUTED_PACK_SMOKE_COMPUTE=1 \
+DS4_CUDA_ROUTED_PACK_SMOKE_COMPUTE_ITERS=200 \
+./ds4 --cuda -m ds4flash.gguf --ctx 256000 --nothink --temp 0 -n 1 -p "test"
+```
+
+Observed:
+
+| Down compute path | Output diff vs current | Time, 200 iters | Effective read BW | Speedup |
+|---|---:|---:|---:|---:|
+| Current expert-major `sum6` | reference | 6.558 ms | 469.1 GiB/s | 1.000x |
+| Row-major `sum6` | 0 | 7.636 ms | 402.9 GiB/s | **0.859x** |
+
+This closes the naive down-layout branch too. Co-locating the selected experts
+by output row is not enough; the current expert-major stream keeps the qwarp
+block reads more efficient.
+
+This changes the native-pack hypothesis. A replacement pack is still the only
+quality-preserving memory idea that fits the 110 GiB budget, but it cannot be a
+naive row-major down pack or block-interleaved gate/up pack. Any future pack
+must preserve the qwarp lane-contiguous block stream while removing actual
+weight traffic or launch work.
+
+Additional exact probes after that result:
+
+| Probe | Switch | Result |
+|---|---|---|
+| Parallelize the six down experts inside one block | `DS4_CUDA_MOE_DOWN_SUM6_PARALLEL=1` | Exact, but no win. Steady per-layer down stayed about **0.047 ms** vs **0.045 ms** for the current serial-in-qwarp sum6 kernel. The existing down kernel is already small enough that extra block structure does not pay. |
+| Change decode gate/up row span | `DS4_CUDA_MOE_DECODE_GATE_SPAN=64/256/512` | Negative. The current 128-row block shape is the useful balance. 256 and 512 reduce parallelism too much; 64 adds noise/overhead. |
+| Align dense `q8_0` blocks by repacking 34-byte GGUF blocks to 36/40 bytes | `DS4_CUDA_Q8_ALIGN_SMOKE=1` | Exact, but slower on `blk.0.attn_output_b`: stride 36 was **0.904x**, stride 40 was **0.861x**. Half-misaligned `int32` loads are not the dominant Q8 issue; reading extra padding bytes costs more than alignment helps. |
+| Cache HC-expand activations in shared memory | `DS4_CUDA_HC_EXPAND_CACHE_SMOKE=1` | Exact, but slower. `blk.0.attn_output_b` HC-expand was **0.983x** cached-x vs plain at `--ctx 256000`; the activation cache copy costs more than it saves. |
+| Cache grouped attention-output-A activations in shared memory | `DS4_CUDA_ATTENTION_OUTPUT_A_CACHE_SMOKE=1` | Exact, but slower. `grouped_q8_0_a_preq_warp8_cached_x` was **0.907x** vs the plain grouped kernel. |
+| Split Q8 scales and quant bytes into a SoA duplicate cache | `DS4_CUDA_Q8_SOA_CACHE=1` | Exact and positive for the short `attn_output_a/b` checks. `blk.0.attn_output_a` microbench: **1.081x** (219.35 -> 237.10 GiB/s effective). `blk.0.attn_output_b` microbench: **1.123x** (204.17 -> 229.26 GiB/s effective). End-to-end 8192/64 graph `ds4-bench`: **15.27 -> 15.82-15.88 t/s**. Server graph smoke 8192/64: **18.18 t/s avg**. Extra memory for all layers: ~**2.86 GiB**. `cmp` returned 0 on a short coding-prompt logprob JSON. The first extended 12-task coding eval at `ctx=256000` was **9/12** vs **10/12** for the current no-SoA control, but targeted `flatten_dict` repeats later passed **8/8** on both paths and the full repeated suite measured **30/36** for both no-SoA and default SoA. Default SoA is the best current exact speed path, though still short of 20 t/s. |
+| Extend SoA to `attn_q_b` | `DS4_CUDA_Q8_SOA_QB=1` with `DS4_CUDA_Q8_SOA_CACHE=1` | Microbench looked good: **1.167x** (224.33 -> 261.74 GiB/s effective), but 8192/64 graph decode was **15.81 t/s**, not better than A+B. Kept experimental; default cache limit stays 4 GiB unless this flag or `DS4_CUDA_Q8_SOA_ALL=1` is set. |
+| Extend SoA to the `attn_q_a/attn_kv` pair | `DS4_CUDA_Q8_SOA_QKV=1` with `DS4_CUDA_Q8_SOA_CACHE=1` | Individual microbenches were strong: `q_a` **1.250x**, `kv` **1.330x**. The real fused pair route regressed to **15.69 t/s**, so the flag remains experimental and off by default. |
+| Add shared-activation reuse to SoA kernels | `DS4_CUDA_Q8_SOA_CACHE_X=1` | Exact in the tested kernels, but not stable end-to-end. Dense `attn_output_b` smoke fell from the plain-SoA **1.123x** to **1.057x**. Full 8192/64 runs were **15.96 t/s** then **15.65 t/s**. Not promoted. |
+| Extend SoA to shared expert Q8 tensors | `DS4_CUDA_Q8_SOA_SHARED=1` with `DS4_CUDA_Q8_SOA_CACHE=1` | All shared tensors fit with A+B: total SoA cache **3.93 GiB** and `--ctx 256000` passed. Microbench: shared gate **1.150x**, shared down **1.331x**. End-to-end was neutral (**15.83 t/s**) and the stored logprob JSON differed at ~1e-6 while selected tokens stayed the same. Not a quality-preserving default. |
+| Use 16 lanes for decode MoE gate/up LUT | `DS4_CUDA_MOE_DECODE_GATE_H16=1` | Negative. The reduction was arranged to preserve the current 8-lane summation order, but 8192/64 graph + SoA A+B measured **15.75 t/s**. A short MoE profile showed `gateup` unchanged (**57.31 -> 57.41 ms** over 43 layers with profiling enabled). |
+| Specialize decode MoE gate/up for no auxiliary gate/up writes | `DS4_CUDA_MOE_DECODE_GATE_NOAUX=1` | Negative. The normal server path does not need `gate_out/up_out`, but a no-aux kernel did not lower the profiled `gateup` time and regressed 8192/64 graph + SoA A+B to **15.73 t/s**. Kept opt-in only. After restoring the default kernel, graph + SoA A+B measured **15.84 t/s** and the coding-prompt logprob JSON still compared byte-identical (`cmp=0`). |
+| Pair two decode MoE gate/up slots in one block | `DS4_CUDA_MOE_DECODE_GATE_PAIR2=1` | Negative. This keeps all 6 experts and preserves each qwarp's 8-lane summation order while sharing the per-block `xq`/LUT load across two slots. It was byte-identical on the coding logprob JSON (`cmp=0`), but decode-profile A/B was slightly worse (`gateup` **10.24 -> 10.59 ms** over 43 layers on the filtered `tokens=1` profile) and 8192/64 graph + SoA A+B regressed to **15.65 t/s**. |
+| Fuse decode gate/up directly into `midq` | `DS4_CUDA_MOE_DECODE_FUSED_MIDQ=1` | Negative. This keeps all 6 experts and preserves the per-row qwarp sum plus the same Q8_K block quantization. The short coding logprob JSON was byte-identical (`cmp=0`), but 8192/64 graph + SoA measured **15.57 t/s** vs **15.67 t/s** for the adjacent default control. MoE profile showed why: separate `midq` costs only **0.0052 ms/layer**, and fusing it moved enough work into `gateup` that total MoE regressed (**1.5432 -> 1.5485 ms/layer** in the 86-profile sample). |
+| Group four output rows per qwarp in decode down sum6 | `DS4_CUDA_MOE_DOWN_SUM6_ROW4=1` | Negative. This is byte-identical on the short coding logprob JSON (`cmp=0`) and keeps each row's slot/block accumulation order, but the down profile did not improve: `down` **0.7206 -> 0.7243 ms/layer**, total MoE **1.5432 -> 1.5549 ms/layer**. Fewer CTAs and repeated selected/midq reuse do not compensate for the larger per-qwarp work. |
+
+The Q8 align smoke command:
+
+```sh
+DS4_CUDA_DIRECT_MODEL=1 \
+DS4_CUDA_Q8_ALIGN_SMOKE=1 \
+DS4_CUDA_Q8_ALIGN_SMOKE_ITERS=400 \
+./ds4 --cuda -m ds4flash.gguf --ctx 256000 -n 1 -p "test"
+```
+
+Observed stride 36:
+
+```text
+original read=13.28 GiB time=62.438 ms effective=212.71 GiB/s
+stride=36 read=14.06 GiB time=69.099 ms effective=203.51 GiB/s speedup=0.9036x diff=0
+```
+
+Observed stride 40:
+
+```text
+original read=9.96 GiB time=46.729 ms effective=213.16 GiB/s
+stride=40 read=11.72 GiB time=54.291 ms effective=215.85 GiB/s speedup=0.8607x diff=0
+```
+
+Net: the "obvious" full-quality micro-optimizations around padding, row spans,
+and shared activation caches are ruled out.
+The useful distinction is now clear: padding/alignment and shared activation
+caches are not enough, but changing Q8 weight layout without increasing logical
+bytes can move the needle. The SoA cache is the first exact positive result in
+this memory-for-speed family. It is not enough alone to reach 20 t/s, but it
+opens the next concrete path: extend SoA selectively to other hot Q8 kernels
+only after one-layer microbench proof, and keep the duplicate-cache budget under
+the 110 GiB target.
+
+SoA commands and observations:
+
+```sh
+DS4_CUDA_Q8_SOA_SMOKE=1 \
+DS4_CUDA_Q8_SOA_SMOKE_ITERS=800 \
+./ds4 --cuda -m ds4flash.gguf --ctx 256000 --nothink --temp 0 -n 1 -p test
+```
+
+Use `DS4_CUDA_Q8_SOA_SMOKE_TENSOR=a` to run the same smoke on
+`attn_output_a`; the default is `attn_output_b`. Additional selectors used in
+the later pass: `q_b`, `q_a`, `kv`, `shared_gate`, `shared_up`, and
+`shared_down`.
+
+Observed for B:
+
+```text
+original in=8192 out=4096 blocks=256 read=26.56 GiB time=130.100 ms effective=204.17 GiB/s
+soa      in=8192 out=4096 blocks=256 read=26.56 GiB time=115.860 ms effective=229.26 GiB/s speedup=1.1229x diff=0
+```
+
+Other SoA one-layer results:
+
+| Tensor | Shape | Speedup | Notes |
+|---|---|---:|---|
+| `attn_output_a` | in=8192 out=4096 blocks=256 | **1.0809x** | Exact; promoted with B. |
+| `attn_q_b` | in=1024 out=32768 blocks=32 | **1.1668x** | Exact in isolation; no end-to-end win. |
+| `attn_q_a` | in=4096 out=1024 blocks=128 | **1.2497x** | Exact in isolation; fused pair route regressed. |
+| `attn_kv` | in=4096 out=512 blocks=128 | **1.3304x** | Exact in isolation; fused pair route regressed. |
+| `ffn_gate_shexp` | in=4096 out=2048 blocks=128 | **1.1495x** | Exact in isolation; shared path not byte-identical end-to-end. |
+| `ffn_down_shexp` | in=2048 out=4096 blocks=64 | **1.3309x** | Exact in isolation; shared path neutral end-to-end. |
+
+Promoted opt-in path:
+
+```sh
+DS4_CUDA_Q8_SOA_CACHE=1 ./ds4 --cuda -m ds4flash.gguf --ctx 256000 --nothink --temp 0 -n 1 -p test
+```
+
+This passed after fixing the preload path so `DS4_CUDA_Q8_SOA_CACHE=1` no
+longer accidentally enables the existing Q8->F16 preload. The SoA cache is
+prebuilt during startup for `attn_output_a/b` tensors, so CUDA Graph capture does
+not see allocation or pack kernels inside decode.
+
+The default SoA budget is **4096 MiB**. `DS4_CUDA_Q8_SOA_QB=1` or
+`DS4_CUDA_Q8_SOA_ALL=1` raises the default budget to **6144 MiB** because
+`attn_q_b` pushes the duplicate cache past the A+B-only envelope. Use
+`DS4_CUDA_Q8_SOA_CACHE_MB=<MiB>` for explicit experiments.
+
+Experimental flags:
+
+| Flag | Status |
+|---|---|
+| `DS4_CUDA_Q8_SOA_QB=1` | Caches/routes `attn_q_b`; micro-positive, full decode neutral. |
+| `DS4_CUDA_Q8_SOA_QKV=1` | Caches/routes `attn_q_a/attn_kv`; pair route regressed. |
+| `DS4_CUDA_Q8_SOA_CACHE_X=1` | Uses shared activation cache in SoA kernels; unstable end-to-end. |
+| `DS4_CUDA_Q8_SOA_SHARED=1` | Caches/routes shared expert Q8 tensors; memory-safe but not byte-identical on logprob JSON and neutral in throughput. |
+| `DS4_CUDA_Q8_SOA_NO_ATTN_OUTPUT_A=1` | Diagnostic isolation switch: keep SoA cache enabled but do not route/cache attention-output A. |
+| `DS4_CUDA_Q8_SOA_NO_ATTN_OUTPUT_B=1` | Diagnostic isolation switch: keep SoA cache enabled but do not route/cache attention-output B. |
+| `DS4_CUDA_Q8_SOA_ATTN_OUTPUT_B_DECODE=1` | Diagnostic switch: force `attn_output_b` through the generic SoA decode route. Default behavior is unchanged without this flag. |
+
+A/B isolation after adding those switches:
+
+| Mode | 8192/64 graph `ds4-bench` | Read |
+|---|---:|---|
+| A+B with B forced (`DS4_CUDA_Q8_SOA_ATTN_OUTPUT_B_DECODE=1`) | **15.90 t/s** | Not rejected; may be useful, but needs repeat/server confirmation. |
+| A only (`DS4_CUDA_Q8_SOA_NO_ATTN_OUTPUT_B=1`) | **15.60 t/s** | Unexpectedly below the historical SoA band; do not use one run to trim B cache. |
+| B only (`DS4_CUDA_Q8_SOA_NO_ATTN_OUTPUT_A=1 DS4_CUDA_Q8_SOA_ATTN_OUTPUT_B_DECODE=1`) | **14.66 t/s** | Negative. B generic route alone cannot replace the A path. |
+| Default SoA control after the isolation runs | **15.39 t/s** | This control was low versus earlier **15.82-15.88 t/s** repeats, so the isolation series is noisy. |
+
+The later repeat/server quality gate confirmed that B-forced is not a quality
+problem in this suite (**30/36**, same failures as no-SoA and default SoA), but
+it was slower than default SoA in the full repeated server protocol
+(**17.68 t/s** vs **17.91 t/s** server final-decode avg). Keep B-forced as a
+diagnostic or future kernel-design hook; default SoA remains the better route.
+
+Deterministic quality check:
+
+```sh
+./ds4 --cuda -m ds4flash.gguf --ctx 4096 --nothink --temp 0 -n 8 \
+  --dump-logprobs /tmp/ds4-logprobs-base.json --logprobs-top-k 5 \
+  -p "Write a tiny C function that adds two integers."
+
+DS4_CUDA_Q8_SOA_CACHE=1 ./ds4 --cuda -m ds4flash.gguf --ctx 4096 \
+  --nothink --temp 0 -n 8 \
+  --dump-logprobs /tmp/ds4-logprobs-soa.json --logprobs-top-k 5 \
+  -p "Write a tiny C function that adds two integers."
+
+cmp -s /tmp/ds4-logprobs-base.json /tmp/ds4-logprobs-soa.json
+```
+
+`cmp` returned 0 for SoA A+B: same greedy tokens and same stored logprob JSON
+for this coding prompt. This short check was later shown to be insufficient:
+the extended 12-task coding eval at `ctx=256000` found an extra
+`flatten_dict` failure in one SoA sample. The subsequent repeat isolated that
+prompt and found no-SoA run-to-run sensitivity as well, so the short `cmp=0`
+should be read as a narrow numerical smoke, while the real acceptance gate must
+be repeated production-context coding eval.
+
+Upstream and `ds4-eval` checkpoint:
+
+```sh
+git worktree add /tmp/ds4-upstream-main upstream/main
+(cd /tmp/ds4-upstream-main && make cuda-spark)
+
+(cd /tmp/ds4-upstream-main && ./ds4-bench --cuda \
+  -m /home/alessandro/projects/ds4/ds4flash.gguf \
+  --prompt-file /home/alessandro/projects/ds4/speed-bench/promessi_sposi.txt \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 8257 \
+  --gen-tokens 64 --warm-weights)
+```
+
+`upstream/main` was `c9dd949` (`cuda: fix compressed prefill RoPE positions`).
+The upstream bench produced **13.58 t/s**. A repeat with
+`DS4_CUDA_GRAPH_DECODE=1` in the environment produced **13.39 t/s** after an
+intermediate transient `cudaSetDevice` OOM; no `ds4` processes remained and
+`nvidia-smi` showed the GPU free afterwards. This confirms the branch's
+pre-SoA CUDA decode work is already a large part of the gain: **13.4-13.6 t/s**
+upstream vs **15.27 t/s** current-branch no-SoA vs **15.82-15.88 t/s** with
+SoA A+B. A later control run after the MoE H16/no-aux probes were made opt-in
+only produced **15.84 t/s** on the same 8192/64 graph + SoA A+B bench:
+
+```text
+8192,8192,219.89,64,15.84,136750476
+```
+
+Quick `ds4-eval` smoke on the SoA A+B speed path:
+
+```sh
+DS4_CUDA_Q8_SOA_CACHE=1 ./ds4-eval --cuda -m ds4flash.gguf \
+  --questions 2 --tokens 512 --hard-limit-reply-budget 128 \
+  --soft-limit-reply-budget 256 --nothink --plain --warm-weights \
+  --trace /tmp/ds4-eval-soa-ab-2q.txt
+```
+
+Result: **2/2 passed** (`GPQA Diamond/recNu3MXkvWUzHZr9` answer B and
+`SuperGPQA/001b51d76b4d422988f2c11f104a2c6c` answer C). This is a smoke, not a
+replacement for the coding eval: the full default `ds4-eval` suite has 92 hard
+questions and a default 16k token budget per question.
+
+### 2. Reduced-K modes remain diagnostic/opt-in only
+
+The fastest coding candidate is still K=6 on layers 0-2 and K=3 + renorm on
+all other layers:
 
 ```sh
 DS4_CUDA_GRAPH_DECODE=1 \
@@ -761,15 +1651,12 @@ DS4_MOE_ACTIVE_EXPERTS_RENORM=1 \
 ./ds4-server -m ds4flash.gguf --ctx 8192 --host 127.0.0.1 --port 8106 --tokens 64
 ```
 
-The next step is not more micro-optimization; it is broader quality
-characterization. Run real repo-edit prompts and longer coding-agent
-conversations against K=6 full-quality, uniform K=3 renorm, and the 0-2:6 layer
-profile. If the layer profile holds up, it is the simplest practical 20 t/s
-server mode. The next adaptive step should be more per-layer profiles or a
-device-side dynamic-K kernel; token-by-token host-selected K would destabilize
-CUDA Graph topology.
+The 12-task ctx=256k eval above means these should not be the default for
+coding-agent use. A safe use would require a deterministic verifier and clean
+fallback to full K=6; otherwise faster bad code can poison the context and cost
+more retries.
 
-### 2. Full-quality normal decode: remove ~5-6 ms/token
+### 3. Full-quality normal decode: remove ~5-6 ms/token
 
 The best measured path is now no-MTP decode at ~17.8-18.1 t/s. Hitting 20 t/s
 without changing model behavior still requires a token time around 50 ms, down
@@ -790,7 +1677,7 @@ cuBLAS/F16 decode (`DS4_CUDA_Q8_CUBLAS_DECODE=1`) was tested and was worse
 (~15.26 t/s), targeted `attn_q_b` cuBLAS was much worse, and HC expand F16
 also regressed. The win is not simply "use more F16 cache".
 
-### 3. True batched target verifier for MTP (large change, currently not enough)
+### 4. True batched target verifier for MTP (large change, currently not enough)
 
 DS4 V4 ships with an MTP (multi-token prediction) head. CUDA MTP is now
 numerically usable, and the draft head is cheap enough (~22 ms/draft), but the
@@ -819,20 +1706,25 @@ work. After the Q8 microbatch fixes, however, MTP draft=2 still reaches only
 ~13.8 t/s, so this is no longer the closest route to 20 on GB10 unless the MTP
 draft head itself also becomes much cheaper.
 
-### 4. Attention path matmul optimization (medium payoff)
+### 5. Attention path matmul optimization (medium payoff)
 
-`matmul_q8_0_preq_warp8_cached_x_kernel` is used for all of Q-proj, KV-proj,
-attn-output, and small downstream matmuls. The Q/KV front of this path already
-has the low-risk paired projection win. cuBLAS/F16-cache variants were tested
-for small decode and for `attn_q_b` and were worse, so the remaining likely
-payoff is in the custom kernels themselves, especially attention-output.
+`matmul_q8_0_preq_warp8*` is used for Q-proj, KV-proj, attention-output, and
+small downstream matmuls. The useful full-quality result here is now the SoA
+duplicate cache for `attn_output_a/b`; it buys only a few percent total because
+the remaining bottleneck is still routed MoE. The follow-up variants were
+measured:
 
-Worth a microbenchmark: take the actual launch shapes from `nsys` and time
-both kernels on a synthetic harness, then either swap globally or add an
-env gate. Expected upside: 10-30 % on these matmuls = ~1.5-3 % total
-decode wall-clock. Modest by itself.
+- `attn_q_b` SoA: strong one-layer result, no full-decode win.
+- `attn_q_a/attn_kv` SoA: strong one-layer result, fused pair regressed.
+- SoA shared activation cache: noisy/unstable end-to-end.
+- shared expert SoA: memory-safe, but neutral and not byte-identical in stored
+  logprob JSON.
 
-### 5. Reduce HC expand cost (`matmul_q8_0_hc_expand_preq_warp8`, medium risk)
+The next Q8 work should therefore not be another broad "apply SoA everywhere"
+pass. It needs a targeted kernel redesign with an end-to-end gate, or it should
+move back to the routed MoE layout where the remaining wall time is larger.
+
+### 6. Reduce HC expand cost (`matmul_q8_0_hc_expand_preq_warp8`, medium risk)
 
 The HC expand kernel runs N_HC=4 times per layer for HC partition mixing.
 If the four expansions can be folded into a single grouped GEMM (or run on
@@ -841,7 +1733,7 @@ a `_warp8` micro-optimization, and both the F16-cache/cuBLAS path and the
 cached-activation variant regressed in the third pass. Treat this as a deeper
 kernel redesign, not an env-toggle candidate.
 
-### 6. Tune kernel launch shapes for full-GPU occupancy
+### 7. Tune kernel launch shapes for full-GPU occupancy
 
 Spot-check with nsys metrics: `sm__cycles_active.avg.pct_of_peak_sustained`,
 `l1tex__t_bytes_pipe_lsu_mem_global_op_ld.sum.per_second`. If active SM
@@ -849,7 +1741,7 @@ fraction is <80 % during the dominant kernels, there is room. If it is
 already >90 %, the kernel is achieving its memory-bound ceiling and the
 only further win is structural (specdec, fewer reads per token).
 
-### 7. Accept the full-quality GB10 ceiling
+### 8. Accept the full-quality GB10 ceiling
 
 The MoE weight-read ceiling math above suggests ~18 t/s is roughly the
 hardware-imposed limit for this model on this box without speculative
@@ -857,6 +1749,2027 @@ decoding or a larger kernel redesign. If specdec remains too invasive for the
 project's appetite, the honest framing is: the current architecture is stable
 around 18 t/s on GB10 for DS4 V4 Flash, and 20 t/s needs a real reduction in
 per-token weight traffic or a major improvement in the dominant custom kernels.
+
+## 2026-05-20 web literature pass
+
+The external literature broadly agrees with the measurements in this file:
+large wins come from reducing memory traffic per committed token, batching
+target verification, or changing the model/training recipe. There is no public
+paper that suggests a simple lossless env-toggle path from ~18 t/s to 20 t/s
+for single-user, low-context, all-weights-resident GB10 decode.
+
+Primary DeepSeek sources:
+
+- DeepSeek-V2/V3 technical reports: V2 introduced the efficient-inference
+  combination of MLA and DeepSeekMoE, with 21B active parameters and a 93.3%
+  KV-cache reduction versus DeepSeek 67B; V3 keeps MLA/DeepSeekMoE and adds
+  MTP as an inference-acceleration foundation.
+  Sources: https://arxiv.org/abs/2405.04434 and
+  https://arxiv.org/abs/2412.19437
+- DeepSeekMoE explains why the routed experts are not disposable: the model
+  relies on fine-grained routed experts plus shared experts for specialization.
+  This supports the current quality rule: K<6 is a draft/diagnostic mode unless
+  a full-K verifier commits the final token.
+  Source: https://arxiv.org/abs/2401.06066
+- DeepSeek-V4 is especially relevant to `ds4flash.gguf`: V4-Flash is reported
+  as a 284B total / 13B active model, with 1M context, CSA/HCA attention,
+  routed expert FP4 QAT, and infrastructure notes about a single fused MoE
+  kernel that overlaps computation, communication, and memory access.
+  Source: https://huggingface.co/deepseek-ai/DeepSeek-V4-Pro/resolve/main/DeepSeek_V4.pdf
+- DeepSeek-V4 also says routed expert weights use FP4 QAT at deployment. That
+  is not a drop-in replacement for our GGUF IQ2/Q2/Q8 path: without the model
+  being trained/adapted to that format, further quantization is a quality risk.
+
+Kernel/system sources:
+
+- FlashMLA focuses on high-performance MLA/DSA kernels and reports very high
+  H800 bandwidth/TFLOP numbers, but it targets SM90/SM100 style kernels and
+  DeepSeek's dense/sparse MLA path, not our current custom GGUF Q kernels.
+  Source: https://github.com/deepseek-ai/FlashMLA
+- DeepGEMM is the strongest public signal about where DeepSeek spends kernel
+  effort now: FP8/FP4 GEMMs, fused MoE/Mega-MoE, indexer scoring, and small
+  hand-tuned CUDA/CuTe/CUTLASS-style kernels. It is conceptually useful, but
+  its primitives do not directly match our IQ2/Q2/Q8 matrix-vector decode.
+  Source: https://github.com/deepseek-ai/DeepGEMM
+- PyTorch's persistent grouped-GEMM MoE work, MegaBlocks, Tutel, and MoE-Gen
+  all reinforce the same idea: group many independent expert GEMMs, keep CTAs
+  persistent, and batch module work. Those wins are real, but they mainly need
+  many tokens, many experts, or multi-GPU execution. Single-token decode on one
+  GB10 cannot harvest the full paper speedups unless we introduce a batched
+  verifier or concurrent server batching.
+  Sources: https://pytorch.org/blog/accelerating-moes-with-a-triton-persistent-cache-aware-grouped-gemm-kernel/,
+  https://arxiv.org/abs/2211.15841, https://arxiv.org/abs/2206.03382,
+  https://arxiv.org/abs/2503.09716
+- KTransformers and PowerInfer are useful counterexamples. They exploit
+  CPU/GPU hybrid placement, hot/cold neuron locality, and expert deferral for
+  machines that cannot keep everything hot on GPU. Our GB10 target already has
+  the model resident in ~110 GiB; moving routed work to CPU is likely the wrong
+  direction for low-latency decode, unless used only as a separate small-VRAM
+  mode.
+  Sources: https://madsys.cs.tsinghua.edu.cn/publication/ktransformers-unleashing-the-full-potential-of-cpu/gpu-hybrid-inference-for-moe-models/SOSP25-chen.pdf
+  and https://arxiv.org/abs/2312.12456
+
+Speculative / multi-token sources:
+
+- Lookahead decoding claims exact acceleration without an auxiliary model by
+  trading more parallel work per step for fewer sequential steps.
+  Source: https://arxiv.org/abs/2402.02057
+- Medusa and EAGLE show the more general verified-decoding path: propose
+  multiple future tokens cheaply, verify them in parallel with the target
+  model, and preserve the target distribution/quality when the verifier is
+  exact.
+  Sources: https://arxiv.org/abs/2401.10774 and
+  https://arxiv.org/abs/2401.15077
+- This is the one literature-backed route that can beat the per-token memory
+  wall without changing final quality. Our current MTP result is bad because
+  the target verifier is effectively shaped like repeated normal decode. A
+  proper verifier must run K candidate positions in one target pass and share
+  weight traffic across the batch.
+
+Quality-sensitive interpretation for this project:
+
+1. Do not spend more time on naive native layouts. We tested row-major down,
+   block-paired gate/up, qwarp pair2, no-aux gate, fused midq, row4 down, Q8
+   padding, and shared activation caches. The papers point to fused/grouped
+   kernels, but our negative results show that preserving qwarp block access is
+   more important than visually co-locating experts in memory.
+2. The strongest exact local improvement remains Q8 SoA for attention-output
+   A/B: it costs only a few GiB, passes repeated coding eval at ctx=256k, and
+   improves server decode, but it is a few-percent win, not the missing 10%.
+3. Reduced-K should be reframed as a draft model, not a final model. K=3/K=2
+   gives the kind of speed the target needs, but coding quality changes. If a
+   batched full-K verifier accepts most reduced-K tokens, we can keep full-K
+   output quality and recover speed. If acceptance is low, reject the route.
+4. MTP should be tested the same way: not "does draft=2 work with the current
+   verifier", but "can one batched target pass verify 2-4 positions faster than
+   repeated full decode while preserving logits/token acceptance".
+5. Long-context sparse attention papers (NSA/DSA/V3.2/V4 CSA/HCA) are not a
+   bolt-on exact optimization for this checkpoint. They explain why future
+   DeepSeek models handle 1M contexts cheaply, but retrofitting them to this
+   GGUF would change the model. For our clarified goal, low resident context
+   first-token speed remains the priority.
+
+Recommended next experiment:
+
+1. Build a target verifier microbench outside the server: given a prefix and
+   2-4 proposed tokens, run a single batched target forward and compare its
+   accepted prefix and logits against repeated full K=6 one-token decode.
+2. Run it with two proposers: the built-in MTP head and reduced-K K=3+renorm.
+3. Measure both speed and acceptance on the 12-task coding eval prompts at
+   `--ctx 256000`, low resident context. The useful metric is committed
+   full-quality tokens/s, not draft tokens/s.
+4. Only if the verifier microbench is positive, integrate it into the server
+   with KV rollback and graph-safe fixed shapes. Otherwise, accept that exact
+   single-token decode on this GB10 is currently an ~18 t/s class path.
+
+### First follow-up: MTP strict vs fast batch verifier
+
+The next measurement went straight at the quality/speed fork in the existing
+MTP implementation, using a real coding prompt at `--ctx 256000`:
+
+```sh
+DS4_CUDA_GRAPH_DECODE=1 \
+DS4_CUDA_Q8_SOA_CACHE=1 \
+DS4_MTP_STRICT=1 \
+DS4_MTP_TIMING=1 \
+./ds4 --cuda -m ds4flash.gguf --ctx 256000 \
+  --nothink --temp 0 -n 64 \
+  --mtp gguf/DeepSeek-V4-Flash-MTP-Q4K-Q8_0-F32.gguf --mtp-draft 2 \
+  -p 'Scrivi una funzione Python is_prime(n) robusta e concisa.'
+```
+
+Control without MTP on the same prompt:
+
+```text
+generation: 18.49 t/s
+```
+
+Strict MTP output compared byte-identical to that control (`cmp=0`). That is
+the quality-preserving path. Its hot verifier timings, however, stayed around
+**109-128 ms** for the two verified positions, with hot MTP drafts around
+**4 ms**. The first MTP draft still has a large one-time warmup cost
+(~7.8-10.0 s in these CLI runs), but even ignoring that startup cost, strict
+MTP does not beat normal decode because the verifier is effectively two exact
+decode positions interleaved rather than one weight-sharing batch.
+
+The fast batch verifier was then forced:
+
+```sh
+DS4_CUDA_GRAPH_DECODE=1 \
+DS4_CUDA_Q8_SOA_CACHE=1 \
+DS4_MTP_BATCH_VERIFY=1 \
+DS4_MTP_TIMING=1 \
+./ds4 --cuda -m ds4flash.gguf --ctx 256000 --quality \
+  --nothink --temp 0 -n 64 \
+  --mtp gguf/DeepSeek-V4-Flash-MTP-Q4K-Q8_0-F32.gguf --mtp-draft 2 \
+  -p 'Scrivi una funzione Python is_prime(n) robusta e concisa.'
+```
+
+This is the attractive speed shape: hot two-position verify was about
+**80-88 ms**, and the end-to-end run reported **17.50 t/s** even with MTP
+overheads. But it diverged from the full-K baseline early:
+
+```diff
+-    """Verifica se un numero intero positivo è primo."""
++    """Restituisce True se n è un numero primo, False altrimenti."""
+```
+
+The same divergence happened without `--quality`, so the mismatch is not just
+from optional fast fusions inside the batch layer.
+
+A narrower attempt batched only the two output heads after the strict decode2
+layer pass:
+
+```sh
+DS4_MTP_STRICT=1 DS4_MTP_DECODE2_BATCH_HEAD=1 ...
+```
+
+After fixing the helper to use the supplied HC rows all the way through the HC
+weighted-sum step, this path compared byte-identical to the no-MTP baseline
+(`cmp=0`). It did **not** improve speed: the strict verifier stayed in the same
+~**109-120 ms** hot band, with occasional slower rows. That localizes the real
+problem away from the final output head. The missing speed is inside the target
+layer pass itself: attention/MoE/Q8 work for two proposed positions is still
+being paid almost like two exact decodes.
+
+Code safety change from this pass: strict MTP now ignores the old
+`DS4_MTP_BATCH_VERIFY=1` override and prints a warning. The non-exact verifier
+can still be forced for diagnostics only with:
+
+```sh
+DS4_MTP_UNSAFE_BATCH_VERIFY=1
+```
+
+Current conclusion: the correct route is still "make the batched target
+verifier exact", not "use the existing fast batch verifier". The fast verifier
+has the right speed envelope for 20 t/s, but it is not acceptable for coding
+quality until its layer/output numerics match strict decode.
+
+### Second follow-up: exact-islands inside the batch verifier
+
+The next pass kept the same goal, but treated the fast batch verifier as a
+layer-major scaffold and added small opt-in "exact islands" where the batch
+path was numerically different from strict decode. All flags below are
+diagnostic/experimental; strict mode still ignores `DS4_MTP_BATCH_VERIFY=1`
+unless `DS4_MTP_UNSAFE_BATCH_VERIFY=1` is set.
+
+New diagnostics:
+
+```sh
+DS4_MTP_VERIFY_SHADOW=1
+DS4_MTP_LAYER_SHADOW=1
+DS4_MTP_LAYER_SHADOW_EPS=0.000001
+```
+
+`DS4_MTP_VERIFY_SHADOW=1` runs the batch verifier against the same frontier,
+restores the frontier, then runs the strict exact verifier and reports top
+agreement, max/rms logit deltas, and top1-top2 margins. `DS4_MTP_LAYER_SHADOW`
+compares the two-row HC state after each target layer.
+
+Localization results on the `is_prime` coding prompt at `--ctx 256000`:
+
+- Plain fast batch drifted immediately: first layer-shadow diff at layer 0,
+  row 0 (`max=0.0012635`), with worst final-layer row diff above 15.
+- Exact HC pre/norm, exact attention output tail, exact shared tail, and exact
+  routed MoE moved the first layer-shadow diff to layer 2 row 1, the first
+  ratio-4 compressed/indexer layer.
+- Forcing token-per-token attention with `DS4_MTP_BATCH_ATTENTION_EXACT=1`
+  moved the first diff to layer 4 row 1.
+- Dump comparison then showed the layer-4 cause: batch compressor projections
+  used two separate F16 matmuls while strict decode used the paired F16
+  compressor kernel. The raw compressor projections differed by up to
+  `5.87e-05` / `1.27e-04`, enough to amplify through attention and FFN.
+- Adding `DS4_MTP_BATCH_COMPRESS_PROJ_EXACT=1` made the layer-shadow pass show
+  no HC diff above `1e-6` on the same prompt.
+
+The current conservative batch-verifier island set is:
+
+```sh
+DS4_MTP_BATCH_HC_PRE_EXACT=1
+DS4_MTP_BATCH_ATTENTION_EXACT=1
+DS4_MTP_BATCH_ATTN_TAIL_EXACT=1
+DS4_MTP_BATCH_COMPRESS_PROJ_EXACT=1
+DS4_MTP_BATCH_ROUTED_EXACT=1
+DS4_MTP_BATCH_SHARED_TAIL_EXACT=1
+```
+
+With that full set, shadow logits are not byte-identical, but the observed
+errors are small compared to the greedy margins in the smoke:
+
+```text
+row max deltas: up to about 0.021 in the sampled cycles
+top margins:    about 3.57 to 13.85 in the same cycles
+argmax:         matched exact for row0 and row1 in the sampled cycles
+```
+
+The hot unsafe-batch verifier timing with the conservative island set is around
+**97-100 ms** for two verified target positions, plus ~4 ms MTP draft time.
+That is near a **20 tok/s** verifier envelope when both drafts are accepted and
+startup graph capture is amortized. In a CLI run the first graph capture still
+dominates the reported end-to-end number, so the useful measurement is the hot
+`mtp timing micro` line, not the first cold cycle.
+
+Coding-oriented server smoke at production context:
+
+```sh
+DS4_CUDA_GRAPH_DECODE=1 DS4_CUDA_Q8_SOA_CACHE=1 \
+DS4_MTP_STRICT=1 DS4_MTP_BATCH_VERIFY=1 DS4_MTP_UNSAFE_BATCH_VERIFY=1 \
+DS4_MTP_BATCH_HC_PRE_EXACT=1 \
+DS4_MTP_BATCH_ATTENTION_EXACT=1 \
+DS4_MTP_BATCH_ATTN_TAIL_EXACT=1 \
+DS4_MTP_BATCH_COMPRESS_PROJ_EXACT=1 \
+DS4_MTP_BATCH_ROUTED_EXACT=1 \
+DS4_MTP_BATCH_SHARED_TAIL_EXACT=1 \
+./ds4-server --cuda -m ds4flash.gguf --ctx 256000 --port 8106 \
+  --mtp gguf/DeepSeek-V4-Flash-MTP-Q4K-Q8_0-F32.gguf --mtp-draft 2
+
+python3 tuning/coding_eval_extended.py \
+  --base-url http://127.0.0.1:8106 \
+  --label mtp_exact_islands_256k_r1 \
+  --max-tokens 700 \
+  --out-dir /tmp/ds4-mtp-exact-islands-eval
+```
+
+Result: **10/12**, matching the no-MTP baseline run at the same `ctx=256000`
+and token cap. The two failed tasks (`lru_cache`, `parse_csv_line`) produced
+byte-identical outputs in candidate and baseline. Across all 12 tasks, 9
+responses were byte-identical; the 3 different responses still passed. This is
+a good quality smoke, not a proof: the mode remains opt-in and unsafe until a
+guarded exact fallback exists.
+
+Speed reality check: the same server coding harness did **not** show a net
+speed win over no-MTP baseline. Candidate responses were mostly ~14-16 tok/s,
+while no-MTP baseline was ~15-17 tok/s. The reason is workload-dependent MTP
+acceptance plus the conservative exact-islands. Removing key islands is not
+acceptable: without `DS4_MTP_BATCH_ATTENTION_EXACT`, sampled logit deltas grew
+to **~3.36**; without routed/shared exact islands, deltas reached **~4.06**.
+Those variants can still match argmax on easy prompts, but the error scale is
+too close to realistic coding margins.
+
+Current next step: build an adaptive verifier that uses the fast batch result
+only when its top margins are comfortably above the empirically bounded
+batch-vs-exact error, and falls back to exact verification otherwise. Until
+that guard exists, the conservative island set is the best quality-preserving
+research candidate, while no-MTP graph+SoA remains the production-safe default.
+
+### Third follow-up: margin-guarded adaptive verifier
+
+An opt-in guard now exists for the unsafe batch verifier:
+
+```sh
+DS4_MTP_BATCH_MARGIN_GUARD=4
+```
+
+The guard is active only in strict MTP mode with forced unsafe batch verify.
+For `draft=2` it reads the two batch logits rows, computes top1-top2 margins,
+and accepts both draft rows only if both margins are above the configured
+threshold and row0 still verifies draft1. If the guard rejects the batch result,
+the session restores the saved frontier and replays exactly one target token.
+That fallback preserves the exact target stream at the cost of losing the
+second-token speculative win for that cycle.
+
+On the conservative exact-island set above, `DS4_MTP_BATCH_MARGIN_GUARD=4`
+behaved as intended on the `is_prime` prompt:
+
+```text
+row0=5.59463 row1=3.57612 threshold=4 decision=exact-prefix1
+row0=17.7085 row1=10.3931 threshold=4 decision=batch
+row0=17.5382 row1=11.2001 threshold=4 decision=batch
+row0=18.4857 row1=7.48682 threshold=4 decision=batch
+```
+
+Hot batch cycles that passed the guard remained around **96-99 ms** verify
+time plus ~4 ms draft time. Rejected cycles fell back to an exact one-token
+replay and took ~166 ms in the sampled hot path.
+
+Important negative result: margin by itself is not enough to rescue the plain
+fast batch verifier. A shadow run without the exact-islands showed rows such as:
+
+```text
+row0 max=1.96396 rms=0.312271 margin batch=9.84183 exact=9.10697
+row1 max=3.65453 rms=0.700331 margin batch=5.92597 exact=6.94428
+```
+
+So a simple high-margin rule can still see large logit drift on the fast-pure
+path. The guard is useful only after the exact-islands have bounded the
+batch-vs-exact error into the ~0.02 range observed above. The next improvement
+should therefore be either:
+
+1. reduce the cost of one of the conservative exact-islands without increasing
+   the observed error bound, or
+2. add a stronger device-side confidence/error proxy than top margin alone.
+
+### Fourth follow-up: shrinking the exact-island set
+
+The conservative island set was profiled by layer stage at `--ctx 256000`,
+looking only at hot two-token verifier passes (`tokens=2`, `pos>=20`). The
+largest measured buckets were:
+
+```text
+ffn routed_moe          total=102.421 ms count=129 avg=0.794 ms
+attn output_proj        total=85.467 ms  count=129 avg=0.663 ms
+attn q_path             total=34.791 ms  count=129 avg=0.270 ms
+attn indexer_setup      total=34.108 ms  count=63  avg=0.541 ms
+ffn shared_exact_tail   total=33.702 ms  count=129 avg=0.261 ms
+attn attention          total=17.457 ms  count=129 avg=0.135 ms
+attn compressor         total=14.507 ms  count=123 avg=0.118 ms
+```
+
+This suggested that the explicit exact tails might be defensive scaffolding
+rather than necessary islands. Two removals were tested on the same `is_prime`
+coding prompt:
+
+- Without `DS4_MTP_BATCH_ATTN_TAIL_EXACT`, but keeping HC pre, exact attention,
+  exact compressor projection, routed exact, and shared exact: layer shadow
+  still found no HC diff above `1e-6`, sampled shadow-logit deltas stayed at
+  the same ~`0.021` scale, and hot unsafe full-accept verifier timing improved
+  to about **91.85 ms** average.
+- Without both `DS4_MTP_BATCH_ATTN_TAIL_EXACT` and
+  `DS4_MTP_BATCH_SHARED_TAIL_EXACT`, keeping only HC pre, exact attention,
+  exact compressor projection, and routed exact: layer shadow still found no
+  HC diff above `1e-6`, sampled shadow-logit deltas stayed at the same scale,
+  and hot unsafe full-accept verifier timing improved to about **89.19 ms**
+  average verify time, **93.99 ms** average including draft.
+
+The important negative control was removing routed exact as well. With only HC
+pre, exact attention, and exact compressor projection, the sampled logit drift
+became large again:
+
+```text
+start=26 row0 max=1.76828 rms=0.301379
+start=26 row1 max=4.05968 rms=0.794885
+start=28 row0 max=0.480094 row1 max=1.36066
+start=31 row0 max=0.481647 row1 max=1.33232
+```
+
+Conclusion: the current minimum exact-island candidate is HC pre, exact
+attention, exact compressor projection, and routed exact. The attention tail
+and shared tail flags are now considered redundant unless a broader eval proves
+otherwise. This reduced candidate still needs the full `ctx=256000` coding eval
+before it can replace the conservative island set as the main research mode.
+
+### Fifth follow-up: split exact router from routed MoE body
+
+The next target was the remaining expensive `DS4_MTP_BATCH_ROUTED_EXACT`
+island. That flag was too coarse: it forced both the router projection and the
+routed MoE body to run token-per-token. A new diagnostic split was added:
+
+```sh
+DS4_MTP_BATCH_ROUTER_EXACT=1
+```
+
+This keeps the router logits token-exact while allowing the routed body to use
+the two-token CUDA path. The first negative control was `DS4_CUDA_MOE_K2_DIRECT_GATE=1`
+without exact router and without routed exact. It did not work: although the
+sampled argmax still matched exact, layer-shadow reported worst HC diffs above
+5 and shadow-logit deltas reached **2.73334**. This is not quality-safe.
+
+The useful variant is:
+
+```sh
+DS4_CUDA_MOE_K2_DIRECT_GATE=1
+DS4_MTP_BATCH_ROUTER_EXACT=1
+```
+
+with `DS4_MTP_BATCH_ROUTED_EXACT` unset. On the `top_k_frequent` server shadow
+run at `ctx=256000`, this restored the good numerical envelope:
+
+```text
+layer shadow: no HC diff above 1e-6
+shadow cycles: 33
+arg mismatches: 0
+max logit delta: 0.0175514
+min verified margins: row0=1.10484 row1=0.445637
+```
+
+Coding eval results at `ctx=256000`:
+
+| Candidate | Guard | Result | Notes |
+|---|---:|---:|---|
+| Reduced routed-exact islands | `4` | **10/12** | Quality matched baseline, but server speed was poor on several tasks. |
+| Reduced routed-exact islands | `1` | **10/12** | Same two failures as baseline; better than guard 4. |
+| Reduced routed-exact islands | none | **10/12** | Fastest routed-exact diagnostic, but more output variants. |
+| Router-exact + K2 body | none | **9/12** | Extra `flatten_dict` failure (`type` not available in sandbox); reject for quality. |
+| Router-exact + K2 body | `1` | **10/12** | Same two persistent failures as baseline; quality-safe but not fastest. |
+| Router-exact + K2 body | `0.5` | **10/12** | Same two persistent failures; `flatten_dict` recovered vs no-guard. |
+| Router-exact + K2 body | `0.25` | **10/12** | Same two persistent failures; best warmed guard sweep so far. |
+| Router-exact + K2 body | `0.1` | **10/12** | Same two persistent failures, but no clear speed win over `0.25`. |
+| Router-exact + K2 body + GPU top2, keeping full logits | `0.25` | **10/12** | Same two persistent failures; safe but no speed win yet. |
+| Router-exact + K2 body + GPU top2, no full logits | `0.25` | **9/12**, then **10/12** | Conflicting repeats; now requires an explicit unsafe flag. |
+
+The warmed full-suite sums for router-exact + K2 body were:
+
+| Guard | Result | Generated tokens | Suite-sum t/s | Server decode-only t/s | Failures |
+|---:|---:|---:|---:|---:|---|
+| `1` | **10/12** | 2671 | **15.42** | not extracted | `lru_cache`, `parse_csv_line` |
+| `0.5` | **10/12** | 2606 | **15.73** | **16.63** | `lru_cache`, `parse_csv_line` |
+| `0.25` | **10/12** | 2689 | **15.90** | **16.78** | `lru_cache`, `parse_csv_line` |
+| `0.1` | **10/12** | 2790 | **15.82** | **16.68** | `lru_cache`, `parse_csv_line` |
+| `0.25` + safe GPU top2 | **10/12** | 2718 | **14.67** | cold run | `lru_cache`, `parse_csv_line` |
+| `0.25` + GPU top2 + keep-logits diagnostic | **10/12** | 2678 | **15.18** | cold run | `lru_cache`, `parse_csv_line` |
+| `0.25` + top2 compare diagnostic | **10/12** | 2658 | **15.03** | cold run | `lru_cache`, `parse_csv_line` |
+| `0.25` + unsafe GPU top2/no-logits r1 | **9/12** | 2703 | **15.94** | not extracted | `lru_cache`, `flatten_dict`, `parse_csv_line` |
+| `0.25` + unsafe GPU top2/no-logits r2 | **10/12** | 2728 | **14.94** | cold run | `lru_cache`, `parse_csv_line` |
+| none | **9/12** | 2660 | **15.05** | not extracted | `lru_cache`, `flatten_dict`, `parse_csv_line` |
+
+`guard=0.25` is now the best quality-first MTP research candidate. It is faster
+than guard1 on the warmed full-suite measurement and keeps the failure set
+identical to the no-MTP/full-K baseline. Server chunks still reach the **19-21
+t/s** band on some short tasks (`sliding_window`, `parse_duration`,
+`binary_search_bounds`), but the full coding aggregate remains below the no-MTP
+baseline. This is progress on accept policy, not the finish line.
+
+A post-patch repeat with the default CPU-logits margin guard at `guard=0.25`
+again scored **10/12** and kept `flatten_dict` green. Its suite-sum was only
+**14.82 t/s** because the first request paid a cold slow path; it is useful as a
+quality confirmation, not as the speed reference.
+
+The CUDA top2 margin guard has been split into safe and unsafe modes. A
+side-by-side diagnostic (`DS4_MTP_BATCH_MARGIN_COMPARE_TOP2=1`) computed CPU
+top2 from full logits and GPU top2 in the same verifier. The `flatten_dict`
+canary logged 37 guard cycles with bit-identical ids, margins, and decisions;
+the full suite logged **zero** CPU/GPU top2 mismatches and scored **10/12**.
+Using GPU top2 for the decision while still keeping the full logits also scored
+**10/12**. Therefore the CUDA top2 kernel itself is not the quality problem.
+
+The non-promoted case is specifically the old no-logits variant: using GPU top2
+and skipping the full logits readback dropped one full-suite run to **9/12**
+with the same extra `flatten_dict` failure as no-guard, even though standalone
+`flatten_dict` canaries passed. A repeat with the explicit unsafe flag later
+scored **10/12**, so the correct conclusion is not a deterministic failure; it
+is a workload/order-sensitive mode that is not reliable enough to become the
+default. After this finding, `DS4_MTP_BATCH_MARGIN_GPU_TOP2=1` keeps full logits
+by default; the old behavior requires
+`DS4_MTP_BATCH_MARGIN_GPU_TOP2_NO_LOGITS_UNSAFE=1`.
+
+Reproduction command for the current candidate:
+
+```sh
+DS4_CUDA_GRAPH_DECODE=1 \
+DS4_CUDA_Q8_SOA_CACHE=1 \
+DS4_CUDA_MOE_K2_DIRECT_GATE=1 \
+DS4_MTP_STRICT=1 \
+DS4_MTP_BATCH_VERIFY=1 \
+DS4_MTP_UNSAFE_BATCH_VERIFY=1 \
+DS4_MTP_BATCH_MARGIN_GUARD=0.25 \
+DS4_MTP_BATCH_HC_PRE_EXACT=1 \
+DS4_MTP_BATCH_ATTENTION_EXACT=1 \
+DS4_MTP_BATCH_COMPRESS_PROJ_EXACT=1 \
+DS4_MTP_BATCH_ROUTER_EXACT=1 \
+./ds4-server --cuda -m ds4flash.gguf --ctx 256000 --port 8119 \
+  --mtp gguf/DeepSeek-V4-Flash-MTP-Q4K-Q8_0-F32.gguf --mtp-draft 2
+
+python3 tuning/coding_eval_extended.py \
+  --base-url http://127.0.0.1:8119 \
+  --label mtp_routerexact_k2body_guard025_default_256k_r2 \
+  --max-tokens 700 \
+  --out-dir /tmp/ds4-mtp-exact-islands-eval
+```
+
+Relevant artifacts:
+
+```text
+/tmp/ds4-mtp-exact-islands-eval/mtp_routerexact_k2body_guard1_256k_r1.json
+/tmp/ds4-mtp-exact-islands-eval/mtp_routerexact_k2body_guard05_256k_r1.json
+/tmp/ds4-mtp-exact-islands-eval/mtp_routerexact_k2body_guard025_256k_r1.json
+/tmp/ds4-mtp-exact-islands-eval/mtp_routerexact_k2body_guard025_default_256k_r2.json
+/tmp/ds4-mtp-exact-islands-eval/mtp_routerexact_k2body_guard01_256k_r1.json
+/tmp/ds4-mtp-exact-islands-eval/mtp_routerexact_k2body_guard025_top2compare_256k_r1.json
+/tmp/ds4-mtp-exact-islands-eval/mtp_routerexact_k2body_guard025_gputop2_keeplogits_256k_r1.json
+/tmp/ds4-mtp-exact-islands-eval/mtp_routerexact_k2body_guard025_gputop2_safe_256k_r1.json
+/tmp/ds4-mtp-exact-islands-eval/mtp_routerexact_k2body_guard025_gputop2_256k_r1.json
+/tmp/ds4-mtp-exact-islands-eval/mtp_routerexact_k2body_guard025_gputop2_nologits_unsafe_256k_r2.json
+/tmp/ds4-mtp-exact-islands-eval/mtp_routerexact_k2body_noguard_256k_r1.json
+/tmp/ds4-routerexact-k2body-guard025-server.log
+/tmp/ds4-routerexact-k2body-guard025-default-server.log
+/tmp/ds4-routerexact-k2body-guard025-gputop2-server.log
+/tmp/ds4-routerexact-k2body-guard025-top2compare-canary-server.log
+/tmp/ds4-routerexact-k2body-guard025-top2compare-full-server.log
+/tmp/ds4-routerexact-k2body-guard025-gputop2-keeplogits-server.log
+/tmp/ds4-routerexact-k2body-guard025-gputop2-safe-server.log
+/tmp/ds4-routerexact-k2body-guard025-gputop2-nologits-unsafe-r2-server.log
+/tmp/ds4-routerexact-k2body-shadow.log
+/tmp/ds4-k2direct-server-shadow.log
+```
+
+Do not confuse the two router-exact variants:
+
+- `guard0.25` is the current quality-first MTP candidate: **10/12**, failures
+  `lru_cache, parse_csv_line`, 2689 generated tokens, suite-sum **15.90 t/s**
+  and server decode-only **16.78 t/s** in the warmed run.
+- no guard is rejected for now: **9/12**, failures
+  `lru_cache, flatten_dict, parse_csv_line`, 2660 generated tokens, suite-sum
+  **15.05 t/s**.
+- `DS4_MTP_BATCH_MARGIN_GPU_TOP2=1` is safe by default after the split: it keeps
+  full logits and scored **10/12**. It is not a speed win yet.
+- `DS4_MTP_BATCH_MARGIN_GPU_TOP2_NO_LOGITS_UNSAFE=1` is not promoted: one full
+  run regressed to **9/12** with the no-guard `flatten_dict` failure, while a
+  repeat returned to **10/12**. Treat it as unstable until repeat statistics say
+  otherwise.
+
+Next useful guard work: either run repeat statistics on the unsafe no-logits
+variant to quantify instability, or skip that micro-optimization and attack the
+larger overhead: exact replay frequency and the cost of guard-rejected cycles.
+
+### 2026-05-20 continuation — MTP aggregate stats and guarded prefix1 commit
+
+The next hypothesis was that the router-exact+K2+guard0.25 path was spending
+too much time on exact replay after partial MTP accepts. Per-token
+`DS4_MTP_TIMING=1` is too noisy for long coding evals, so the runtime now has a
+request-level aggregate report:
+
+```sh
+DS4_MTP_AGG_STATS=1
+```
+
+When enabled in the server, it prints one report after each request and resets
+the counters. The report includes speculative calls, first-draft misses,
+drafted/committed extra tokens, margin guard checks, path counts, and average
+cycle/draft/snapshot/verify/replay times. This is diagnostic-only and does not
+change generation.
+
+Baseline aggregate profile for router-exact+K2+`guard0.25` on the 12-task
+coding eval at `ctx=256000`:
+
+```text
+label: mtp_agg_guard025_12task_r1
+quality: 10/12, failures lru_cache, parse_csv_line
+tokens: 2862
+suite-sum: 15.88 t/s
+calls: 1130
+cycles: 957
+drafted extra: 1913
+committed extra: 1737
+extra/call: 1.537
+emitted/call: 2.537
+extra-token accept: 90.8%
+avg cycle: 105.787 ms
+avg draft: 4.119 ms
+avg verify: 90.228 ms
+avg replay: 10.796 ms
+paths:
+  micro-full: 781 cycles, 95.0 ms avg, 0 replay
+  micro-exact-replay1: 176 cycles, 153.9 ms avg, 58.7 ms replay
+```
+
+This confirmed the bottleneck shape: full accepts are already close to the
+best MTP envelope, but partial accepts pay an extra one-token exact replay of
+about **59 ms**. That replay is frequent enough to cost about **10.8 ms per
+MTP cycle** across the suite.
+
+Pure prefix1 capture was tested next:
+
+```sh
+DS4_MTP_CAPTURE_PREFIX1=1
+```
+
+It removed almost all replay cost, but it is not acceptable as-is:
+
+```text
+label: mtp_agg_guard025_capture_prefix1_12task_r1
+quality: 9/12, failures lru_cache, parse_duration, parse_csv_line
+tokens: 2805
+suite-sum: 16.67 t/s
+avg cycle: 96.045 ms
+avg replay: 0.101 ms
+paths:
+  micro-full: 761 cycles, 95.9 ms avg
+  micro-prefix1: 175 cycles, 96.8 ms avg
+```
+
+The extra `parse_duration` failure means that the batch row-0 frontier is not
+safe enough to use unconditionally as the committed one-token state, even
+though the accepted token prefix is still verified.
+
+The compromise implemented in this pass is margin-gated prefix1 capture:
+
+```sh
+DS4_MTP_CAPTURE_PREFIX1=1
+DS4_MTP_CAPTURE_PREFIX1_MIN_MARGIN=2.0
+```
+
+For partial accepts, the verifier already has row-0 logits because the
+`guard0.25` path keeps full logits. The new guard uses prefix1 capture only
+when row-0 top1-top2 margin is at least the configured threshold; otherwise it
+restores the snapshot and uses the exact replay path. Result:
+
+```text
+label: mtp_agg_guard025_capture_prefix1_m2_12task_r1
+quality: 10/12, failures lru_cache, parse_csv_line
+tokens: 2891
+suite-sum: 16.39-16.42 t/s
+calls: 1145
+cycles: 963
+drafted extra: 1922
+committed extra: 1752
+extra/call: 1.530
+emitted/call: 2.530
+extra-token accept: 91.16%
+avg cycle: 100.142 ms
+avg draft: 4.107 ms
+avg verify: 91.015 ms
+avg replay: 4.353 ms
+paths:
+  micro-full: 793 cycles, 95.7 ms avg, 0 replay
+  micro-prefix1: 100 cycles, 96.6 ms avg, 0.5 ms replay bookkeeping
+  micro-exact-replay1: 70 cycles, 155.2 ms avg, 59.1 ms replay
+```
+
+The repeat run kept the exact same quality shape:
+
+```text
+label: mtp_agg_guard025_capture_prefix1_m2_12task_r2
+quality: 10/12, failures lru_cache, parse_csv_line
+tokens: 2938
+suite-sum: 15.16-15.20 t/s
+calls: 1175
+cycles: 980
+drafted extra: 1958
+committed extra: 1768
+extra/call: 1.505
+emitted/call: 2.505
+extra-token accept: 90.3%
+avg cycle: 101.693 ms
+avg draft: 4.121 ms
+avg verify: 91.324 ms
+avg replay: 5.568 ms
+paths:
+  micro-full: 790 cycles, 96.1 ms avg, 0 replay
+  micro-prefix1: 99 cycles, 96.4 ms avg, 0.5 ms replay bookkeeping
+  micro-exact-replay1: 91 cycles, 155.6 ms avg, 59.3 ms replay
+```
+
+Per-task repeat details:
+
+```text
+merge_intervals PASS 243 tokens, 9.44 t/s
+top_k_frequent PASS 102 tokens, 14.86 t/s
+lru_cache FAIL 177 tokens, 17.13 t/s
+parse_duration PASS 417 tokens, 15.19 t/s
+group_anagrams PASS 78 tokens, 14.55 t/s
+flatten_dict PASS 165 tokens, 16.15 t/s
+sliding_window PASS 70 tokens, 15.60 t/s
+valid_brackets PASS 82 tokens, 15.77 t/s
+parse_csv_line FAIL 900 tokens, 16.08 t/s
+topological_sort PASS 265 tokens, 16.60 t/s
+edit_distance PASS 173 tokens, 16.77 t/s
+binary_search_bounds PASS 266 tokens, 17.25 t/s
+```
+
+Interpretation: `MIN_MARGIN=2.0` is now a repeatable quality-preserving MTP
+candidate over two full suites, but the speed win is not yet enough. The
+first repeat was about **3.4%** faster than the same aggregate baseline
+(**16.39-16.42 t/s** vs **15.88 t/s**). The second repeat was dragged down by
+a cold first task and longer `parse_duration` output, while its warmed chunks
+still landed mostly in the **15.6-17.3 t/s** band. The key unchanged fact is
+that verifier time stayed at **~91 ms** in both repeats; prefix1 only attacks
+the partial replay tail.
+
+A more aggressive `DS4_MTP_CAPTURE_PREFIX1_MIN_MARGIN=1.0` was canaried on
+`lru_cache, parse_duration, flatten_dict, parse_csv_line`. It kept the expected
+2/4 pass shape, but `parse_duration` generated 448 tokens instead of 363 in
+the `2.0` canary and canary wall time was worse. It is not worth a full suite
+until repeat data says the longer output was just run variance.
+
+Relevant artifacts:
+
+```text
+/tmp/ds4-mtp-agg-eval/mtp_agg_guard025_12task_r1.json
+/tmp/ds4-mtp-agg-eval/mtp_agg_guard025_capture_prefix1_12task_r1.json
+/tmp/ds4-mtp-agg-eval/mtp_agg_guard025_capture_prefix1_m2_canary.json
+/tmp/ds4-mtp-agg-eval/mtp_agg_guard025_capture_prefix1_m2_12task_r1.json
+/tmp/ds4-mtp-agg-eval/mtp_agg_guard025_capture_prefix1_m2_12task_r2.json
+/tmp/ds4-mtp-agg-eval/mtp_agg_guard025_capture_prefix1_m1_canary.json
+/tmp/ds4-mtp-agg-guard025-server.log
+/tmp/ds4-mtp-agg-guard025-capture-prefix1-server.log
+/tmp/ds4-mtp-agg-guard025-capture-prefix1-m2-server.log
+/tmp/ds4-mtp-agg-guard025-capture-prefix1-m2-r2-server.log
+/tmp/ds4-mtp-agg-guard025-capture-prefix1-m1-server.log
+```
+
+Current MTP research recommendation: keep `guard0.25` as the quality anchor and
+keep `MIN_MARGIN=2.0` as the partial-prefix candidate. Do not promote pure
+prefix1 capture. The next speed target is still the **90-91 ms verifier**
+itself; replay is now partly controlled.
+
+### 2026-05-20 continuation — verifier profiling after prefix1
+
+After prefix1 reduced the partial-replay tail, the next question was whether
+the remaining verifier cost was output-head/readback, margin computation, or
+the 43 layer pass itself. A low-intrusion verifier profiler was added:
+
+```sh
+DS4_MTP_VERIFY_PROFILE=1
+```
+
+It prints one line per target verifier call:
+
+```text
+ds4: mtp verify profile start=... tokens=... top2=... logits=...
+  upload=... layers=... head_topk=... readback=... total=... ms
+```
+
+This profiler uses the command-buffer boundaries the verifier already has; it
+does not add the heavy per-layer synchronization used by the stage profiler.
+On `valid_brackets` with router-exact+K2+`guard0.25`+prefix1 `MIN_MARGIN=2.0`
+at `ctx=256000`, the hot `tokens=2` verifier calls looked like:
+
+```text
+upload:    usually 0.02-0.8 ms, occasional ~2 ms
+layers:    82-88 ms
+head_topk: ~2.5 ms
+readback:  ~0.04 ms after warmup
+total:     85-90 ms
+```
+
+The important result: full-logit readback for the CPU margin guard is not the
+20 t/s blocker. GPU-top2/no-logits may still be cleaner, but it cannot remove
+the large cost; the layer pass dominates.
+
+A short intrusive layer-stage profile was then run with:
+
+```sh
+DS4_METAL_LAYER_STAGE_PROFILE=1
+```
+
+The canary was `top_k_frequent` capped at 32 generated tokens, and only
+`tokens=2` rows were aggregated so prompt prefill was excluded. This profiler
+synchronizes at every stage, so use the percentages and stage order, not the
+absolute t/s:
+
+```text
+stage lines: 7777
+verifier cycles: 11
+stage-sum total: 996.578 ms
+per-cycle stage sums:
+  first cold cycle: 110.805 ms
+  later cycles: mostly 87-90 ms
+
+part totals:
+  attn: 570.432 ms, 57.2%
+  ffn:  426.146 ms, 42.8%
+
+top stages:
+  ffn.routed_moe:      301.318 ms, 30.2%
+  attn.output_proj:    230.385 ms, 23.1%
+  attn.q_path:         114.830 ms, 11.5%
+  attn.attention:       81.117 ms,  8.1%
+  attn.indexer_setup:   57.493 ms,  5.8%
+  ffn.shared_gate_up:   54.346 ms,  5.5%
+  attn.compressor:      49.797 ms,  5.0%
+  ffn.shared_down:      28.050 ms,  2.8%
+```
+
+This confirms the older non-MTP decode profile in the new verifier context:
+the useful targets are still routed MoE and attention output projection. The
+logit head and readback are secondary.
+
+`DS4_CUDA_MOE_PROFILE=1` was then used without CUDA graph decode because CUDA
+events inside decode graph capture fail. On the same short verifier-shaped
+canary, `tokens=2` routed-MoE rows split as:
+
+```text
+default K2 direct gate, no graph, tokens=2 rows=688:
+  gateup: 356.699 ms, 70.6%
+  down:   138.799 ms, 27.5%
+  xq/sort/midq/sum: ~1.9% combined
+  warm last-8 verifier cycles: 27.151 ms routed-MoE total
+```
+
+The existing no-auxiliary-write variant was retested specifically for
+`tokens=2`:
+
+```sh
+DS4_CUDA_MOE_DECODE_GATE_NOAUX=1
+```
+
+Its aggregate over all profiled rows looked better because it removed a few
+outliers:
+
+```text
+noaux, no graph, tokens=2 rows=688:
+  gateup: 296.016 ms, 67.8%
+  down:   132.325 ms, 30.3%
+  warm last-8 verifier cycles: 27.111 ms routed-MoE total
+```
+
+But the warm steady-state MoE total was effectively unchanged. A production-like
+graph canary with noaux and the full MTP m2 environment scored **4/4** on
+`top_k_frequent, parse_duration, flatten_dict, valid_brackets`, but did not
+show a real speed win:
+
+```text
+label: mtp_noaux_m2_canary_4task
+quality: 4/4
+tokens: 716
+suite-sum including cold first task: 12.70 t/s
+top_k_frequent: PASS 102 tokens, 5.44 t/s  (cold/capture path)
+parse_duration: PASS 396 tokens, 16.65 t/s
+flatten_dict:   PASS 136 tokens, 16.07 t/s
+valid_brackets: PASS 82 tokens, 15.58 t/s
+hot verifier averages: ~87.9-91.0 ms depending on task
+```
+
+Conclusion: `DS4_CUDA_MOE_DECODE_GATE_NOAUX=1` remains diagnostic-only. It is
+not the missing 10-11%.
+
+The attention-output finding led to one new opt-in kernel experiment:
+
+```sh
+DS4_CUDA_Q8_SOA_BATCH2=1
+```
+
+Rationale: for `n_tok=2`, `attn_output_b` used the generic batch2 cached-x Q8
+kernel over interleaved GGUF blocks, even when the SoA cache for
+`attn_output_b` was already resident. The new kernel keeps the same batch2
+dot-product shape but reads scales and quant bytes from the SoA duplicate
+cache. It is opt-in only.
+
+The first production-like canary rejected it:
+
+```text
+label: mtp_soa_batch2_m2_canary_4task
+quality: 3/4
+failure: parse_duration (missed expected ValueError for "0s")
+tokens: 684
+suite-sum including cold first task: 12.37 t/s
+top_k_frequent: PASS 102 tokens, 5.29 t/s  (cold/capture path)
+parse_duration: FAIL 335 tokens, 16.30 t/s
+flatten_dict:   PASS 165 tokens, 16.59 t/s
+valid_brackets: PASS 82 tokens, 15.64 t/s
+hot verifier averages: still ~87-91 ms
+```
+
+This is a useful negative result. The batch2 SoA path is not promotable without
+shadow/logit-drift work, and even the canary speed did not justify that risk.
+
+Relevant artifacts:
+
+```text
+/tmp/ds4-mtp-profile-eval/mtp_verify_profile_valid_brackets.json
+/tmp/ds4-mtp-layer-stage-profile-server.log
+/tmp/ds4-mtp-moe-profile-nograph-server.log
+/tmp/ds4-mtp-moe-profile-noaux-nograph-server.log
+/tmp/ds4-mtp-profile-eval/mtp_noaux_m2_canary_4task.json
+/tmp/ds4-mtp-noaux-canary-server.log
+/tmp/ds4-mtp-profile-eval/mtp_soa_batch2_m2_canary_4task.json
+/tmp/ds4-mtp-soa-batch2-canary-server.log
+```
+
+Updated recommendation: keep the `MIN_MARGIN=2.0` prefix1 candidate as the
+best quality-preserving MTP line, but do not spend more time on CPU margin
+readback, noaux, or batch2 SoA as primary routes. The remaining verifier cost
+is in the layer body itself: routed-MoE gate/up+down, attention output
+projection, Q path, and sparse attention/indexer setup.
+
+### 2026-05-20 continuation — quality-preserving draft2 skip
+
+The stage profiles show that making the N=2 verifier much faster requires a
+large structural rewrite. A smaller but more promising quality-preserving idea
+is to avoid entering that verifier when the second recursive MTP draft is
+weak.
+
+New opt-in:
+
+```sh
+DS4_MTP_DRAFT2_SKIP_MIN_MARGIN=2.0
+```
+
+In strict MTP, after the base target token has verified `drafts[0]`, recursive
+MTP proposes `drafts[1]`. With this flag, the runtime asks MTP for the top-2
+margin for that second draft. If the margin is below the threshold, it skips
+the N=2 target verifier and instead exact-decodes `drafts[0]` only. That costs
+about one normal exact token, but avoids the bad partial path:
+
+```text
+old partial exact-replay path: ~150-160 ms
+new margin-skip path:          ~61-62 ms
+```
+
+This does not accept an unverified target token: `drafts[0]` has already matched
+the base target logits, and the skipped `drafts[1]` is simply not emitted.
+
+First 4-task canary with router-exact+K2+guard0.25+prefix1 m2+draft2 skip:
+
+```text
+label: mtp_draft2skip_m2_canary_4task
+quality: 4/4
+tokens: 722
+suite-sum including cold first task: 13.49 t/s
+top_k_frequent: PASS 102 tokens, 5.96 t/s  (cold/capture path)
+parse_duration: PASS 405 tokens, 17.23 t/s
+flatten_dict:   PASS 133 tokens, 17.06 t/s
+valid_brackets: PASS 82 tokens, 16.47 t/s
+```
+
+Aggregate shape from the canary:
+
+```text
+margin-skip cycles: ~61-62 ms each
+parse_duration hot chunks: 16.6-19.5 t/s, avg 17.85 t/s
+flatten_dict hot avg: 18.32 t/s server decode-only
+valid_brackets hot avg: 18.85 t/s server decode-only
+```
+
+The full 12-task eval was then run twice at `ctx=256000`.
+
+```text
+label: mtp_draft2skip_m2_12task_r1
+quality: 10/12, failures lru_cache, parse_csv_line
+tokens: 2803
+suite-sum: 16.87 t/s
+calls: 1155
+cycles: 979
+drafted extra: 1958
+committed extra: 1650
+extra/call: 1.429
+emitted/call: 2.429
+extra-token accept: 84.3%
+avg cycle: 87.851 ms
+avg draft: 4.143 ms
+avg verify: 82.130 ms
+avg replay: 1.040 ms
+paths:
+  margin-skip: 259 cycles, 62.2 ms avg
+  micro-full: 671 cycles, 95.7 ms avg
+  micro-prefix1: 32 cycles, 95.8 ms avg
+  micro-exact-replay1: 17 cycles, 156.4 ms avg
+```
+
+Per-task r1:
+
+```text
+merge_intervals PASS 242 tokens, 17.30 t/s
+top_k_frequent PASS 102 tokens, 16.11 t/s
+lru_cache FAIL 177 tokens, 17.07 t/s
+parse_duration PASS 312 tokens, 17.17 t/s
+group_anagrams PASS 78 tokens, 14.79 t/s
+flatten_dict PASS 136 tokens, 16.90 t/s
+sliding_window PASS 70 tokens, 15.46 t/s
+valid_brackets PASS 82 tokens, 16.45 t/s
+parse_csv_line FAIL 900 tokens, 17.01 t/s
+topological_sort PASS 265 tokens, 16.76 t/s
+edit_distance PASS 173 tokens, 16.83 t/s
+binary_search_bounds PASS 266 tokens, 17.55 t/s
+```
+
+Repeat:
+
+```text
+label: mtp_draft2skip_m2_12task_r2
+quality: 10/12, failures lru_cache, parse_csv_line
+tokens: 2879
+suite-sum: 16.82 t/s
+calls: 1210
+cycles: 1002
+drafted extra: 2003
+committed extra: 1673
+extra/call: 1.383
+emitted/call: 2.383
+extra-token accept: 83.5%
+avg cycle: 87.156 ms
+avg draft: 4.140 ms
+avg verify: 81.640 ms
+avg replay: 0.846 ms
+paths:
+  margin-skip: 280 cycles, 62.2 ms avg
+  micro-full: 672 cycles, 95.6 ms avg
+  micro-prefix1: 36 cycles, 96.0 ms avg
+  micro-exact-replay1: 14 cycles, 157.0 ms avg
+```
+
+Per-task r2:
+
+```text
+merge_intervals PASS 242 tokens, 17.21 t/s
+top_k_frequent PASS 102 tokens, 16.08 t/s
+lru_cache FAIL 177 tokens, 16.64 t/s
+parse_duration PASS 389 tokens, 17.18 t/s
+group_anagrams PASS 78 tokens, 15.21 t/s
+flatten_dict PASS 135 tokens, 16.91 t/s
+sliding_window PASS 70 tokens, 15.50 t/s
+valid_brackets PASS 82 tokens, 15.70 t/s
+parse_csv_line FAIL 900 tokens, 16.98 t/s
+topological_sort PASS 265 tokens, 16.91 t/s
+edit_distance PASS 173 tokens, 16.78 t/s
+binary_search_bounds PASS 266 tokens, 17.48 t/s
+```
+
+Interpretation: draft2 skip trades some emitted/call rate for much lower cycle
+cost. The full-accept path is unchanged at ~95-96 ms, but many would-be weak
+second-draft cycles are diverted to an exact one-token path at ~62 ms instead
+of falling into partial replay. This is the best quality-first MTP result so
+far: same 10/12 quality over two full suites, with stable suite-sum around
+**16.8-16.9 t/s** and many warmed decode chunks in the **18-19 t/s** band.
+
+Relevant artifacts:
+
+```text
+/tmp/ds4-mtp-profile-eval/mtp_draft2skip_m2_canary_4task.json
+/tmp/ds4-mtp-profile-eval/mtp_draft2skip_m2_12task_r1.json
+/tmp/ds4-mtp-profile-eval/mtp_draft2skip_m2_12task_r2.json
+/tmp/ds4-mtp-draft2skip-m2-canary-server.log
+```
+
+Updated MTP recommendation: if testing MTP, use draft2 skip with the guarded
+prefix1 candidate. It is still below the production no-MTP path, but it is the
+first MTP variant that improves quality-preserving full-suite speed repeatably
+after the exact-islands work.
+
+Threshold tuning canaries were run on
+`top_k_frequent, parse_duration, flatten_dict, valid_brackets`:
+
+```text
+threshold 1.0:
+  quality: 4/4
+  tokens: 715
+  suite-sum including cold first task: 13.43 t/s
+  top_k_frequent 102 tokens, 6.03 t/s
+  parse_duration 401 tokens, 17.10 t/s
+  flatten_dict 130 tokens, 17.03 t/s
+  valid_brackets 82 tokens, 16.09 t/s
+
+threshold 2.0:
+  quality: 4/4
+  tokens: 722
+  suite-sum including cold first task: 13.49 t/s
+  top_k_frequent 102 tokens, 5.96 t/s
+  parse_duration 405 tokens, 17.23 t/s
+  flatten_dict 133 tokens, 17.06 t/s
+  valid_brackets 82 tokens, 16.47 t/s
+
+threshold 3.0:
+  quality: 4/4
+  tokens: 719
+  suite-sum including cold first task: 12.84 t/s
+  top_k_frequent 102 tokens, 5.21 t/s
+  parse_duration 405 tokens, 17.30 t/s
+  flatten_dict 130 tokens, 16.61 t/s
+  valid_brackets 82 tokens, 16.25 t/s
+```
+
+`1.0` skips too little and keeps more expensive verifier/replay work.
+`3.0` skips too much and loses too many full accepts. The current best default
+for this experiment remains **2.0**.
+
+Additional artifacts:
+
+```text
+/tmp/ds4-mtp-profile-eval/mtp_draft2skip_m1_canary_4task.json
+/tmp/ds4-mtp-profile-eval/mtp_draft2skip_m3_canary_4task.json
+/tmp/ds4-mtp-draft2skip-m1-canary-server.log
+/tmp/ds4-mtp-draft2skip-m3-canary-server.log
+```
+
+### 2026-05-20 continuation — prefix batch retest
+
+The next attempt revisited `DS4_MTP_PREFIX_BATCH`, but from a stricter
+quality-first angle. The old prefix-batch idea tried to verify the already
+sampled next target token plus two MTP drafts before running the normal base
+decode. It regressed because it often accepted only 2 of 3 proposed rows, then
+had to restore and fall back.
+
+New opt-in diagnostics:
+
+```sh
+DS4_MTP_PREFIX_BATCH=1
+DS4_MTP_PREFIX_BATCH_MAX_TOKENS=2
+DS4_MTP_PREFIX_BATCH_DRAFT2_MIN_MARGIN=2.0
+DS4_MTP_PREFIX_BATCH_MIN_MARGIN=3.0
+```
+
+`DS4_MTP_PREFIX_BATCH_MAX_TOKENS=2` limits the prefix attempt to the already
+sampled target token plus one MTP draft. That uses the same guarded N=2 verifier
+as the current best MTP line, and can commit prefix-1 with captured frontiers.
+
+`DS4_MTP_PREFIX_BATCH_DRAFT2_MIN_MARGIN` gates the prefix attempt before the
+target verifier: if the MTP proposal for the next token has low top-2 margin,
+the runtime falls back to the normal draft2-skip path. This avoids spending a
+~96 ms prefix verifier just to emit one token.
+
+`DS4_MTP_PREFIX_BATCH_MIN_MARGIN` is the deeper experiment: allow the original
+3-token prefix batch only when all recursive MTP drafts clear a margin gate, and
+also apply the target batch margin guard to every output row.
+
+Canary results on
+`top_k_frequent, parse_duration, flatten_dict, valid_brackets` at `ctx=256000`:
+
+```text
+plain prefix2, no draft gate:
+  quality: 4/4
+  tokens: 1023
+  suite-sum including cold first task: 13.37 t/s
+  top_k_frequent 102 tokens, 5.62 t/s
+  parse_duration 704 tokens, 15.74 t/s
+  flatten_dict 135 tokens, 16.06 t/s
+  valid_brackets 82 tokens, 15.55 t/s
+
+prefix2, MTP draft margin gate 2.0:
+  quality: 4/4
+  tokens: 691
+  suite-sum including cold first task: 13.47 t/s
+  top_k_frequent 102 tokens, 6.33 t/s
+  parse_duration 372 tokens, 17.33 t/s
+  flatten_dict 135 tokens, 15.83 t/s
+  valid_brackets 82 tokens, 15.80 t/s
+
+prefix2, MTP draft margin gate 3.0:
+  quality: 4/4
+  tokens: 720
+  suite-sum including cold first task: 13.29 t/s
+  top_k_frequent 102 tokens, 5.92 t/s
+  parse_duration 404 tokens, 17.00 t/s
+  flatten_dict 132 tokens, 16.53 t/s
+  valid_brackets 82 tokens, 15.80 t/s
+
+same-build draft2-skip rerun, no prefix:
+  quality: 4/4
+  tokens: 784
+  suite-sum including cold first task: 13.55 t/s
+  top_k_frequent 102 tokens, 5.91 t/s
+  parse_duration 435 tokens, 16.80 t/s
+  flatten_dict 165 tokens, 17.03 t/s
+  valid_brackets 82 tokens, 16.28 t/s
+
+prefix3, all-draft MTP margin gate 3.0:
+  quality: 4/4
+  tokens: 714
+  suite-sum including cold first task: 11.69 t/s
+  top_k_frequent 102 tokens, 5.01 t/s
+  parse_duration 404 tokens, 15.29 t/s
+  flatten_dict 126 tokens, 14.71 t/s
+  valid_brackets 82 tokens, 14.29 t/s
+```
+
+Interpretation:
+
+- Prefix2 is not a clear win. Its successful `prefix-full` cycles emit two
+  tokens in about **98-100 ms**, which is near 20 t/s locally, but partial
+  prefix cycles cost about **95-97 ms for one token**. The MTP draft-margin gate
+  reduces those bad partials but also removes useful prefix-full opportunities.
+- Prefix3 is worse. The rare `prefix-full` cycle that survived the strict gates
+  measured about **169 ms total**, with **156 ms** in the target verifier. Three
+  emitted tokens at that cost are only ~17.7 t/s before request overhead.
+- The same-build no-prefix draft2-skip rerun remained the best canary aggregate
+  and was stronger on `flatten_dict` and `valid_brackets`.
+
+Decision: keep the prefix-batch changes as opt-in diagnostics only. Do not add
+them to the recommended MTP environment. The useful lesson is that skipping the
+base decode is not enough if the replacement verifier has to process fewer
+extra tokens or enters a partial path. The current best speed/quality line
+remains draft2-skip m2 without prefix batch.
+
+Artifacts:
+
+```text
+/tmp/ds4-mtp-profile-eval/mtp_prefix2_m2_canary_4task.json
+/tmp/ds4-mtp-profile-eval/mtp_prefix2_gate2_m2_canary_4task.json
+/tmp/ds4-mtp-profile-eval/mtp_prefix2_gate3_m2_canary_4task.json
+/tmp/ds4-mtp-profile-eval/mtp_draft2skip_m2_rerun_canary_4task.json
+/tmp/ds4-mtp-profile-eval/mtp_prefix3_gate3_m2_canary_4task.json
+/tmp/ds4-mtp-prefix2-gated-canary-server.log
+/tmp/ds4-mtp-prefix2-gate3-canary-server.log
+/tmp/ds4-mtp-prefix3-gate3-canary-server.log
+```
+
+### 2026-05-20 continuation — CUDA Graph verifier experiment
+
+Another low-risk idea was to CUDA-graph the MTP target verifier. This should
+not change accepted tokens: it only changes how the existing N=2 verifier
+kernels are submitted.
+
+New opt-in:
+
+```sh
+DS4_CUDA_GRAPH_VERIFY=1
+```
+
+First attempt: enabling it with `DS4_MTP_CAPTURE_PREFIX1=1` failed immediately.
+The prefix1 verifier path copies captured compressor/indexer frontiers while
+the CUDA stream is in capture mode, and CUDA rejects those tensor copies:
+
+```text
+CUDA tensor copy failed: operation not permitted when stream is capturing
+```
+
+The code now refuses graph-verify capture when prefix1 capture is active, and
+adds a CUDA capture abort helper so a failed capture does not leave the stream
+poisoned.
+
+Follow-up: CUDA `ds4_gpu_tensor_copy()` was changed to use
+`cudaMemcpyAsync(..., cudaStreamPerThread)` for device-to-device copies while a
+graph capture is active. That makes the prefix1 frontier copies capturable, so
+`DS4_CUDA_GRAPH_VERIFY=1` can now run with `DS4_MTP_CAPTURE_PREFIX1=1`.
+
+The compatible test therefore ran with graph verifier enabled but without
+`DS4_MTP_CAPTURE_PREFIX1`:
+
+```sh
+DS4_CUDA_GRAPH_DECODE=1
+DS4_CUDA_GRAPH_VERIFY=1
+DS4_CUDA_Q8_SOA_CACHE=1
+DS4_CUDA_MOE_K2_DIRECT_GATE=1
+DS4_MTP_STRICT=1
+DS4_MTP_BATCH_VERIFY=1
+DS4_MTP_UNSAFE_BATCH_VERIFY=1
+DS4_MTP_BATCH_MARGIN_GUARD=0.25
+DS4_MTP_BATCH_HC_PRE_EXACT=1
+DS4_MTP_BATCH_ATTENTION_EXACT=1
+DS4_MTP_BATCH_COMPRESS_PROJ_EXACT=1
+DS4_MTP_BATCH_ROUTER_EXACT=1
+DS4_MTP_DRAFT2_SKIP_MIN_MARGIN=2.0
+```
+
+Canary result:
+
+```text
+label: mtp_graphverify_noprefix1_m2_canary_4task
+quality: 4/4
+tokens: 626
+suite-sum including cold first task: 13.50 t/s
+top_k_frequent: PASS 102 tokens, 6.55 t/s
+parse_duration: PASS 307 tokens, 17.18 t/s
+flatten_dict:   PASS 135 tokens, 16.94 t/s
+valid_brackets: PASS 82 tokens, 16.47 t/s
+```
+
+The server-side decode chunks looked better than the eval elapsed figure on
+some tasks:
+
+```text
+parse_duration avg decode: 18.00 t/s
+flatten_dict avg decode:   18.16 t/s
+valid_brackets avg decode: 18.85 t/s
+```
+
+Full 12-task eval at `ctx=256000`:
+
+```text
+label: mtp_graphverify_noprefix1_m2_12task_r1
+quality: 10/12, failures lru_cache, parse_csv_line
+tokens: 2861
+suite-sum: 16.84 t/s
+```
+
+Per-task:
+
+```text
+merge_intervals PASS 242 tokens, 16.98 t/s
+top_k_frequent PASS 102 tokens, 15.89 t/s
+lru_cache FAIL 177 tokens, 17.12 t/s
+parse_duration PASS 370 tokens, 17.58 t/s
+group_anagrams PASS 78 tokens, 14.71 t/s
+flatten_dict PASS 136 tokens, 16.54 t/s
+sliding_window PASS 70 tokens, 15.48 t/s
+valid_brackets PASS 82 tokens, 16.18 t/s
+parse_csv_line FAIL 900 tokens, 16.98 t/s
+topological_sort PASS 265 tokens, 16.79 t/s
+edit_distance PASS 173 tokens, 16.46 t/s
+binary_search_bounds PASS 266 tokens, 17.29 t/s
+```
+
+Interpretation: CUDA Graph verifier is quality-neutral in this shape, and it
+slightly improves some hot chunks, but it does not beat the best
+draft2-skip m2 full-suite repeats (**16.87-16.90 t/s**). Disabling
+`capture_prefix1` to make the verifier capturable gives back roughly the same
+gain that graph launch reduction can recover.
+
+Decision: keep `DS4_CUDA_GRAPH_VERIFY=1` diagnostic-only for now. It becomes
+interesting again only if prefix1 frontier capture can be made graph-capturable
+or avoided.
+
+After the async D2D copy change, the prefix1-compatible graph-verifier canary
+was run:
+
+```text
+label: mtp_graphverify_prefix1_m2_canary_4task
+quality: 4/4
+tokens: 606
+suite-sum including cold first task: 13.12 t/s
+top_k_frequent: PASS 102 tokens, 5.23 t/s
+parse_duration: PASS 287 tokens, 16.98 t/s
+flatten_dict:   PASS 135 tokens, 15.98 t/s
+valid_brackets: PASS 82 tokens, 16.23 t/s
+```
+
+This proves the capture compatibility issue is fixed, but it is still not a
+speed win. Hot `micro-full` verifier cycles remained around **95-102 ms**,
+similar to or worse than the no-graph draft2-skip path.
+
+One more verifier-graph variant removed the pre-capture stream synchronize for
+the verifier graph only. The verifier prompt rows are already uploaded before
+capture starts, so this is safe for this path and avoids paying an extra
+sync during graph creation/update. Normal decode graph capture still keeps its
+pre-sync.
+
+New helper:
+
+```c
+ds4_gpu_graph_capture_begin_no_sync()
+```
+
+Prefix1 + graph verifier + no pre-sync canary:
+
+```text
+label: mtp_graphverify_prefix1_nosync_m2_canary_4task
+quality: 4/4
+tokens: 770
+suite-sum including cold first task: 13.65 t/s
+top_k_frequent: PASS 102 tokens, 6.11 t/s
+parse_duration: PASS 420 tokens, 17.10 t/s
+flatten_dict:   PASS 166 tokens, 16.81 t/s
+valid_brackets: PASS 82 tokens, 15.55 t/s
+```
+
+Server-side hot chunks improved on the long tasks but not enough:
+
+```text
+parse_duration avg decode: 17.65 t/s
+flatten_dict avg decode:   17.78 t/s
+valid_brackets avg decode: 18.40 t/s
+```
+
+Aggregate cycle timings still show the real cost in the verifier layer body,
+not graph submission:
+
+```text
+parse_duration micro-full: 95.880 ms total, 91.049 ms verify
+flatten_dict micro-full:   95.558 ms total, 90.735 ms verify
+valid_brackets micro-full: 95.041 ms total, 90.226 ms verify
+```
+
+The same no-pre-sync graph verifier was also tested without prefix1 capture,
+to isolate graph submission from the prefix replay path:
+
+```text
+label: mtp_graphverify_noprefix1_nosync_m2_canary_4task
+quality: 4/4
+tokens: 724
+suite-sum including cold first task: 13.65 t/s
+top_k_frequent: PASS 102 tokens, 6.10 t/s
+parse_duration: PASS 405 tokens, 17.57 t/s
+flatten_dict:   PASS 135 tokens, 16.51 t/s
+valid_brackets: PASS 82 tokens, 16.15 t/s
+```
+
+Against the earlier no-prefix graph-verifier canary this is only a small net
+change (**13.65 t/s** vs **13.50 t/s**) and loses speed on three of the four
+task-level eval timings. The server hot path still spends about **88-95 ms**
+per full verifier cycle:
+
+```text
+parse_duration micro-full: 94.401 ms total, 89.567 ms verify
+flatten_dict micro-full:   94.268 ms total, 89.349 ms verify
+valid_brackets micro-full: 92.832 ms total, 88.009 ms verify
+```
+
+Updated decision: `DS4_CUDA_GRAPH_VERIFY=1` remains diagnostic-only even after
+making prefix1 capture compatible and removing the verifier pre-sync. The next
+speed work should attack the verifier layer body itself.
+
+### 2026-05-21 continuation — attention output A F16/cuBLAS probe
+
+Since stage profiling attributed a large fraction of verifier time to
+`attn.output_proj`, the next narrow probe was to force the attention output A
+projection to use the existing expanded-F16 cuBLAS path even for the N=2
+verifier:
+
+```sh
+DS4_CUDA_ATTENTION_OUTPUT_A_CUBLAS_MIN=2
+```
+
+This spends extra device memory on-demand for `attn_output_a` expanded weights
+but should leave the rest of the candidate unchanged.
+
+Canary:
+
+```text
+label: mtp_attnouta_cublas2_m2_canary_4task
+quality: 4/4
+tokens: 716
+suite-sum including cold first task: 13.39 t/s
+top_k_frequent: PASS 102 tokens, 5.93 t/s
+parse_duration: PASS 401 tokens, 17.31 t/s
+flatten_dict:   PASS 131 tokens, 16.26 t/s
+valid_brackets: PASS 82 tokens, 16.21 t/s
+```
+
+The hot verifier cycle did not improve:
+
+```text
+parse_duration micro-full: 96.783 ms total, 91.914 ms verify
+flatten_dict micro-full:   95.508 ms total, 90.669 ms verify
+valid_brackets micro-full: 94.099 ms total, 89.255 ms verify
+```
+
+Decision: do not include `DS4_CUDA_ATTENTION_OUTPUT_A_CUBLAS_MIN=2` in the
+recommendation. It is quality-neutral on the canary, but it is slower than the
+same-build draft2-skip canary and adds memory pressure.
+
+Artifacts:
+
+```text
+/tmp/ds4-mtp-profile-eval/mtp_attnouta_cublas2_m2_canary_4task.json
+/tmp/ds4-mtp-attnouta-cublas2-m2-canary-server.log
+```
+
+### 2026-05-21 continuation — attention output B SoA batch2 probe
+
+The earlier `DS4_CUDA_Q8_SOA_BATCH2=1` probe enabled SoA layout for every
+generic Q8 N=2 matmul and failed a 4-task coding canary. A narrower variant was
+added to target only the large attention output B projection:
+
+```sh
+DS4_CUDA_Q8_SOA_BATCH2_ATTN_OUTPUT_B=1
+```
+
+Implementation detail: the old global `DS4_CUDA_Q8_SOA_BATCH2=1` behavior is
+unchanged. The new env only allows the batch2 SoA kernel when the Q8 matmul
+label is `attn_output_b` / `attention_output_b`.
+
+Canary:
+
+```text
+label: mtp_attnoutb_soa_batch2_m2_canary_4task
+quality: 4/4
+tokens: 702
+suite-sum including cold first task: 13.65 t/s
+top_k_frequent: PASS 102 tokens, 6.16 t/s
+parse_duration: PASS 383 tokens, 17.54 t/s
+flatten_dict:   PASS 135 tokens, 16.81 t/s
+valid_brackets: PASS 82 tokens, 16.35 t/s
+```
+
+Hot server chunks:
+
+```text
+parse_duration avg decode: 18.06 t/s
+flatten_dict avg decode:   18.03 t/s
+valid_brackets avg decode: 18.84 t/s
+```
+
+Hot verifier cycles improved slightly in the shortest task but remained close
+to the draft2-skip path overall:
+
+```text
+parse_duration micro-full: 94.245 ms total, 89.425 ms verify
+flatten_dict micro-full:   93.969 ms total, 89.128 ms verify
+valid_brackets micro-full: 91.906 ms total, 87.103 ms verify
+```
+
+Decision: this is the first narrow output-projection probe worth escalating.
+Run a full 12-task `ctx=256000` eval before adding it to the recommendation.
+
+Full 12-task eval, fresh server / cold first task:
+
+```text
+label: mtp_attnoutb_soa_batch2_m2_12task_r1
+quality: 10/12, failures lru_cache, parse_csv_line
+tokens: 2895
+suite-sum: 15.91 t/s
+```
+
+Per-task:
+
+```text
+merge_intervals PASS 242 tokens, 9.68 t/s
+top_k_frequent PASS 102 tokens, 15.27 t/s
+lru_cache FAIL 177 tokens, 17.09 t/s
+parse_duration PASS 405 tokens, 17.37 t/s
+group_anagrams PASS 78 tokens, 14.78 t/s
+flatten_dict PASS 135 tokens, 16.95 t/s
+sliding_window PASS 70 tokens, 15.24 t/s
+valid_brackets PASS 82 tokens, 16.37 t/s
+parse_csv_line FAIL 900 tokens, 17.08 t/s
+topological_sort PASS 265 tokens, 16.99 t/s
+edit_distance PASS 173 tokens, 16.85 t/s
+binary_search_bounds PASS 266 tokens, 17.49 t/s
+```
+
+Interpretation: quality held, but the fresh-server first task is not a fair
+speed comparison with the warmed draft2-skip repeats. A warmed repeat was run
+on the same server after a one-task warm-up.
+
+Warm repeat:
+
+```text
+label: mtp_attnoutb_soa_batch2_m2_12task_r2_warm
+quality: 10/12, failures lru_cache, parse_csv_line
+tokens: 2773
+suite-sum: 16.87 t/s
+```
+
+Per-task:
+
+```text
+merge_intervals PASS 242 tokens, 17.07 t/s
+top_k_frequent PASS 102 tokens, 14.93 t/s
+lru_cache FAIL 177 tokens, 17.17 t/s
+parse_duration PASS 287 tokens, 17.35 t/s
+group_anagrams PASS 78 tokens, 14.84 t/s
+flatten_dict PASS 131 tokens, 16.59 t/s
+sliding_window PASS 70 tokens, 15.47 t/s
+valid_brackets PASS 82 tokens, 16.39 t/s
+parse_csv_line FAIL 900 tokens, 17.05 t/s
+topological_sort PASS 265 tokens, 16.94 t/s
+edit_distance PASS 173 tokens, 16.89 t/s
+binary_search_bounds PASS 266 tokens, 17.52 t/s
+```
+
+Decision: keep `DS4_CUDA_Q8_SOA_BATCH2_ATTN_OUTPUT_B=1` as an opt-in probe,
+not a recommendation. It is quality-neutral across the full suite and reaches
+the same speed band as draft2-skip, but it does not beat the best warmed
+draft2-skip repeat (**16.87 t/s** vs **16.90 t/s**).
+
+Artifacts:
+
+```text
+/tmp/ds4-mtp-profile-eval/mtp_attnoutb_soa_batch2_m2_canary_4task.json
+/tmp/ds4-mtp-profile-eval/mtp_attnoutb_soa_batch2_m2_12task_r1.json
+/tmp/ds4-mtp-profile-eval/mtp_attnoutb_soa_batch2_m2_12task_r2_warm.json
+/tmp/ds4-mtp-profile-eval/mtp_attnoutb_soa_batch2_m2_warmup_merge.json
+/tmp/ds4-mtp-attnoutb-soa-batch2-m2-canary-server.log
+/tmp/ds4-mtp-attnoutb-soa-batch2-m2-12task-r1-server.log
+/tmp/ds4-mtp-attnoutb-soa-batch2-m2-12task-r2-warm-server.log
+```
+
+### 2026-05-21 continuation — exact decode refresh and attention output B F16/cuBLAS probe
+
+After the anti-loop reread, the no-MTP exact decode profile was refreshed at
+the production allocation (`--ctx 256000`). `DS4_CUDA_MOE_PROFILE=1` cannot be
+combined with CUDA graph decode because CUDA events inside graph capture fail
+with `operation not permitted when stream is capturing`, so this profile was
+run without graph and should be read as a relative stage map, not as the server
+throughput number.
+
+Command:
+
+```sh
+DS4_CUDA_Q8_SOA_CACHE=1 \
+DS4_METAL_DECODE_STAGE_PROFILE=1 \
+DS4_CUDA_MOE_PROFILE=1 \
+./ds4 --cuda -m ds4flash.gguf --ctx 256000 --nothink --temp 0 -n 4 \
+  -p "Write a Python function merge_intervals(intervals) that merges overlapping intervals."
+```
+
+Hot generated positions:
+
+```text
+pos=26 total=56.816 ms, 17.60 t/s
+pos=27 total=56.220 ms, 17.79 t/s
+pos=28 total=54.468 ms, 18.36 t/s
+```
+
+Aggregated over 129 layer-stage rows (3 generated tokens):
+
+```text
+routed_moe         47.979 ms total, 15.993 ms/token
+attn_output        41.728 ms total, 13.909 ms/token
+q_path             27.125 ms total,  9.042 ms/token
+shared_gate_up     11.923 ms total,  3.974 ms/token
+compressor_indexer 10.819 ms total,  3.606 ms/token
+attention           8.581 ms total,  2.860 ms/token
+shared_down         6.801 ms total,  2.267 ms/token
+```
+
+The MoE event split remained:
+
+```text
+tokens=1 calls=129
+gateup=30.678 ms, down=14.664 ms, total=46.709 ms
+per generated token: gateup=10.226 ms, down=4.888 ms, routed total=15.570 ms
+```
+
+This reconfirms that the shortest exact path is still the same two kernels:
+routed MoE gate/up and attention-output projection. To isolate the latter
+without turning on the already-rejected global Q8/cuBLAS mode, a new narrow
+opt-in switch was added:
+
+```sh
+DS4_CUDA_ATTENTION_OUTPUT_B_CUBLAS_MIN=N
+```
+
+When set, only Q8 matmuls labelled `attn_output_b` /
+`attention_output_b` with `n_tok >= N` may use the existing Q8-to-F16 cache
+plus cuBLAS path. Default behavior is unchanged.
+
+The `N=1` probe at `ctx=256000` was negative:
+
+```text
+DS4_CUDA_Q8_SOA_CACHE=1
+DS4_CUDA_ATTENTION_OUTPUT_B_CUBLAS_MIN=1
+DS4_METAL_DECODE_STAGE_PROFILE=1
+DS4_CUDA_MOE_PROFILE=1
+DS4_CUDA_WEIGHT_CACHE_VERBOSE=1
+
+pos=26 total=57.423 ms, 17.41 t/s
+pos=27 total=56.048 ms, 17.84 t/s
+pos=28 total=55.114 ms, 18.14 t/s
+
+attn_output 41.902 ms total vs 41.728 ms control
+routed_moe  47.571 ms total vs 47.979 ms control
+MoE total   46.301 ms total vs 46.709 ms control
+```
+
+The small MoE movement is noise/indirect scheduling; the target stage did not
+improve. The run also filled about **10.58 GiB** of Q8 F16 cache during the
+short prefill/decode process, so this is the wrong memory-for-speed trade.
+
+Decision: keep `DS4_CUDA_ATTENTION_OUTPUT_B_CUBLAS_MIN` as diagnostic-only and
+do not run a full server/coding eval. It is not a quality problem; it fails the
+speed gate before quality testing is worth the cost.
+
+### 2026-05-21 continuation — no-MTP warm coding comparison
+
+After the MTP output-projection probe tied but did not beat draft2-skip, the
+current production-safe path was re-measured with the same 12 coding tasks and
+`ctx=256000`:
+
+```sh
+DS4_CUDA_GRAPH_DECODE=1
+DS4_CUDA_Q8_SOA_CACHE=1
+```
+
+A one-task warm-up was run first to remove first-request graph/cache effects.
+
+Warm full-suite result:
+
+```text
+label: nomtp_graph_soa_12task_warm_r1
+quality: 10/12, failures lru_cache, parse_csv_line
+tokens: 2938
+suite-sum: 16.83 t/s
+```
+
+Per-task:
+
+```text
+merge_intervals PASS 243 tokens, 17.17 t/s
+top_k_frequent PASS 102 tokens, 15.54 t/s
+lru_cache FAIL 177 tokens, 16.50 t/s
+parse_duration PASS 446 tokens, 17.31 t/s
+group_anagrams PASS 78 tokens, 15.26 t/s
+flatten_dict PASS 136 tokens, 16.62 t/s
+sliding_window PASS 70 tokens, 14.76 t/s
+valid_brackets PASS 82 tokens, 15.77 t/s
+parse_csv_line FAIL 900 tokens, 17.16 t/s
+topological_sort PASS 265 tokens, 16.82 t/s
+edit_distance PASS 173 tokens, 16.76 t/s
+binary_search_bounds PASS 266 tokens, 17.01 t/s
+```
+
+Server decode chunks were steadier than MTP, mostly **17.4-17.9 t/s**. The eval
+suite-sum is nevertheless in the same band as the best quality-first MTP runs
+because request/prompt overhead and answer length still matter. This confirms
+the current situation: MTP is no longer a clear quality regression, but it also
+does not create the missing 10-11% jump to 20 t/s. The next useful work should
+target exact decode kernels shared by both no-MTP and the MTP verifier.
+
+Artifacts:
+
+```text
+/tmp/ds4-mtp-profile-eval/nomtp_graph_soa_warmup_merge.json
+/tmp/ds4-mtp-profile-eval/nomtp_graph_soa_12task_warm_r1.json
+/tmp/ds4-nomtp-graph-soa-12task-warm-server.log
+```
+
+Artifacts:
+
+```text
+/tmp/ds4-mtp-profile-eval/mtp_graphverify_m2_canary_4task.json
+/tmp/ds4-mtp-profile-eval/mtp_graphverify_noprefix1_m2_canary_4task.json
+/tmp/ds4-mtp-profile-eval/mtp_graphverify_noprefix1_m2_12task_r1.json
+/tmp/ds4-mtp-profile-eval/mtp_graphverify_noprefix1_nosync_m2_canary_4task.json
+/tmp/ds4-mtp-profile-eval/mtp_graphverify_prefix1_m2_canary_4task.json
+/tmp/ds4-mtp-profile-eval/mtp_graphverify_prefix1_nosync_m2_canary_4task.json
+/tmp/ds4-mtp-graphverify-m2-canary-server.log
+/tmp/ds4-mtp-graphverify-noprefix1-m2-canary-server.log
+/tmp/ds4-mtp-graphverify-noprefix1-nosync-m2-canary-server.log
+/tmp/ds4-mtp-graphverify-prefix1-m2-canary-server.log
+/tmp/ds4-mtp-graphverify-prefix1-nosync-m2-canary-server.log
+```
+
+### Compact checkpoint for continuation
+
+Current production-safe default remains **no-MTP graph decode + Q8 SoA cache**.
+It is the quality-preserving path used as the baseline for coding work.
+
+### 2026-05-21 consolidation — exact-fast server build
+
+The consolidated "fast but no quality tradeoff" build is the normal CUDA server
+with only these acceleration switches:
+
+```sh
+DS4_CUDA_GRAPH_DECODE=1
+DS4_CUDA_Q8_SOA_CACHE=1
+```
+
+This means:
+
+- no MTP;
+- full six routed experts;
+- no active-expert reduction or renormalization;
+- no verifier shortcuts;
+- no diagnostic F16/cuBLAS Q8 switches;
+- no broad/experimental SoA extensions beyond the default attention-output
+  A/B cache.
+
+A wrapper was added at repo root:
+
+```sh
+./ds4-server-exact-fast
+```
+
+With no arguments it starts:
+
+```sh
+./ds4-server --cuda -m ds4flash.gguf --ctx 256000 \
+  --host 0.0.0.0 --port 8000 --tokens 900
+```
+
+The defaults can be overridden with env (`DS4_MODEL`, `DS4_CTX`, `DS4_HOST`,
+`DS4_PORT`, `DS4_TOKENS`) or by passing explicit `ds4-server` args. The wrapper
+also unsets known experiment/tradeoff env vars (`DS4_MTP_*`,
+`DS4_MOE_ACTIVE_EXPERTS*`, Q8/cuBLAS diagnostics, broad SoA probes, MoE micro
+probes, profiler envs) before exporting the exact-fast pair above.
+
+Build:
+
+```text
+make cuda-spark
+result: ds4, ds4-server, ds4-bench, ds4-eval all up to date
+```
+
+Smoke:
+
+```text
+DS4_CUDA_GRAPH_DECODE=1 DS4_CUDA_Q8_SOA_CACHE=1 ./ds4 --cuda \
+  -m ds4flash.gguf --ctx 256000 --nothink --temp 0 -n 8 \
+  -p "Write a Python function add(a, b)."
+
+result: generation 20.64 t/s on the short generated snippet
+```
+
+`ds4-eval` smoke:
+
+```sh
+DS4_CUDA_GRAPH_DECODE=1 DS4_CUDA_Q8_SOA_CACHE=1 ./ds4-eval --cuda \
+  -m ds4flash.gguf --questions 2 --tokens 512 \
+  --hard-limit-reply-budget 128 --soft-limit-reply-budget 256 \
+  --nothink --plain --trace /tmp/ds4-eval-graph-soa-2q-repeat.txt
+```
+
+Result: **2/2 passed**:
+
+```text
+GPQA Diamond/recNu3MXkvWUzHZr9: B expected B
+SuperGPQA/001b51d76b4d422988f2c11f104a2c6c: C expected C
+```
+
+Control with graph disabled and SoA kept on also passed **2/2**. One earlier
+run with `--warm-weights` produced **1/2** by answering `G` on the SuperGPQA
+item, so `--warm-weights` is not part of the wrapper default and should not be
+used as a quality gate unless repeated. The current trial build to hand-test is
+therefore `./ds4-server-exact-fast` without `--warm-weights`.
+
+HTTP wall check on the running consolidated server:
+
+```text
+server: ./ds4-server --cuda -m ds4flash.gguf --ctx 256000 --host 0.0.0.0 --port 8000 --tokens 900
+env:    DS4_CUDA_GRAPH_DECODE=1 DS4_CUDA_Q8_SOA_CACHE=1
+prompt: "Write a Python function merge_intervals(intervals)."
+
+run 1, 128 completion tokens: 25.09 s wall  (cold request; graph/cache overhead)
+run 2, 128 completion tokens:  7.43 s wall, 17.22 tok/s wall-clock
+run 3, 256 completion tokens: 14.72 s wall, 17.39 tok/s wall-clock
+```
+
+Metric correction after log review: the HTTP wall number above is an end-to-end
+smoke, not the canonical decode throughput. It includes request handling,
+prompt prefill, and response overhead. The server log separates those phases:
+
+```text
+prompt start
+prompt done 0.xxxs              # prompt prefill; afterwards the prompt is in KV cache
+gen=... decoding chunk=... avg=... t/s
+gen=... finish=... ...s         # total request time since prompt start
+```
+
+For the 20 t/s target, compare the `decoding avg=... t/s` line. Do not compare
+`completion_tokens / HTTP wall` and do not infer steady decode speed from the
+`finish=...` request duration. On the previous no-MTP graph+SoA server log,
+steady decode chunks were in the **17.4-17.9 t/s** band even when `finish`
+included an additional **0.5-0.9 s** of prefill. A first real coding request can
+still look like **~15-16 t/s** from a client if it includes graph/cache warmup,
+a longer prompt prefill, chat/request overhead, or non-empty resident context.
+
+Closing decision for this research pass:
+
+- The quality-preserving server build to keep is `./ds4-server-exact-fast`.
+  It is exact decode with graph decode and the default Q8 SoA cache, no MTP,
+  no active-expert reduction, and no verifier shortcuts.
+- The no-quality-loss target of **20 t/s decode** was not reached on this line.
+  The honest steady server-decode band is **~17.4-17.9 t/s** on warm no-MTP
+  graph+SoA logs, with client-observed end-to-end numbers often lower because
+  they include prefill and request overhead.
+- The MTP/verifier path produced useful diagnostics but is not the current
+  production answer: all quality-preserving variants converged around the same
+  **16.8-16.9 t/s** full-suite band or lower once measured on real coding
+  tasks at `ctx=256000`.
+- Do not spend more time on MTP orchestration knobs as the next step. The
+  remaining path to 20 t/s without quality loss would need a real kernel-level
+  improvement in exact decode, especially Q8 projection reads, routed MoE
+  gate/up/down, HC expand, or a native layout that improves memory access
+  without changing the executed experts or logits.
+- Future measurements must report both phases separately:
+  `prompt done` for prefill and `decoding avg` for decode. `finish` and HTTP
+  wall time remain useful only as end-to-end latency checks.
+
+Current quality-first MTP research candidate after the aggregate-stats pass:
+
+```sh
+DS4_CUDA_GRAPH_DECODE=1
+DS4_CUDA_Q8_SOA_CACHE=1
+DS4_CUDA_MOE_K2_DIRECT_GATE=1
+DS4_MTP_STRICT=1
+DS4_MTP_BATCH_VERIFY=1
+DS4_MTP_UNSAFE_BATCH_VERIFY=1
+DS4_MTP_BATCH_MARGIN_GUARD=0.25
+DS4_MTP_BATCH_HC_PRE_EXACT=1
+DS4_MTP_BATCH_ATTENTION_EXACT=1
+DS4_MTP_BATCH_COMPRESS_PROJ_EXACT=1
+DS4_MTP_BATCH_ROUTER_EXACT=1
+DS4_MTP_CAPTURE_PREFIX1=1
+DS4_MTP_CAPTURE_PREFIX1_MIN_MARGIN=2.0
+DS4_MTP_DRAFT2_SKIP_MIN_MARGIN=2.0
+```
+
+Do not include `DS4_MTP_PREFIX_BATCH` in the current recommendation. Prefix2
+and prefix3 are now measured as diagnostic-only paths.
+
+Do not include `DS4_CUDA_GRAPH_VERIFY` in the current recommendation either.
+It is now technically valid both without prefix1 capture and with prefix1
+capture after async D2D copies plus verifier no-pre-sync capture, but neither
+combination beat draft2-skip m2 full-suite repeats.
+
+Quality facts to preserve:
+
+- Layer shadow with the conservative island set: no HC diff above `1e-6`.
+- Layer shadow with the reduced island set above: no HC diff above `1e-6` on
+  the sampled coding prompt.
+- Layer shadow with router-exact + K2 body: no HC diff above `1e-6` on the
+  sampled `top_k_frequent` server prompt.
+- Shadow logits with the conservative, reduced, and router-exact+K2 sets:
+  argmax matched in sampled cycles; max logit drift stayed around `0.018-0.021`,
+  with top margins usually much larger.
+- 12-task coding eval at `ctx=256000` for the conservative set: candidate and
+  no-MTP baseline both scored **10/12**; the two failures were byte-identical.
+- 12-task coding eval at `ctx=256000` for reduced routed-exact guard1 and
+  router-exact+K2 guards `1`, `0.5`, `0.25`, and `0.1` all scored **10/12**;
+  the persistent failures remain `lru_cache` and `parse_csv_line`.
+- Router-exact+K2 with safe GPU-top2 margin guard also scored **10/12** when
+  it kept full logits; CPU/GPU top2 compare logged zero mismatches in the full
+  suite.
+- Router-exact+K2 with `guard0.25` plus
+  `DS4_MTP_CAPTURE_PREFIX1_MIN_MARGIN=2.0` scored **10/12** in two full
+  suites, with the same persistent `lru_cache` and `parse_csv_line` failures.
+  Pure prefix1 capture scored **9/12** and must stay rejected.
+- Adding `DS4_MTP_DRAFT2_SKIP_MIN_MARGIN=2.0` also scored **10/12** in two
+  full suites, with the same persistent failures. This is quality-preserving
+  because skipped second drafts are not emitted.
+- `DS4_MTP_PREFIX_BATCH_MAX_TOKENS=2` and the prefix MTP margin gates scored
+  **4/4** on canaries, but did not beat the no-prefix draft2-skip canary.
+- `DS4_MTP_PREFIX_BATCH_MIN_MARGIN=3.0` for the original 3-token prefix shape
+  also scored **4/4** on the canary, but was much slower and is rejected.
+- `DS4_CUDA_GRAPH_VERIFY=1` without prefix1 capture scored **10/12** on the
+  full suite with the same persistent failures, but was not faster than the
+  best draft2-skip m2 repeats.
+- `DS4_CUDA_GRAPH_VERIFY=1` with prefix1 capture is now technically valid after
+  switching CUDA D2D tensor copies to async copies while capture is active, but
+  it still did not beat draft2-skip m2.
+- `DS4_CUDA_GRAPH_VERIFY=1` with prefix1 capture and verifier no-pre-sync
+  capture scored **4/4** on the canary, but still did not beat draft2-skip m2.
+- `DS4_CUDA_GRAPH_VERIFY=1` without prefix1 capture and with verifier
+  no-pre-sync capture also scored **4/4** on the canary, but the gain over the
+  previous no-prefix graph-verifier canary was only **13.65 t/s** vs
+  **13.50 t/s**, so it is not worth a full 12-task run.
+- `DS4_CUDA_ATTENTION_OUTPUT_A_CUBLAS_MIN=2` scored **4/4** on the canary, but
+  was slower than the draft2-skip canary and kept hot full verifier cycles near
+  **94-97 ms**.
+- `DS4_CUDA_Q8_SOA_BATCH2_ATTN_OUTPUT_B=1` scored **4/4** on the canary and was
+  slightly faster than the same-build draft2-skip canary (**13.65 t/s** vs
+  **13.55 t/s**). It then scored **10/12** on two full evals with the same
+  persistent failures; the warmed repeat measured **16.87 t/s**, effectively
+  tied with but not better than draft2-skip.
+- `DS4_CUDA_Q8_SOA_BATCH2=1` is rejected for now: first 4-task canary regressed
+  `parse_duration` from pass to fail.
+- Plain fast batch verifier is not acceptable: top margins can be high while
+  logit drift is already in the `1-4` range.
+- Removing routed exact without exact router is not acceptable: sampled row
+  drift reached **2.73334** and layer-shadow worst diffs exceeded 5.
+- Router-exact+K2 without guard is also not acceptable yet: it introduced an
+  extra `flatten_dict` coding failure.
+- Router-exact+K2 with GPU-top2 and no full logits is also not acceptable yet:
+  it produced conflicting full-suite repeats, including one extra
+  `flatten_dict` coding failure.
+
+Speed facts to improve:
+
+- Conservative guarded hot full-accept cycles are around **100 ms** for two
+  verified target rows plus ~4 ms draft time.
+- Reduced hot full-accept cycles are around **89 ms** verify time, about
+  **94 ms** including draft, before server-workload acceptance effects.
+- Router-exact+K2 guard0.25 improves real hot coding chunks into the **19-21
+  t/s** band on some short tasks, but the full warmed suite sum is still
+  **15.90 t/s** and server decode-only **16.78 t/s**, below the no-MTP baseline
+  aggregate.
+- Margin-gated prefix1 capture reduces average replay cost from **10.8 ms** to
+  **4.35-5.57 ms** per MTP cycle and improved the first same-protocol run from
+  **15.88 t/s** to **16.39-16.42 t/s**, with the same 10/12 task pass rate.
+- Draft2 skip reduces the average cycle to **87.2-87.9 ms** and replay to
+  **0.85-1.04 ms** by routing weak second drafts to an exact one-token path.
+  Full-suite speed improved to **16.82-16.87 t/s** with the same 10/12 quality.
+- Narrow `attn_output_b` SoA batch2 for the MTP verifier tied the draft2-skip
+  speed band (**16.87 t/s** warmed) but did not beat it.
+- Targeted `attn_output_b` F16/cuBLAS decode
+  (`DS4_CUDA_ATTENTION_OUTPUT_B_CUBLAS_MIN=1`) did not improve the refreshed
+  exact profile: `attn_output` was **41.902 ms** over 129 rows vs **41.728 ms**
+  for the control, while the run filled about **10.58 GiB** of Q8 F16 cache.
+- The warmed no-MTP graph+SoA coding comparison scored **10/12** at
+  **16.83 t/s** suite-sum, with steadier server decode chunks around
+  **17.4-17.9 t/s**.
+- Verifier profiling shows the hot cost is **layers (~82-88 ms)**, not
+  output-head/topk (~2.5 ms) or full-logit readback (~0.04 ms warm).
+- CUDA Graph verifier no-pre-sync confirms the same bottleneck: hot
+  `micro-full` verifier cycles still spend about **90-91 ms** inside verify
+  even when graph capture itself is valid.
+- Intrusive stage profiling of `tokens=2` verifier calls attributes about
+  **30%** of stage time to routed MoE and **23%** to attention output
+  projection. Within routed MoE, CUDA event profiling attributes about **70%**
+  of that time to gate/up and **27%** to down.
+- `DS4_CUDA_MOE_DECODE_GATE_NOAUX=1` stayed effectively neutral in warm
+  verifier cycles and remains diagnostic-only.
+- Guard-rejected cycles replay one exact token and were around **166 ms** in
+  the sampled hot path.
+- Real server coding throughput did not beat no-MTP baseline because the
+  exact-islands and guard fallback eat the speculative win.
+
+Anti-loop checkpoint:
+
+- Stop spending cycles on MTP orchestration knobs unless a kernel-level change
+  first lowers the hot `micro-full` verifier body. Prefix batching, graphing the
+  verifier, pre-sync removal, partial-prefix replay tuning, draft2 skip, and
+  narrow verifier-only output-projection tweaks have all converged to the same
+  **16.8-16.9 t/s** full-suite band.
+- The MTP line is now a quality-preserving research candidate, not the shortest
+  route to 20 t/s. Keep it as a regression harness for exact kernel work, but
+  do not promote new MTP env combinations based only on 4-task canaries.
+- The next useful work must target exact decode kernels shared by no-MTP and
+  the MTP verifier: Q8 projection reads that are not simple F16/cuBLAS swaps,
+  routed MoE gate/up, HC expand, or a native weight layout that preserves qwarp
+  lane-contiguous access. Do not remove an exact island based only on argmax
+  agreement; require shadow logit deltas to remain small relative to top
+  margins and re-run the coding eval at `ctx=256000`.
 
 ## Reproducing the measurements
 

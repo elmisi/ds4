@@ -10586,6 +10586,15 @@ static void generate_job(server *s, job *j) {
         server_log(DS4_LOG_WARNING,
                    "ds4-server: adaptive shadow report failed");
     }
+    if (ds4_session_moe_expert_stats_report(s->session, stderr, true) != 0) {
+        server_log(DS4_LOG_WARNING,
+                   "ds4-server: moe expert stats report failed");
+    }
+    if (getenv("DS4_MTP_AGG_STATS") != NULL &&
+        ds4_session_mtp_stats_report(s->session, stderr, true) != 0) {
+        server_log(DS4_LOG_WARNING,
+                   "ds4-server: mtp aggregate stats report failed");
+    }
     free(parsed_content);
     free(parsed_reasoning);
     tool_calls_free(&parsed_calls);
