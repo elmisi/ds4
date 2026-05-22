@@ -1,0 +1,20 @@
+=== 8k/64 fast-paths ON ===
+ds4: CUDA using unordered one-token F16 matmul (Blackwell sm_121)
+ds4: CUDA host registration skipped: operation not supported
+ds4: CUDA ATS/HMM prefetch queued 80.76 GiB of model tensors in 15.973s
+ds4: CUDA startup model cache prepared 80.76 GiB of tensor spans in 0.000s
+ds4: cuda backend initialized for graph diagnostics
+
+=== 8k/64 HC+RoPE fusions OFF (7adf00e disabled) ===
+ds4: CUDA using unordered one-token F16 matmul (Blackwell sm_121)
+ds4: CUDA host registration skipped: operation not supported
+ds4: CUDA ATS/HMM prefetch queued 80.76 GiB of model tensors in 14.434s
+ds4: CUDA startup model cache prepared 80.76 GiB of tensor spans in 0.000s
+ds4: cuda backend initialized for graph diagnostics
+
+=== 8k/64 ALSO Q8 cache_x OFF + F16 pair OFF (6201574 + d8c855c off too) ===
+ds4: CUDA using unordered one-token F16 matmul (Blackwell sm_121)
+ds4: CUDA host registration skipped: operation not supported
+ds4: CUDA ATS/HMM prefetch queued 80.76 GiB of model tensors in 22.323s
+ds4: CUDA startup model cache prepared 80.76 GiB of tensor spans in 0.000s
+ds4: cuda backend initialized for graph diagnostics

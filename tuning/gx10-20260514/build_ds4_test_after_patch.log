@@ -1,0 +1,2 @@
+cc -O3 -ffast-math -march=native -Wall -Wextra -std=c99 -D_GNU_SOURCE -fno-finite-math-only -Wno-unused-function -c -o ds4_test.o tests/ds4_test.c
+/usr/local/cuda-13.0/bin/nvcc -O3 --use_fast_math  -Xcompiler -march=native -Xcompiler -pthread -o ds4_test ds4_test.o rax.o ds4.o ds4_cuda.o -lm -Xcompiler -pthread -L/usr/local/cuda-13.0/targets/sbsa-linux/lib -L/usr/local/cuda-13.0/lib64 -lcudart -lcublas

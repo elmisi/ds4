@@ -1,0 +1,5 @@
+server:
+0514 00:46:37 ds4-server: kv cache evicted tokens=512 hits=0 size=0.00 MiB
+0514 00:46:37 ds4-server: kv cache evicted tokens=512 hits=0 size=0.00 MiB
+server: OK
+ds4 tests: ok
