@@ -1,0 +1,36 @@
+=== TOKEN_PROFILE 8k/16 ===
+ds4: metal graph token pos=8192 encode=19.754 ms execute=45.794 ms read=0.021 ms total=65.570 ms logits=1
+ds4: metal graph token pos=8193 encode=18.728 ms execute=43.632 ms read=0.017 ms total=62.377 ms logits=1
+ds4: metal graph token pos=8194 encode=18.690 ms execute=43.818 ms read=0.015 ms total=62.523 ms logits=1
+ds4: metal graph token pos=8195 encode=24.034 ms execute=39.778 ms read=0.017 ms total=63.829 ms logits=1
+ds4: metal graph token pos=8196 encode=18.992 ms execute=44.325 ms read=0.015 ms total=63.332 ms logits=1
+ds4: metal graph token pos=8197 encode=18.862 ms execute=44.179 ms read=0.015 ms total=63.056 ms logits=1
+ds4: metal graph token pos=8198 encode=18.950 ms execute=44.306 ms read=0.015 ms total=63.271 ms logits=1
+ds4: metal graph token pos=8199 encode=24.017 ms execute=39.714 ms read=0.015 ms total=63.745 ms logits=1
+ds4: metal graph token pos=8200 encode=18.944 ms execute=44.374 ms read=0.015 ms total=63.333 ms logits=1
+ds4: metal graph token pos=8201 encode=18.864 ms execute=44.150 ms read=0.015 ms total=63.029 ms logits=1
+ds4: metal graph token pos=8202 encode=18.911 ms execute=44.330 ms read=0.015 ms total=63.256 ms logits=1
+ds4: metal graph token pos=8203 encode=24.041 ms execute=39.707 ms read=0.015 ms total=63.762 ms logits=1
+ds4: metal graph token pos=8204 encode=18.937 ms execute=44.370 ms read=0.015 ms total=63.322 ms logits=1
+ds4: metal graph token pos=8205 encode=18.832 ms execute=44.184 ms read=0.015 ms total=63.030 ms logits=1
+ds4: metal graph token pos=8206 encode=18.928 ms execute=44.284 ms read=0.015 ms total=63.227 ms logits=1
+ds4: metal graph token pos=8207 encode=23.981 ms execute=39.598 ms read=0.015 ms total=63.594 ms logits=1
+
+=== TOKEN_PROFILE 32k/16 ===
+ds4: metal graph token pos=32768 encode=21.024 ms execute=49.031 ms read=0.022 ms total=70.076 ms logits=1
+ds4: metal graph token pos=32769 encode=20.925 ms execute=47.988 ms read=0.020 ms total=68.932 ms logits=1
+ds4: metal graph token pos=32770 encode=20.837 ms execute=48.162 ms read=0.016 ms total=69.015 ms logits=1
+ds4: metal graph token pos=32771 encode=26.546 ms execute=43.186 ms read=0.015 ms total=69.748 ms logits=1
+ds4: metal graph token pos=32772 encode=21.291 ms execute=48.076 ms read=0.015 ms total=69.382 ms logits=1
+ds4: metal graph token pos=32773 encode=21.186 ms execute=47.934 ms read=0.015 ms total=69.136 ms logits=1
+ds4: metal graph token pos=32774 encode=21.298 ms execute=48.072 ms read=0.015 ms total=69.385 ms logits=1
+ds4: metal graph token pos=32775 encode=26.619 ms execute=43.192 ms read=0.015 ms total=69.827 ms logits=1
+ds4: metal graph token pos=32776 encode=21.340 ms execute=48.042 ms read=0.015 ms total=69.397 ms logits=1
+ds4: metal graph token pos=32777 encode=21.252 ms execute=47.979 ms read=0.015 ms total=69.246 ms logits=1
+ds4: metal graph token pos=32778 encode=21.302 ms execute=48.147 ms read=0.015 ms total=69.464 ms logits=1
+ds4: metal graph token pos=32779 encode=26.629 ms execute=43.242 ms read=0.015 ms total=69.885 ms logits=1
+ds4: metal graph token pos=32780 encode=21.305 ms execute=47.998 ms read=0.015 ms total=69.318 ms logits=1
+ds4: metal graph token pos=32781 encode=21.262 ms execute=47.930 ms read=0.015 ms total=69.208 ms logits=1
+ds4: metal graph token pos=32782 encode=21.193 ms execute=48.037 ms read=0.015 ms total=69.245 ms logits=1
+ds4: metal graph token pos=32783 encode=26.487 ms execute=43.237 ms read=0.015 ms total=69.740 ms logits=1
+

@@ -1,0 +1,19 @@
+ds4-bench: context buffers 228.72 MiB (ctx=2057, backend=cuda, prefill_chunk=2048, raw_kv_rows=2304, compressed_kv_rows=516)
+ds4: CUDA backend initialized on NVIDIA GB10 (sm_121)
+ds4: CUDA host registration skipped: operation not supported
+ds4: CUDA loading model tensors into device cache
+ds4: CUDA loading model tensors 16.02 GiB cached
+ds4: CUDA loading model tensors 32.06 GiB cached
+ds4: CUDA loading model tensors 48.02 GiB cached
+ds4: CUDA loading model tensors 64.06 GiB cached
+ds4: CUDA loading model tensors 80.04 GiB cached
+ds4: CUDA startup model cache prepared 80.76 GiB of tensor spans in 19.314s
+ds4: cuda backend initialized for graph diagnostics
+ds4: metal graph token pos=2048 encode=27.912 ms execute=47.410 ms read=0.031 ms total=75.353 ms logits=1
+ds4: metal graph token pos=2049 encode=25.947 ms execute=46.701 ms read=0.017 ms total=72.665 ms logits=1
+ds4: metal graph token pos=2050 encode=25.910 ms execute=46.679 ms read=0.016 ms total=72.605 ms logits=1
+ds4: metal graph token pos=2051 encode=32.651 ms execute=39.501 ms read=0.022 ms total=72.175 ms logits=1
+ds4: metal graph token pos=2052 encode=28.574 ms execute=42.987 ms read=0.017 ms total=71.578 ms logits=1
+ds4: metal graph token pos=2053 encode=28.423 ms execute=42.924 ms read=0.016 ms total=71.363 ms logits=1
+ds4: metal graph token pos=2054 encode=28.547 ms execute=43.779 ms read=0.016 ms total=72.342 ms logits=1
+ds4: metal graph token pos=2055 encode=32.418 ms execute=39.596 ms read=0.016 ms total=72.030 ms logits=1

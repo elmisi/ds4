@@ -1,0 +1,46 @@
+ds4: context buffers 263.46 MiB (ctx=4096, backend=cuda, prefill_chunk=2048, raw_kv_rows=2304, compressed_kv_rows=1026)
+ds4: MTP support model loaded: gguf/DeepSeek-V4-Flash-MTP-Q4K-Q8_0-F32.gguf (draft=2)
+ds4: CUDA backend initialized on NVIDIA GB10 (sm_121)
+ds4: CUDA using unordered one-token F16 matmul on GB10/sm_121
+ds4: CUDA host registration skipped: operation not supported
+ds4: CUDA host registration skipped: operation not supported
+ds4: cuda backend initialized for graph diagnostics
+ds4: CUDA loading model tensors into device cache
+ds4: CUDA loading model tensors 16.03 GiB cached
+ds4: CUDA loading model tensors 32.06 GiB cached
+ds4: CUDA loading model tensors 48.06 GiB cached
+ds4: CUDA loading model tensors 64.02 GiB cached
+ds4: CUDA loading model tensors 80.05 GiB cached
+ds4: mtp spec miss first draft=37371
+ds4: mtp timing micro drafted=2 committed=2 draft=22.451 ms snapshot=0.000 ms verify=139.104 ms total=161.821 ms
+ds4: mtp timing micro drafted=2 committed=2 draft=22.710 ms snapshot=0.000 ms verify=138.852 ms total=161.665 ms
+ds4: mtp timing micro drafted=2 committed=2 draft=22.296 ms snapshot=0.000 ms verify=134.354 ms total=156.753 ms
+ds4: mtp timing micro drafted=2 committed=2 draft=22.478 ms snapshot=0.000 ms verify=139.134 ms total=161.715 ms
+ds4: mtp spec miss first draft=12
+ds4: mtp timing margin-skip drafted=2 committed=1 margin=0.842 threshold=3.000 draft=22.316 ms verify=71.596 ms total=93.966 ms
+ds4: mtp timing micro drafted=2 committed=2 draft=22.353 ms snapshot=0.000 ms verify=138.565 ms total=161.022 ms
+ds4: mtp spec miss first draft=3873
+ds4: mtp timing micro drafted=2 committed=2 draft=22.384 ms snapshot=0.000 ms verify=139.101 ms total=161.589 ms
+ds4: mtp timing margin-skip drafted=2 committed=1 margin=0.552 threshold=3.000 draft=22.364 ms verify=73.226 ms total=95.645 ms
+ds4: mtp timing margin-skip drafted=2 committed=1 margin=0.052 threshold=3.000 draft=22.789 ms verify=74.281 ms total=97.126 ms
+ds4: mtp spec miss first draft=7269
+ds4: mtp timing margin-skip drafted=2 committed=1 margin=2.183 threshold=3.000 draft=22.325 ms verify=72.873 ms total=95.253 ms
+ds4: mtp timing margin-skip drafted=2 committed=1 margin=0.807 threshold=3.000 draft=22.324 ms verify=72.931 ms total=95.310 ms
+ds4: mtp timing margin-skip drafted=2 committed=1 margin=0.097 threshold=3.000 draft=22.851 ms verify=72.496 ms total=95.401 ms
+ds4: mtp timing margin-skip drafted=2 committed=1 margin=1.066 threshold=3.000 draft=22.613 ms verify=73.201 ms total=95.870 ms
+ds4: mtp spec miss first draft=32723
+ds4: mtp timing margin-skip drafted=2 committed=1 margin=0.533 threshold=3.000 draft=22.377 ms verify=73.926 ms total=96.358 ms
+ds4: mtp timing margin-skip drafted=2 committed=1 margin=0.544 threshold=3.000 draft=22.529 ms verify=74.180 ms total=96.762 ms
+ds4: mtp timing margin-skip drafted=2 committed=1 margin=0.481 threshold=3.000 draft=22.381 ms verify=74.239 ms total=96.675 ms
+ds4: mtp timing margin-skip drafted=2 committed=1 margin=2.576 threshold=3.000 draft=22.342 ms verify=71.721 ms total=94.118 ms
+ds4: mtp timing margin-skip drafted=2 committed=1 margin=1.202 threshold=3.000 draft=22.764 ms verify=72.360 ms total=95.178 ms
+ds4: mtp spec miss first draft=89422
+ds4: mtp timing margin-skip drafted=2 committed=1 margin=1.917 threshold=3.000 draft=22.703 ms verify=73.420 ms total=96.178 ms
+ds4: mtp timing margin-skip drafted=2 committed=1 margin=1.192 threshold=3.000 draft=22.336 ms verify=73.240 ms total=95.631 ms
+ds4: mtp timing margin-skip drafted=2 committed=1 margin=0.718 threshold=3.000 draft=22.325 ms verify=73.300 ms total=95.678 ms
+ds4: mtp timing micro drafted=2 committed=2 draft=22.349 ms snapshot=0.000 ms verify=137.220 ms total=159.673 ms
+ds4: mtp spec miss first draft=2407
+ds4: mtp timing margin-skip drafted=2 committed=1 margin=0.060 threshold=3.000 draft=22.360 ms verify=73.705 ms total=96.121 ms
+ds4: mtp timing margin-skip drafted=2 committed=1 margin=0.016 threshold=3.000 draft=22.346 ms verify=73.573 ms total=95.973 ms
+ds4: mtp timing micro drafted=1 committed=1 draft=0.040 ms snapshot=0.000 ms verify=73.550 ms total=73.641 ms
+ds4: prefill: 79.41 t/s, generation: 3.70 t/s

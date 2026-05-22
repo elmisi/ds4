@@ -1,0 +1,133 @@
+=== nsys profile 8k/16 ===
+ds4: CUDA loading model tensors 48.02 GiB cached
+ds4: CUDA loading model tensors 64.06 GiB cached
+ds4: CUDA loading model tensors 80.04 GiB cached
+ds4: CUDA startup model cache prepared 80.76 GiB of tensor spans in 19.730s
+ds4: cuda backend initialized for graph diagnostics
+Collecting data...
+Generating '/tmp/nsys-report-2c60.qdstrm'
+[1/1] [0%                          ] nsys_8k.nsys-rep[1/1] [0%                          ] nsys_8k.nsys-rep[1/1] [==19%                       ] nsys_8k.nsys-rep[1/1] [==20%                       ] nsys_8k.nsys-rep[1/1] [==21%                       ] nsys_8k.nsys-rep[1/1] [===22%                      ] nsys_8k.nsys-rep[1/1] [===23%                      ] nsys_8k.nsys-rep[1/1] [==18%                       ] nsys_8k.nsys-rep[1/1] [=15%                        ] nsys_8k.nsys-rep[1/1] [13%                         ] nsys_8k.nsys-rep[1/1] [====25%                     ] nsys_8k.nsys-rep[1/1] [===22%                      ] nsys_8k.nsys-rep[1/1] [==19%                       ] nsys_8k.nsys-rep[1/1] [==18%                       ] nsys_8k.nsys-rep[1/1] [====27%                     ] nsys_8k.nsys-rep[1/1] [======35%                   ] nsys_8k.nsys-rep[1/1] [=========44%                ] nsys_8k.nsys-rep[1/1] [===========52%              ] nsys_8k.nsys-rep[1/1] [==============61%           ] nsys_8k.nsys-rep[1/1] [================69%         ] nsys_8k.nsys-rep[1/1] [==================78%       ] nsys_8k.nsys-rep[1/1] [===================81%      ] nsys_8k.nsys-rep[1/1] [========================100%] nsys_8k.nsys-rep[1/1] [========================100%] nsys_8k.nsys-rep
+Generated:
+	/home/alessandro/projects/ds4/tuning/gx10-20260517/profile/nsys_8k.nsys-rep
+
+=== nsys stats summary ===
+Generating SQLite file tuning/gx10-20260517/profile/nsys_8k.sqlite from tuning/gx10-20260517/profile/nsys_8k.nsys-rep
+Processing [tuning/gx10-20260517/profile/nsys_8k.sqlite] with [/opt/nvidia/nsight-systems/2025.3.2/host-linux-armv8/reports/cuda_gpu_kern_sum.py]... 
+
+ ** CUDA GPU Kernel Summary (cuda_gpu_kern_sum):
+
+ Time (%)  Total Time (ns)  Instances    Avg (ns)      Med (ns)     Min (ns)    Max (ns)   StdDev (ns)                                                  Name                                                
+ --------  ---------------  ---------  ------------  ------------  ----------  ----------  -----------  ----------------------------------------------------------------------------------------------------
+     31,0    6.847.201.216        172  39.809.309,0  39.881.616,0  38.391.840  41.284.480    540.372,0  void moe_gate_up_mid_expert_tile8_rowspan_kernel<(unsigned int)1024>(float *, float *, float *, con…
+     25,0    5.489.089.760        172  31.913.312,0  31.912.336,0  31.123.648  32.591.904    314.347,0  moe_down_expert_tile16_row2048_kernel(float *, const char *, const cuda_block_q8_K *, const unsigne…
+      7,0    1.684.835.296         63  26.743.417,0  26.733.120,0  26.418.304  27.027.904    157.030,0  void attention_indexed_mixed_heads8_online_kernel<(unsigned int)8, (unsigned int)16>(float *, const…
+      3,0      683.361.023      2.721     251.143,0     205.664,0         832   1.120.000    244.940,0  f32_to_f16_kernel(__half *, const float *, unsigned long)                                           
+      3,0      649.647.392        344   1.888.509,0   1.861.312,0   1.604.480   2.324.288    130.209,0  nvjet_sm121_hss_mma_128x208x64_2_32x104x64_tmaAB_bz_TNNN                                            
+      2,0      592.744.512        361   1.641.951,0   1.708.544,0      16.768   1.906.688    363.318,0  rms_norm_plain_kernel(float *, const float *, unsigned int, unsigned int, float)                    
+      2,0      547.430.240         66   8.294.397,0   8.290.704,0   6.237.920   9.611.168    906.785,0  attention_decode_mixed_heads8_online_kernel(float *, const float *, const float *, const float *, c…
+      2,0      533.376.288         43  12.404.099,0   7.213.472,0   5.964.736  18.584.800  5.939.641,0  attention_static_mixed_heads8_online_kernel(float *, const float *, const float *, const float *, c…
+      2,0      515.066.592        172   2.994.573,0   2.958.928,0   2.699.712   3.454.336    180.052,0  void cutlass::Kernel2<cutlass_80_tensorop_s16816gemm_f16_64x256_32x4_tn_align8>(T1::Params)         
+      2,0      500.837.088        344   1.455.921,0   1.470.432,0   1.334.688   1.903.168    101.858,0  hc_expand_kernel(float *, const float *, const float *, const float *, const float *, const float *…
+      1,0      376.762.464        172   2.190.479,0   2.136.832,0   2.121.632   2.595.264     91.924,0  head_rms_norm_kernel(float *, unsigned int, unsigned int, unsigned int, float)                      
+      1,0      306.489.184        172   1.781.913,0   1.769.408,0   1.699.968   2.054.208     68.027,0  attention_pack_group_heads_f16_kernel(__half *, const float *, unsigned int, unsigned int, unsigned…
+      1,0      268.622.048         63   4.263.842,0   4.181.920,0   2.639.744   6.346.816  1.263.769,0  indexer_scores_wmma128_kernel(float *, const float *, const float *, const float *, unsigned int, u…
+      1,0      243.546.240        344     707.983,0     699.232,0     680.704     846.208     29.005,0  hc_split_weighted_sum_fused_kernel(float *, float *, const float *, const float *, const float *, c…
+      1,0      243.458.368        684     355.933,0     382.784,0     211.936     754.880    102.412,0  nvjet_sm121_hss_mma_128x176x64_2_32x88x64_tmaAB_bz_TNNN                                             
+      0,0      163.563.008      1.393     117.417,0     146.848,0      21.952   2.419.456    255.568,0  matmul_q8_0_preq_warp8_cached_x_kernel(float *, const unsigned char *, const signed char *, const f…
+      0,0      160.328.096        688     233.035,0     232.864,0     218.304     305.600      6.727,0  moe_gate_up_mid_decode_lut_qwarp32_kernel(float *, float *, float *, const char *, const char *, co…
+      0,0      156.089.312      1.352     115.450,0       1.248,0       1.024     479.552    166.727,0  rope_tail_kernel(float *, unsigned int, unsigned int, unsigned int, unsigned int, unsigned int, uns…
+      0,0      155.080.064      1.720      90.162,0       1.696,0       1.632     899.968    200.997,0  q8_K_quantize_kernel(cuda_block_q8_K *, const float *, unsigned int, unsigned int)                  
+      0,0      138.718.720      1.376     100.813,0     101.968,0      39.232     211.488     57.501,0  matmul_q8_0_hc_expand_preq_warp8_kernel(float *, float *, const float *, const float *, const float…
+      0,0      106.539.968        688     154.854,0     153.936,0     148.192     252.736      5.838,0  grouped_q8_0_a_preq_warp8_kernel(float *, const unsigned char *, const signed char *, const float *…
+      0,0      103.624.992        345     300.362,0     294.176,0     279.552     455.328     21.482,0  void cutlass::Kernel2<cutlass_80_wmma_tensorop_s161616gemm_f16_32x32_128x1_tn_align8>(T1::Params)   
+      0,0      100.277.696        777     129.057,0       5.056,0       1.696     435.872    141.434,0  rms_norm_weight_kernel(float *, const float *, const float *, unsigned int, unsigned int, float)    
+      0,0       95.642.208        344     278.029,0     132.928,0      29.664     913.984    228.773,0  dequant_q8_0_to_f16_kernel(__half *, const unsigned char *, unsigned long, unsigned long, unsigned …
+      0,0       92.084.480        172     535.374,0     528.944,0     508.320     792.288     31.207,0  attention_unpack_group_low_kernel(float *, const float *, unsigned int, unsigned int, unsigned int) 
+      0,0       76.643.872        172     445.603,0     434.832,0     415.328     653.632     37.193,0  nvjet_sm121_hss_mma_192x160x64_2_96x40x64_tmaAB_bz_TNNN                                             
+      0,0       74.465.344        688     108.234,0     107.888,0     100.064     143.264      4.454,0  moe_down_sum6_qwarp32_kernel(float *, const char *, const cuda_block_q8_K *, const int *, unsigned …
+      0,0       60.384.064        336     179.714,0     178.864,0     161.984     339.232     11.619,0  attention_indexed_mixed_kernel(float *, const float *, const float *, const float *, const float *,…
+      0,0       55.818.880        688      81.132,0      80.384,0      76.288     109.632      3.158,0  matmul_q8_0_pair_preq_warp8_kernel(float *, float *, const unsigned char *, const unsigned char *, …
+      0,0       55.070.016        105     524.476,0      29.152,0      28.928   1.311.104    609.475,0  void indexer_topk_pow2_kernel<(unsigned int)2048>(unsigned int *, const float *, unsigned int, unsi…
+      0,0       49.596.320         84     590.432,0     564.928,0     532.480     924.640     72.179,0  void cutlass::Kernel2<cutlass_80_tensorop_s16816gemm_f16_128x256_32x3_tn_align8>(T1::Params)        
+      0,0       43.760.768        992      44.113,0      38.224,0      19.424      93.888     20.592,0  matmul_f16_pair_kernel(float *, float *, const __half *, const __half *, const float *, unsigned lo…
+      0,0       41.109.856      1.377      29.854,0      14.816,0       7.968     108.064     30.171,0  matmul_f16_kernel(float *, const __half *, const float *, unsigned long, unsigned long, unsigned lo…
+      0,0       40.470.656        332     121.899,0     115.872,0     112.800     337.408     24.479,0  nvjet_sm121_hss_mma_128x240x64_2_32x120x64_tmaAB_bz_TNNN                                            
+      0,0       35.790.432        860      41.616,0         928,0         864     274.624     81.570,0  swiglu_kernel(float *, const float *, const float *, unsigned int, float, float)                    
+      0,0       34.695.392        352      98.566,0     101.504,0      65.856     108.320     10.131,0  attention_decode_mixed_kernel(float *, const float *, const float *, const float *, const float *, …
+      0,0       23.402.528        340      68.831,0      64.752,0      51.424     217.312     19.866,0  nvjet_sm121_hss_mma_128x96x64_3_64x24x64_tmaAB_bz_TNNN                                              
+      0,0       23.135.968        172     134.511,0     130.304,0     120.608     225.824     14.036,0  zero_kernel(float *, unsigned long)                                                                 
+      0,0       21.300.928        860      24.768,0       3.552,0       3.424     191.488     42.725,0  dsv4_qkv_rms_norm_rows_kernel(float *, const float *, const float *, unsigned int, float *, const f…
+      0,0       16.887.296        248      68.093,0      71.664,0      17.760     363.136     44.868,0  compressor_prefill_pool_kernel(float *, const float *, const float *, const float *, const float *,…
+      0,0       16.695.328        273      61.155,0      61.152,0      60.928      61.664         95,0  void indexer_topk_pow2_kernel<(unsigned int)4096>(unsigned int *, const float *, unsigned int, unsi…
+      0,0       15.799.392      1.376      11.482,0      11.392,0       8.960      37.344      1.916,0  hc_decode_pre_mix_parallel_kernel(float *, const float *, const __half *, float)                    
+      0,0       12.317.568        336      36.659,0      37.072,0      11.552     119.392     23.293,0  void cutlass::Kernel2<cutlass_80_wmma_tensorop_s161616gemm_f16_16x16_128x2_tn_align8>(T1::Params)   
+      0,0       10.537.568         21     501.789,0     501.632,0     496.864     511.744      2.580,0  indexer_topk_1024_kernel(unsigned int *, const float *, unsigned int, unsigned int, unsigned int)   
+      0,0       10.161.888      1.376       7.385,0       6.848,0       6.528      22.464        930,0  hc_decode_pre_finish_kernel(float *, float *, float *, const float *, const float *, const float *,…
+      0,0        9.953.888        336      29.624,0      29.120,0      28.736      34.432        828,0  indexer_score_one_direct_kernel(float *, const float *, const float *, const float *, unsigned int,…
+      0,0        9.679.808        688      14.069,0      14.320,0      10.976      48.160      1.965,0  matmul_q8_0_preq_warp8_kernel(float *, const unsigned char *, const signed char *, const float *, u…
+      0,0        8.523.936        420      20.295,0       7.840,0       5.792      73.152     16.165,0  fp8_kv_quantize_kernel(float *, unsigned int, unsigned int, unsigned int)                           
+      0,0        7.528.608        860       8.754,0       5.920,0       4.864      73.792      7.399,0  router_select_warp_topk_kernel(int *, float *, float *, const float *, const int *, const float *, …
+      0,0        6.280.480        172      36.514,0      36.000,0      22.784      95.168      5.793,0  store_raw_kv_batch_kernel(float *, const float *, unsigned int, unsigned int, unsigned int, unsigne…
+      0,0        6.249.728         63      99.202,0      99.136,0      98.432     101.536        384,0  indexed_topk_sort_512_asc_kernel(int *, const int *, unsigned int)                                  
+      0,0        5.764.736        344      16.758,0      16.512,0      16.320      26.048      1.116,0  moe_build_expert_tile_offsets_kernel(unsigned int *, unsigned int *, const unsigned int *, unsigned…
+      0,0        5.134.912        688       7.463,0       8.000,0       6.368      17.376        977,0  kv_rope_fp8_store_raw_kernel(float *, float *, unsigned int, unsigned int, unsigned int, unsigned i…
+      0,0        4.597.152      4.145       1.109,0       1.056,0       1.024      20.736        397,0  quantize_q8_0_f32_kernel(signed char *, float *, const float *, unsigned long, unsigned long)       
+      0,0        3.198.976         84      38.083,0      36.656,0      31.904      94.048      7.632,0  nvjet_sm121_hss_mma_64x64x64_6_16x32x64_tmaAB_bz_TNNN                                               
+      0,0        2.990.048          4     747.512,0     716.816,0     713.184     843.232     63.882,0  embed_tokens_hc_kernel(float *, const int *, const __half *, unsigned int, unsigned int, unsigned i…
+      0,0        1.807.968        172      10.511,0      10.336,0      10.208      17.792        959,0  moe_prefix_sorted_pairs_kernel(unsigned int *, unsigned int *, const unsigned int *)                
+      0,0        1.444.128        992       1.455,0       1.440,0       1.312       3.328        261,0  compressor_store_kernel(const float *, const float *, float *, float *, const void *, unsigned long…
+      0,0        1.276.992        688       1.856,0       1.856,0       1.664       2.656         49,0  head_rms_norm_rope_tail_kernel(float *, unsigned int, unsigned int, unsigned int, unsigned int, uns…
+      0,0        1.190.336        344       3.460,0       3.040,0       1.440      25.632      2.429,0  moe_build_expert_tiles_kernel(unsigned int *, unsigned int *, const unsigned int *, const unsigned …
+      0,0        1.187.392        688       1.725,0       1.728,0       1.664       4.576        112,0  quantize_group_heads_inverse_rope_q8_0_kernel(signed char *, float *, const float *, unsigned int, …
+      0,0        1.055.904        172       6.139,0       5.424,0       3.968      31.840      3.397,0  moe_scatter_sorted_pairs_kernel(unsigned int *, unsigned int *, const int *, unsigned int)          
+      0,0          962.688        172       5.597,0       4.896,0       3.584      32.896      3.184,0  moe_count_sorted_pairs_kernel(unsigned int *, const int *, unsigned int)                            
+      0,0          781.120        540       1.446,0         960,0         704      10.560      1.179,0  fill_f32_kernel(float *, unsigned long, float)                                                      
+      0,0          744.352        336       2.215,0       1.760,0       1.056      30.816      2.943,0  compressor_set_rows_kernel(float *, float *, const float *, const float *, const void *, unsigned l…
+      0,0          597.024        336       1.776,0       1.376,0       1.152      24.992      1.765,0  void cublasLt::splitKreduce_kernel<(int)32, (int)16, int, float, float, float, float, (bool)0, floa…
+      0,0          390.880        168       2.326,0       2.240,0       1.376       6.176        946,0  compressor_update_pool_kernel(float *, const float *, const float *, unsigned int, unsigned int)    
+      0,0          203.104        168       1.209,0       1.152,0       1.120       2.848        160,0  compressor_shift_ratio4_kernel(float *, float *, unsigned int)                                      
+      0,0           56.960         16       3.560,0       3.408,0       3.232       5.920        641,0  embed_token_hc_kernel(float *, const unsigned short *, unsigned int, unsigned int, unsigned int)    
+      0,0           24.704         17       1.453,0       1.440,0       1.408       1.728         72,0  hc_weighted_sum_kernel(float *, const float *, const float *, unsigned int, unsigned int, unsigned …
+      0,0           23.872         17       1.404,0       1.440,0       1.216       2.176        223,0  output_hc_weights_kernel(float *, const float *, const float *, const float *, unsigned int, unsign…
+
+Processing [tuning/gx10-20260517/profile/nsys_8k.sqlite] with [/opt/nvidia/nsight-systems/2025.3.2/host-linux-armv8/reports/cuda_api_sum.py]... 
+
+ ** CUDA API Summary (cuda_api_sum):
+
+ Time (%)  Total Time (ns)  Num Calls    Avg (ns)       Med (ns)      Min (ns)    Max (ns)    StdDev (ns)                    Name                  
+ --------  ---------------  ---------  -------------  -------------  ----------  -----------  ------------  ---------------------------------------
+     78,0   20.429.936.416        196  104.234.369,0  107.754.656,0         496  137.523.856  33.426.107,0  cudaDeviceSynchronize                  
+     13,0    3.469.914.448        709    4.894.096,0      598.016,0         832   59.781.760  13.518.837,0  cudaMalloc                             
+      3,0    1.015.872.944        710    1.430.807,0      142.904,0         736   19.104.352   4.312.596,0  cudaFree                               
+      1,0      364.761.440     35.137       10.381,0        2.976,0       1.920    1.418.544      31.412,0  cudaLaunchKernel                       
+      0,0      186.425.024         14   13.316.073,0    8.224.832,0       9.024   63.172.288  17.873.837,0  cuLibraryLoadData                      
+      0,0      110.336.288     11.401        9.677,0        5.184,0       2.224   43.273.136     405.515,0  cudaMemcpy                             
+      0,0       78.538.144          6   13.089.690,0    1.050.232,0      18.544   70.253.040  28.098.521,0  cuKernelSetAttribute                   
+      0,0       64.403.280          4   16.100.820,0   16.520.176,0  14.092.480   17.270.448   1.483.292,0  cudaFreeHost                           
+      0,0       61.681.168          4   15.420.292,0   15.641.016,0  13.251.040   17.148.096   1.992.206,0  cudaMallocHost                         
+      0,0       54.479.872        138      394.781,0      279.096,0     113.840    1.093.840     177.482,0  cudaStreamSynchronize                  
+      0,0       13.983.488      1.381       10.125,0        4.560,0       2.816       79.152      11.879,0  cudaMemcpyAsync                        
+      0,0       10.511.584        344       30.556,0       18.120,0       6.048      142.944      27.244,0  cudaMemGetInfo                         
+      0,0        7.604.144      1.956        3.887,0        3.040,0       1.888       25.040       2.414,0  cuLaunchKernelEx                       
+      0,0        6.544.448        937        6.984,0          160,0          96    5.224.944     172.200,0  cuKernelGetFunction                    
+      0,0        4.916.320        336       14.631,0        3.280,0       2.080    3.526.752     192.196,0  cudaLaunchKernelExC_v11060             
+      0,0        4.787.776        761        6.291,0        3.264,0       1.584       43.344       8.362,0  cudaMemsetAsync                        
+      0,0        3.923.792        937        4.187,0        3.264,0       1.936       21.344       2.690,0  cuLaunchKernel                         
+      0,0        3.627.776      2.062        1.759,0          608,0         336       68.544       3.256,0  cudaEventRecord                        
+      0,0        1.837.776        829        2.216,0        1.008,0         416       26.064       2.321,0  cudaEventSynchronize                   
+      0,0        1.822.016     35.137           51,0           32,0           0        4.048         111,0  cuKernelGetName                        
+      0,0          636.432      3.741          170,0           48,0           0        5.568         418,0  cuStreamGetCaptureInfo_v2              
+      0,0          476.128        172        2.768,0        2.208,0       1.648       11.328       1.258,0  cudaMemset                             
+      0,0          179.536          1      179.536,0      179.536,0     179.536      179.536           0,0  cudaStreamCreateWithFlags              
+      0,0          110.768        882          125,0           80,0          32          576          90,0  cuGetProcAddress_v2                    
+      0,0           95.344         77        1.238,0          752,0          96        5.472       1.263,0  cuLibraryGetKernel                     
+      0,0           32.144          2       16.072,0       16.072,0       7.728       24.416      11.800,0  cudaEventQuery                         
+      0,0           20.080         22          912,0          184,0         160        5.728       1.442,0  cudaEventCreateWithFlags               
+      0,0           13.440         22          610,0          368,0         240        2.288         539,0  cudaEventDestroy                       
+      0,0           11.264          1       11.264,0       11.264,0      11.264       11.264           0,0  cudaStreamDestroy                      
+      0,0            6.080          1        6.080,0        6.080,0       6.080        6.080           0,0  cudaHostRegister                       
+      0,0            3.712          4          928,0          744,0         368        1.856         645,0  cuInit                                 
+      0,0            3.456          1        3.456,0        3.456,0       3.456        3.456           0,0  cudaGetDeviceProperties_v12000         
+      0,0              704          3          234,0          272,0         144          288          78,0  cudaGetDriverEntryPointByVersion_v12050
+      0,0              512          3          170,0           48,0          48          416         212,0  cuModuleGetLoadingMode                 
+

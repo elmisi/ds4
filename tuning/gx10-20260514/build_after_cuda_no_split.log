@@ -1,0 +1,7 @@
+make ds4 ds4-server ds4-bench CUDA_ARCH=
+make[1]: Entering directory '/home/alessandro/projects/ds4'
+cc -O3 -ffast-math -march=native -Wall -Wextra -std=c99 -D_GNU_SOURCE -fno-finite-math-only -c -o ds4.o ds4.c
+/usr/local/cuda-13.0/bin/nvcc -O3 --use_fast_math  -Xcompiler -march=native -Xcompiler -pthread -o ds4 ds4_cli.o linenoise.o ds4.o ds4_cuda.o -lm -Xcompiler -pthread -L/usr/local/cuda-13.0/targets/sbsa-linux/lib -L/usr/local/cuda-13.0/lib64 -lcudart -lcublas
+/usr/local/cuda-13.0/bin/nvcc -O3 --use_fast_math  -Xcompiler -march=native -Xcompiler -pthread -o ds4-server ds4_server.o rax.o ds4.o ds4_cuda.o -lm -Xcompiler -pthread -L/usr/local/cuda-13.0/targets/sbsa-linux/lib -L/usr/local/cuda-13.0/lib64 -lcudart -lcublas
+/usr/local/cuda-13.0/bin/nvcc -O3 --use_fast_math  -Xcompiler -march=native -Xcompiler -pthread -o ds4-bench ds4_bench.o ds4.o ds4_cuda.o -lm -Xcompiler -pthread -L/usr/local/cuda-13.0/targets/sbsa-linux/lib -L/usr/local/cuda-13.0/lib64 -lcudart -lcublas
+make[1]: Leaving directory '/home/alessandro/projects/ds4'

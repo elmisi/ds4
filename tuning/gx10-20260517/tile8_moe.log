@@ -1,0 +1,9 @@
+=== tile8 MoE down ENABLED, 8k/64 ===
+ds4: CUDA loading model tensors 80.04 GiB cached
+ds4: CUDA startup model cache prepared 80.76 GiB of tensor spans in 19.006s
+ds4: cuda backend initialized for graph diagnostics
+
+=== tile8 MoE down ENABLED, 32k/64 ===
+ds4: CUDA loading model tensors 80.04 GiB cached
+ds4: CUDA startup model cache prepared 80.76 GiB of tensor spans in 18.998s
+ds4: cuda backend initialized for graph diagnostics

@@ -1,0 +1,101 @@
+---ds4.c---
+@@ -15547,15 +15547,18 @@ static int generate_metal_graph_raw_swa(
+     int pos = prompt->len;
+     int n_generated = 0;
+     int n_decode_eval = 0;
++    const bool greedy_top_only = !trace_top;
++    int next_token = sample_argmax(logits, DS4_N_VOCAB);
+     const double t_decode0 = now_sec();
+     for (int i = 0; i < n_predict && pos < ctx_size; i++) {
+         if (trace_top) {
+             char label[64];
+             snprintf(label, sizeof(label), "step %d", i);
+             print_top_logits(stderr, label, vocab, logits, DS4_N_VOCAB, 10);
++            next_token = sample_argmax(logits, DS4_N_VOCAB);
+         }
+ 
+-        int token = sample_argmax(logits, DS4_N_VOCAB);
++        int token = next_token;
+         if (token == vocab->eos_id) break;
+ 
+         if (emit) emit(emit_ud, token);
+@@ -15567,12 +15570,22 @@ static int generate_metal_graph_raw_swa(
+         }
+ 
+         const double t_eval0 = token_timing ? now_sec() : 0.0;
+-        ok = metal_graph_eval_token_raw_swa(&g,
+-                                            model,
+-                                            weights,
+-                                            (uint32_t)token,
+-                                            (uint32_t)pos,
+-                                            logits);
++        if (greedy_top_only) {
++            ok = metal_graph_eval_token_raw_swa_top(&g,
++                                                    model,
++                                                    weights,
++                                                    (uint32_t)token,
++                                                    (uint32_t)pos,
++                                                    &next_token,
++                                                    NULL);
++        } else {
++            ok = metal_graph_eval_token_raw_swa(&g,
++                                                model,
++                                                weights,
++                                                (uint32_t)token,
++                                                (uint32_t)pos,
++                                                logits);
++        }
+         if (!ok) break;
+         if (token_timing) {
+             const double t_eval1 = now_sec();
+---ds4_cuda.cu---
+@@ -5051,6 +5051,35 @@ __device__ __forceinline__ static bool topk_score_better(float av, uint32_t ai,
+     return av > bv || (av == bv && ai < bi);
+ }
+ 
++__global__ static void indexer_top1_kernel(uint32_t *selected, const float *scores, uint32_t n_comp, uint32_t n_tokens) {
++    uint32_t t = blockIdx.x;
++    uint32_t tid = threadIdx.x;
++    if (t >= n_tokens) return;
++    const float *row = scores + (uint64_t)t * n_comp;
++    float best_v = -INFINITY;
++    uint32_t best_i = UINT32_MAX;
++    for (uint32_t i = tid; i < n_comp; i += blockDim.x) {
++        const float v = row[i];
++        if (topk_score_better(v, i, best_v, best_i)) {
++            best_v = v;
++            best_i = i;
++        }
++    }
++    __shared__ float vals[1024];
++    __shared__ uint32_t idxs[1024];
++    vals[tid] = best_v;
++    idxs[tid] = best_i;
++    __syncthreads();
++    for (uint32_t stride = blockDim.x >> 1; stride > 0; stride >>= 1) {
++        if (tid < stride && topk_score_better(vals[tid + stride], idxs[tid + stride], vals[tid], idxs[tid])) {
++            vals[tid] = vals[tid + stride];
++            idxs[tid] = idxs[tid + stride];
++        }
++        __syncthreads();
++    }
++    if (tid == 0) selected[t] = idxs[0];
++}
++
+ __global__ static void indexer_topk_1024_kernel(
+         uint32_t *selected,
+         const float *scores,
+@@ -5516,6 +5545,13 @@ extern "C" int ds4_gpu_indexer_topk_tensor(
+         selected->bytes < (uint64_t)n_tokens * top_k * sizeof(uint32_t)) {
+         return 0;
+     }
++    if (top_k == 1u) {
++        indexer_top1_kernel<<<n_tokens, 1024>>>((uint32_t *)selected->ptr,
++                                               (const float *)scores->ptr,
++                                               n_comp,
++                                               n_tokens);
++        return cuda_ok(cudaGetLastError(), "indexer top1 launch");
++    }
+     static int env_no_topk1024 = -1;
+     static int env_no_topk2048 = -1;
+     static int env_no_topk_chunked = -1;

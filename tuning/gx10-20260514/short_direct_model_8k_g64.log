@@ -1,0 +1,5 @@
+ds4-bench: context buffers 334.28 MiB (ctx=8257, backend=cuda, prefill_chunk=2048, raw_kv_rows=2304, compressed_kv_rows=2066)
+ds4: CUDA backend initialized on NVIDIA GB10 (sm_121)
+ds4: CUDA using unordered one-token F16 matmul on GB10/sm_121
+ds4: CUDA host registration skipped: operation not supported
+ds4: cuda backend initialized for graph diagnostics

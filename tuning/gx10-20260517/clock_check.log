@@ -1,0 +1,20 @@
+=== nvidia-smi clocks before ===
+clocks.current.graphics [MHz], clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W], temperature.gpu
+208 MHz, 208 MHz, [N/A], 4.25 W, 47
+
+=== Warmup run (dummy) ===
+ds4: CUDA ATS/HMM prefetch queued 80.76 GiB of model tensors in 18.754s
+ds4: CUDA startup model cache prepared 80.76 GiB of tensor spans in 0.000s
+ds4: cuda backend initialized for graph diagnostics
+
+=== nvidia-smi clocks after warmup ===
+clocks.current.graphics [MHz], clocks.current.sm [MHz], clocks.current.memory [MHz], power.draw [W], temperature.gpu
+2411 MHz, 2411 MHz, [N/A], 23.49 W, 57
+
+=== Bench immediately after warmup (hot) ===
+ds4: CUDA ATS/HMM prefetch queued 80.76 GiB of model tensors in 15.939s
+ds4: CUDA startup model cache prepared 80.76 GiB of tensor spans in 0.000s
+ds4: cuda backend initialized for graph diagnostics
+
+ctx_tokens,prefill_tokens,prefill_tps,gen_tokens,gen_tps,kvcache_bytes
+8192,8192,391.17,64,13.57,136750476

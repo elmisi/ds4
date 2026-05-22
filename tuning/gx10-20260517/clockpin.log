@@ -1,0 +1,27 @@
+=== baseline (clock libero, applications 2418 MHz) ===
+ds4: CUDA loading model tensors 80.04 GiB cached
+ds4: CUDA startup model cache prepared 80.76 GiB of tensor spans in 19.280s
+ds4: cuda backend initialized for graph diagnostics
+--- clock subito dopo bench ---
+clocks.current.graphics [MHz], clocks.current.sm [MHz]
+2411 MHz, 2411 MHz
+sudo: a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper
+sudo: a password is required
+--- clock after pin ---
+clocks.current.graphics [MHz], clocks.current.sm [MHz]
+208 MHz, 208 MHz
+=== post-pin 3003 MHz, 8k/64 ===
+ds4: CUDA loading model tensors 80.04 GiB cached
+ds4: CUDA startup model cache prepared 80.76 GiB of tensor spans in 19.266s
+ds4: cuda backend initialized for graph diagnostics
+--- clock + temp + power during/after ---
+clocks.current.graphics [MHz], clocks.current.sm [MHz], power.draw [W], temperature.gpu
+2463 MHz, 2463 MHz, 17.51 W, 53
+
+=== post-pin 3003 MHz, 32k/64 ===
+ds4: CUDA loading model tensors 80.04 GiB cached
+ds4: CUDA startup model cache prepared 80.76 GiB of tensor spans in 18.955s
+ds4: cuda backend initialized for graph diagnostics
+--- final clock + temp + power ---
+clocks.current.graphics [MHz], clocks.current.sm [MHz], power.draw [W], temperature.gpu
+2437 MHz, 2437 MHz, 19.96 W, 66
