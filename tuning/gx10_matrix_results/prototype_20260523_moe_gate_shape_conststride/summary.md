@@ -1,0 +1,7 @@
+# GX10 Matrix Summary
+
+| Row | Rows | Ctx first | Ctx last | Gen first | Gen @8192 | Gen last | Gen mean | Gen max | Prefill mean | Prefill max |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| exact_fast | 1 | 8192 | 8192 | 16.09 | 16.09 | 16.09 | 16.09 | 16.09 | 393.97 | 393.97 |
+| moe_gate_shape2048 | 1 | 8192 | 8192 | 16.12 | 16.12 | 16.12 | 16.12 | 16.12 | 390.86 | 390.86 |
+| moe_gate_shape2048_conststride | 1 | 8192 | 8192 | 16.23 | 16.23 | 16.23 | 16.23 | 16.23 | 389.69 | 389.69 |

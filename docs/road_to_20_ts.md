@@ -5125,6 +5125,82 @@ Decision: reject prefer-L1, attention-A shape, and attention-A cache-x16 as
 promotion candidates. Keep `moe_gate_shape2048` as the only exact small positive
 from this pass, still below the +3% speed gate and not enough by itself.
 
+### 2026-05-23 continuation - MoE gate/up const-stride and const-clamp probes
+
+The next pass kept MoE down closed and stayed inside the only remaining small
+positive MoE route: routed gate/up shape specialization. The external/local
+scan suggested shape-specific address generation is one of the few transferable
+ideas from MMQ-style CUDA paths without changing the DS4 weight layout. This
+probe therefore did not repack weights or change expert order; it only replaced
+dynamic row/expert byte strides with DS4 constants when the runtime shape
+matches exactly:
+
+- `n_tokens=1`;
+- `n_expert=6`;
+- `xq_blocks=16`;
+- `expert_mid_dim=2048`;
+- `gate_row_bytes=1056`;
+- `gate_expert_bytes=2162688`;
+- no auxiliary gate/up writes.
+
+Rows:
+
+| Row | Env | Note |
+| --- | --- | --- |
+| `moe_gate_shape2048_conststride` | `DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_CONSTSTRIDE=1` | shape2048 routed gate/up with constant DS4 row/expert strides |
+| `moe_gate_shape2048_constclamp` | `DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_CONSTCLAMP=1` | const-stride plus hardcoded DS4 SwiGLU clamp `10.0f` guarded by `clamp == 10.0f` |
+
+Resource usage:
+
+| Kernel | REG | STACK | SHARED | CONSTANT[0] |
+| --- | ---: | ---: | ---: | ---: |
+| generic `moe_gate_up_mid_decode_lut_qwarp32_kernel` | 64 | 0 | 6848 | 452 |
+| `shape2048` | 63 | 0 | 6848 | 420 |
+| `shape2048_conststride` | 64 | 0 | 6848 | 404 |
+| `shape2048_constclamp` | 64 | 0 | 6848 | 400 |
+
+128-token smoke:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast \
+  moe_gate_shape2048 moe_gate_shape2048_conststride \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_moe_gate_shape_conststride \
+  --summary tuning/gx10_matrix_results/prototype_20260523_moe_gate_shape_conststride/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_moe_gate_shape_conststride/summary.md
+```
+
+| Row | 8192/128 gen t/s | Decision |
+| --- | ---: | --- |
+| `exact_fast` | **16.09** | control |
+| `moe_gate_shape2048` | **16.12** | small positive |
+| `moe_gate_shape2048_conststride` | **16.23** | best in this smoke, still below gate |
+
+256-token recheck:
+
+| Row | 8192/256 gen t/s | Decision |
+| --- | ---: | --- |
+| `exact_fast` | **15.80** | control |
+| `moe_gate_shape2048` | **16.05** | small positive |
+| `moe_gate_shape2048_conststride` | **16.12** | small positive, about +2.0%, still below +3% gate |
+
+Bit-equivalence check for `moe_gate_shape2048_conststride` against
+`exact_fast` on the standard 32-token logprob prompt returned
+`json_cmp=0` and `out_cmp=0`.
+
+Const-clamp did not help:
+
+| Row | 8192/128 gen t/s | Decision |
+| --- | ---: | --- |
+| `exact_fast` | **16.07** | control |
+| `moe_gate_shape2048_conststride` | **16.10** | small positive/noisy |
+| `moe_gate_shape2048_constclamp` | **15.97** | negative |
+
+Decision: keep `moe_gate_shape2048_conststride` as an exact minor candidate
+and as a possible component for a later clean rebuild, but do not promote it
+alone. Reject `moe_gate_shape2048_constclamp`; hardcoding the clamp did not
+recover registers and was slower.
+
 ## Branch / commit map
 
 ```
