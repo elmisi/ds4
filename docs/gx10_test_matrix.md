@@ -185,6 +185,8 @@ door on hard but plausible kernel work.
 | `moe_down_ldg` | `DS4_CUDA_MOE_DOWN_SUM6_LDG=1` | read-only-cache loads for routed down weights were slower: 15.96 vs 16.15 t/s control | diagnostic only; do not promote |
 | `moe_ldg_weights` | both `*_LDG` flags | combined read-only-cache path was slower: 15.86 vs 16.15 t/s control | diagnostic only; do not promote |
 | `moe_gate_shape2048` | `DS4_CUDA_MOE_DECODE_GATE_SHAPE2048=1` | exact and byte-identical; small positive signal: 16.24 vs 16.05 at 128 tokens, 16.22 vs 15.87 at 256 tokens | candidate for retest/combination; not promoted alone |
+| `moe_gate_shape2048_conststride` | `DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_CONSTSTRIDE=1` | exact and byte-identical; small positive: 16.23 vs 16.09 at 128 tokens, 16.12 vs 15.80 at 256 tokens | minor candidate; not promoted alone |
+| `moe_gate_shape2048_constclamp` | `DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_CONSTCLAMP=1` | hardcoded DS4 clamp on top of const-stride was slower: 15.97 vs 16.07 t/s control | diagnostic only; do not promote |
 | `moe_gate_prefer_l1` | `DS4_CUDA_MOE_GATE_PREFER_L1=1` | CUDA prefer-L1 cache config was slower: 16.02 vs 16.09; shape2048+L1 did not improve shape2048 | diagnostic only; do not promote |
 | `moe_down_shape4096` | `DS4_CUDA_MOE_DOWN_SUM6_SHAPE4096=1` | neutral: 16.04 vs 16.05 t/s control | diagnostic only; do not promote |
 | `moe_shape_special` | both MoE shape flags | below gate: 16.18 vs 16.05 t/s control at 128 tokens; down shape diluted the gate-only signal | diagnostic only; do not promote |
