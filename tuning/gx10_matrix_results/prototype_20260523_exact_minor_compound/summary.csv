@@ -1,0 +1,5 @@
+row,rows,ctx_first,ctx_last,gen_first,gen_8192,gen_last,gen_mean,gen_max,gen_ss_mean,prefill_mean,prefill_max
+compressor_lazy_ratio4,1,8192,8192,16.25,16.25,16.25,16.25,16.25,16.25,389.13,389.13
+exact_fast,1,8192,8192,16.04,16.04,16.04,16.04,16.04,16.04,392.26,392.26
+moe_conststride_lazy_ratio4,1,8192,8192,16.39,16.39,16.39,16.39,16.39,16.39,387.84,387.84
+moe_gate_shape2048_conststride,1,8192,8192,16.25,16.25,16.25,16.25,16.25,16.25,389.51,389.51

@@ -1,0 +1,58 @@
+[
+  {
+    "row": "compressor_lazy_ratio4",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 16.25,
+    "gen_8192": 16.25,
+    "gen_last": 16.25,
+    "gen_mean": 16.25,
+    "gen_max": 16.25,
+    "gen_ss_mean": 16.25,
+    "prefill_mean": 389.13,
+    "prefill_max": 389.13
+  },
+  {
+    "row": "exact_fast",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 16.04,
+    "gen_8192": 16.04,
+    "gen_last": 16.04,
+    "gen_mean": 16.04,
+    "gen_max": 16.04,
+    "gen_ss_mean": 16.04,
+    "prefill_mean": 392.26,
+    "prefill_max": 392.26
+  },
+  {
+    "row": "moe_conststride_lazy_ratio4",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 16.39,
+    "gen_8192": 16.39,
+    "gen_last": 16.39,
+    "gen_mean": 16.39,
+    "gen_max": 16.39,
+    "gen_ss_mean": 16.39,
+    "prefill_mean": 387.84,
+    "prefill_max": 387.84
+  },
+  {
+    "row": "moe_gate_shape2048_conststride",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 16.25,
+    "gen_8192": 16.25,
+    "gen_last": 16.25,
+    "gen_mean": 16.25,
+    "gen_max": 16.25,
+    "gen_ss_mean": 16.25,
+    "prefill_mean": 389.51,
+    "prefill_max": 389.51
+  }
+]

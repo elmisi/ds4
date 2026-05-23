@@ -6778,6 +6778,76 @@ the possible overlap. This closes the ratio-4 compressor scheduling family for
 now: unsafe arithmetic skipping showed a small ceiling, exact lazy batching was
 marginal, and exact side-stream overlap was neutral/negative.
 
+### 2026-05-23 continuation - exact minor compound check
+
+Before starting another heavy kernel rewrite, the two exact minor candidates
+were combined to see whether they compose:
+
+- `DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_CONSTSTRIDE=1`;
+- `DS4_CUDA_COMPRESSOR_LAZY_RATIO4=1`.
+
+Matrix row:
+
+| Row | Env | Note |
+| --- | --- | --- |
+| `moe_conststride_lazy_ratio4` | `moe_gate_shape2048_conststride + compressor_lazy_ratio4` | compound exact-minor route |
+
+128-token smoke:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast \
+  moe_gate_shape2048_conststride compressor_lazy_ratio4 \
+  moe_conststride_lazy_ratio4 \
+  --model /home/alessandro/projects/ds4/ds4flash.gguf \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_exact_minor_compound \
+  --summary tuning/gx10_matrix_results/prototype_20260523_exact_minor_compound/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_exact_minor_compound/summary.md \
+  --stop-on-fail
+```
+
+| Row | 8192/128 gen t/s | Prefill t/s |
+| --- | ---: | ---: |
+| `exact_fast` | **16.04** | 392.26 |
+| `moe_gate_shape2048_conststride` | **16.25** | 389.51 |
+| `compressor_lazy_ratio4` | **16.25** | 389.13 |
+| `moe_conststride_lazy_ratio4` | **16.39** | 387.84 |
+
+Parity smoke for the compound row:
+
+```sh
+python3 tuning/gx10_matrix.py run moe_conststride_lazy_ratio4 -- ./ds4 --cuda \
+  -m /home/alessandro/projects/ds4/ds4flash.gguf --ctx 100000 \
+  --dump-logprobs tuning/gx10_matrix_results/prototype_20260523_exact_minor_compound_candidate.json \
+  --logprobs-top-k 5 --temp 0 -n 32 --nothink \
+  -p "Racconta in breve la storia della Repubblica Italiana."
+```
+
+Result: JSON logprobs and stdout matched the saved exact control from the
+phase-mask smoke.
+
+256-token recheck:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast moe_conststride_lazy_ratio4 \
+  --model /home/alessandro/projects/ds4/ds4flash.gguf \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 256 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_exact_minor_compound_256 \
+  --summary tuning/gx10_matrix_results/prototype_20260523_exact_minor_compound_256/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_exact_minor_compound_256/summary.md \
+  --stop-on-fail
+```
+
+| Row | 8192/256 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **16.09** | 389.15 | control |
+| `moe_conststride_lazy_ratio4` | **16.42** | 387.65 | keep as exact-minor candidate |
+
+Decision: keep the compound row as the current best exact-minor candidate for
+the future clean branch. It is not the 20 t/s solution by itself, but it is a
+repeatable full-quality +2% class signal and should be preferred over either
+single minor candidate if we later rebuild from main.
+
 ## Branch / commit map
 
 ```

@@ -620,6 +620,17 @@ MATRIX = {
         "env": {**EXACT_FAST, **env(DS4_CUDA_COMPRESSOR_PARALLEL_RATIO4=1)},
         "status": "side-stream non-emitting ratio-4 compressor updates; logprob parity passed, speed neutral/negative",
     },
+    "moe_conststride_lazy_ratio4": {
+        "category": "prototype",
+        "env": {
+            **EXACT_FAST,
+            **env(
+                DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_CONSTSTRIDE=1,
+                DS4_CUDA_COMPRESSOR_LAZY_RATIO4=1,
+            ),
+        },
+        "status": "compound of exact minor routed gate/up const-stride and phase-masked lazy ratio-4 compressor",
+    },
     "sample_cache_probs": {
         "category": "prototype",
         "env": {**EXACT_FAST, **env(DS4_SAMPLE_CACHE_PROBS=1)},
