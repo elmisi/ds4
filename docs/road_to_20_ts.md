@@ -7010,6 +7010,34 @@ output on the parity prompt. The local binaries were rebuilt back with
 `make cuda-spark` after the probes so the working copy runs the previously
 tested build profile.
 
+### 2026-05-23 continuation - NVCC debug-info flag probe
+
+The next build-only check removed `-g -lineinfo` from NVCC while keeping the
+default `cuda-spark` target. This tested whether debug/line metadata was
+affecting register allocation or scheduling in any measurable way:
+
+```sh
+make clean
+make -j$(nproc) cuda-spark \
+  NVCCFLAGS='-O3 --use_fast_math --default-stream per-thread -std=c++17 -Xcompiler -march=native -Xcompiler -pthread'
+
+python3 tuning/gx10_matrix.py bench-suite exact_fast \
+  --model /home/alessandro/projects/ds4/ds4flash.gguf \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_nvcc_nodebug_bench \
+  --summary tuning/gx10_matrix_results/prototype_20260523_nvcc_nodebug_bench/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_nvcc_nodebug_bench/summary.md \
+  --stop-on-fail
+```
+
+Result: `exact_fast` measured **16.03 t/s**, prefill **393.89 t/s**. This is
+inside the recent default-build control band and not a speed win. The binaries
+were rebuilt back with standard `make cuda-spark`.
+
+Decision: do not change the Makefile for debug-info flags. Keep `-lineinfo`
+because it is useful for Nsight attribution and has no demonstrated throughput
+cost in the current cheap gate.
+
 ## Branch / commit map
 
 ```

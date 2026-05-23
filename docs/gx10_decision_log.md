@@ -113,6 +113,7 @@ kernel change creates a new reason to retest them.
 | `ffn_parallel_shared` / `DS4_CUDA_FFN_PARALLEL_SHARED=1` | Shared gate/up on a second CUDA stream was slower: 15.26 vs 16.14 t/s same-run control. |
 | `ffn_shared_first` / `DS4_CUDA_FFN_SHARED_FIRST=1` | Shared gate/up before router/routed MoE failed graph capture with CUDA synchronize-not-permitted. |
 | explicit `sm_120`/`sm_121` build targets | Slower than the default `cuda-spark` build; `sm_121` also changed the greedy parity stream at step 2. Reject unless future toolchain/codegen changes make this worth retesting. |
+| NVCC without `-g -lineinfo` | No throughput gain: 16.03 t/s in the cheap gate. Keep `-lineinfo` for profiling. |
 | `moe_meta_cache` / both metadata-cache flags | Negative speed smoke. |
 | MTP graph/guard/prefix rows | Diagnostic only unless user explicitly accepts the quality/speed tradeoff. |
 
