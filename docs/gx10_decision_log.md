@@ -44,6 +44,25 @@ diagnostic switches, and no half-warp/codegen/metadata-cache probes.
 | `tuning/gx10_matrix.py` | Keep locally | Reproducible matrix runner for speed, coding eval, and `ds4-eval`. |
 | `ds4-eval` gates in matrix runner | Keep locally | Caught the IQ2/Q2 codegen regression quickly. |
 
+## Fork Audit Verdict
+
+The 2026-05-24 supplied fork ranking was checked against local refs. It did not
+surface a missing no-MTP exact-fast patch:
+
+- Entrpi MMQ/VMM/layer-graphs remain an invasive isolated-port track, not a
+  small integration.
+- amarrmb PR #121 is already present/equivalent.
+- cghart's listed F16/Q8/output ideas overlap with local probes that are already
+  neutral or negative.
+- ddxxlao partial cache and Dominik FP16 KV are memory/long-context tracks, not
+  current 100k-context decode-speed tracks.
+- Audreyt's highlighted work is prefill, not generation.
+
+The only newly actionable item is TrevorS's MTP verifier micro-track: GPU argmax
+for top1 verifier sites, small-N shared-weight Q8 batch matmul, and a retest of
+small-N no-sort MoE only inside MTP. Keep this out of the production exact-fast
+path unless MTP is explicitly reopened.
+
 ## Diagnostic Only
 
 These may remain in the research branch for reproduction, but they should not be

@@ -260,6 +260,7 @@ matrix rows.
 | --- | --- | --- | --- |
 | CUDA MMQ + layer graphs | `Entrpi/ds4:mmq-step-A-full-layer-graphs` | vendored llama.cpp MMQ/MMVQ, per-layer CUDA graph replay, VMM arena, proof harness | invasive port branch only; public GB10 CSV reports 13.74 t/s at ctx=8192/128 and 11.70 t/s at ctx=65536/128, below current exact-fast |
 | MTP prefix/fused verifier | `reffdev/ds4:fused-matmul-mtp`, Entrpi MTP commits | alternative MTP verifier architecture and prefix-K ideas | keep as research input; no simple env drop-in here |
+| MTP small-N verifier kernels | `TrevorS/ds4:mtp-beats-plain*` | GPU argmax for top1 verifier sites, shared-weight Q8 batch fallback for `n_tok=2..4`, no-sort small-N MoE path | MTP-only candidate; not applicable to normal no-MTP exact-fast |
 | KV self-eviction guard | `audreyt/ds4:feat/kv-cache-guard-fresh-cold-saves` | one-commit server cache correctness guard | small import candidate if reproduces locally |
 | ROCm/HIP prequant ideas | `ejpir/ds4-hip`, `chiefnoah/ds4` | prequant/f16 scratch and launch-overhead work | architecture-specific; mine for concepts only |
 | Expert sharding | `mirkodandrea/ds4:moe-expert-sharding` | reduces local resident expert memory through remote/CPU shards | memory/distribution route, not single-GB10 decode speed |
@@ -287,9 +288,11 @@ qwarp-friendly weight streams that made the current kernels faster than the
 row-major/block-paired pack experiments.
 
 The fork scan reinforces this: public forks do not currently show a small,
-obvious, quality-preserving env toggle missing from this branch. The one major
-new CUDA direction is Entrpi's MMQ/layer-graph line, which is a porting project,
-not a matrix row.
+obvious, quality-preserving no-MTP env toggle missing from this branch. The one
+major CUDA direction is Entrpi's MMQ/layer-graph line, which is a porting
+project, not a matrix row. The only newer bounded work item from the supplied
+decode-claim audit is TrevorS's MTP verifier micro-track; keep it separate from
+the production exact-fast matrix unless MTP is explicitly reopened.
 
 ## Latest Decode-Window Profile
 

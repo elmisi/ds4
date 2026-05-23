@@ -5770,6 +5770,54 @@ kernel; the Q8 dot and memory behavior dominate. Together with `hc_expand_soa_ld
 HC-expand should stay closed until a tensor-core/native-layout rewrite is on
 the table.
 
+### 2026-05-24 supplied fork/branch decode audit
+
+A user-supplied fork report listed Entrpi, amarrmb, cghart, TrevorS, ddxxlao,
+DominikBucko, and Audreyt branches as possible decode-throughput sources. The
+refs were already present or fetched locally and checked against the current
+branch and this roadmap.
+
+PR/state check:
+
+| Source | Upstream item | Local ref checked |
+| --- | --- | --- |
+| Entrpi | `antirez/ds4#187`, open, `Entrpi:pr-prep-2026-05-18` | `scan/entrpi-pr-prep`, `entrpi/mmq-step-A-full-layer-graphs` |
+| amarrmb | `antirez/ds4#121`, open, `amarrmb:thor-sm110-f16-dispatch` | `ext-amarrmb/thor-sm110-f16-dispatch`, `pr-121` |
+| ddxxlao | `antirez/ds4#153`, open, `ddxxlao:codex/cuda-partial-weight-cache` | `ext-ddxxlao/cuda-partial-weight-cache` |
+| DominikBucko | `antirez/ds4#191`, closed, `DominikBucko:gh200-kv-cache-optimizations` | `ext-dominik/cuda-fp16-kv-cache` |
+| TrevorS | no matching upstream PR found | `ext-trevors/mtp-beats-plain*` |
+| cghart | fork branch, no PR | `scan/cghart-main`, `tmp-cghart/main` |
+| Audreyt | fork/main commit line | `scan/audreyt-main` |
+
+Verdict against the current exact-fast branch:
+
+| Source idea | Status here | Decision |
+| --- | --- | --- |
+| amarrmb PR #121 skip ordered F16 on Blackwell | Already present/equivalent via `cuda_skip_ordered_f16_matmul()` and the `DS4_CUDA_FORCE_ORDERED_F16_MATMUL` / `DS4_CUDA_NO_ORDERED_F16_MATMUL` controls. | Not a new path. |
+| cghart F16 vec8 / CTA-parallel Q8 GEMV / output fusion | Already mined: unordered F16 beat the ordered path, `hc_expand_*`, output Q8 warp8, pair-shape, and SoA variants were all neutral/negative in this roadmap. | Not a new path. |
+| Entrpi MMQ/MMVQ/VMM/layer graphs | Public GB10 CSV remains below our band; local Entrpi-inspired probes already rejected MMQ/MMVQ one-token lifts, VMM-style 2 MiB tensor alignment, explicit sm_121 build, and graph pre-sync removal. | Only revisit as a dedicated invasive port branch, not as a small integration. |
+| TrevorS fused head RMS+RoPE and Q_A+KV_A pair fusion | Already implemented locally (`ds4_gpu_head_rms_norm_rope_tail_tensor`, `ds4_gpu_matmul_q8_0_pair_tensor`). | Not a new path. |
+| TrevorS HC-expand lane-parallel epilogue | Same target class as our `hc_expand_soa_par_hc4` probe, which lowered registers but regressed 15.91 vs 16.06 t/s. Trevor's raw-kernel version is not compelling for exact-fast, where the SoA HC-expand path is the measured frontier. | Closed unless a native/tensor-core layout changes the kernel balance. |
+| TrevorS small-N shared-weight Q8 batch kernel | Not implemented locally. It only fires for `n_tok=2..4` fallback Q8 matmuls without cuBLAS cache, so it is an MTP/batched-verifier idea, not normal no-MTP decode. | Worth exploring only if we reopen MTP as a speed route. |
+| TrevorS GPU argmax for MTP top1 | Not implemented locally; current MTP sites still use `ds4_gpu_indexer_topk_tensor(... top_k=1)` in several paths. It does not help full-logits no-MTP sampling, but can reduce MTP verifier overhead. | Small, concrete MTP-only probe candidate. |
+| TrevorS small-N routed-MoE decode-LUT path | Partially covered by local `DS4_CUDA_MOE_K2_DIRECT_GATE=1`, which was measured near-neutral/slightly worse. Trevor extends the no-sort/direct path to `n_tokens<=4`. | Only retest inside an MTP batch-verifier pass, not as no-MTP work. |
+| ddxxlao partial CUDA weight cache | Good 24 GiB/small-VRAM strategy; intentionally trades residency for memory. GB10 `ctx=100000` already has acceptable 107 GiB total usage and full-resident decode is faster. | Memory fallback only, not a 20 t/s path. |
+| DominikBucko FP16 KV / long-context GH200 work | Potential memory/very-long-context lever, especially for GH200/H100-style long contexts. Current 100k-context GB10 decode bottleneck is not KV storage. | Future memory/long-context track, not current speed work. |
+| Audreyt `a464840` WMMA indexer/prefill work | Prefill-focused; the report itself says generation unchanged. | Useful for long-prompt prefill, not decode throughput. |
+
+Conclusion: the supplied list does not add a new exact no-MTP candidate that we
+have obviously missed. The only genuinely new implementation work worth
+preserving from this audit is TrevorS's MTP verifier micro-track:
+
+1. add a dedicated GPU argmax primitive for MTP top1 sites;
+2. test a small-N shared-weight Q8 batch fallback for `n_tok=2..4`;
+3. only then retest Trevor's small-N direct MoE no-sort path against our
+   existing `DS4_CUDA_MOE_K2_DIRECT_GATE=1` history.
+
+These are not the next no-MTP route to 20 t/s. They are a bounded MTP-only
+branch if we decide to reopen speculation after the current exact-fast kernel
+frontier stalls.
+
 ## Branch / commit map
 
 ```
