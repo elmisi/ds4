@@ -192,6 +192,7 @@ static int g_cuda_moe_decode_gate_maxr48;
 static int g_cuda_moe_decode_gate_ldg;
 static int g_cuda_moe_decode_gate_shape2048;
 static int g_cuda_moe_decode_gate_shape2048_conststride;
+static int g_cuda_moe_decode_gate_shape2048_dot2;
 static int g_cuda_moe_decode_gate_shape2048_constclamp;
 static int g_cuda_moe_decode_gate_shape2048_splitup;
 static int g_cuda_moe_gate_prefer_l1;
@@ -1876,6 +1877,7 @@ extern "C" int ds4_gpu_init(void) {
     g_cuda_moe_decode_gate_ldg = getenv("DS4_CUDA_MOE_DECODE_GATE_LDG") != NULL;
     g_cuda_moe_decode_gate_shape2048 = getenv("DS4_CUDA_MOE_DECODE_GATE_SHAPE2048") != NULL;
     g_cuda_moe_decode_gate_shape2048_conststride = getenv("DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_CONSTSTRIDE") != NULL;
+    g_cuda_moe_decode_gate_shape2048_dot2 = getenv("DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_DOT2") != NULL;
     g_cuda_moe_decode_gate_shape2048_constclamp = getenv("DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_CONSTCLAMP") != NULL;
     g_cuda_moe_decode_gate_shape2048_splitup = getenv("DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_SPLITUP") != NULL;
     g_cuda_moe_gate_prefer_l1 = getenv("DS4_CUDA_MOE_GATE_PREFER_L1") != NULL;
@@ -14161,6 +14163,37 @@ __device__ __forceinline__ static void dev_iq2_i8x8_lut(
     *w1 = __vsub4((int32_t)(uint32_t)(g >> 32) ^ sm1, sm1);
 }
 
+__device__ __forceinline__ static int32_t dev_dot_iq2_xxs_q8_K_aux_lut(
+        uint32_t aux0,
+        uint32_t aux1,
+        const uint64_t *grid,
+        const uint8_t *signs,
+        int32_t q0,
+        int32_t q1,
+        int32_t q2,
+        int32_t q3,
+        int32_t q4,
+        int32_t q5,
+        int32_t q6,
+        int32_t q7) {
+    const int32_t ls = (int32_t)(2u * (aux1 >> 28) + 1u);
+    int32_t w0, w1;
+    int32_t sumi = 0;
+    dev_iq2_i8x8_lut(grid, signs, (uint8_t)(aux0 & 0xffu), (aux1 >> 0) & 127u, &w0, &w1);
+    sumi = __dp4a(w0, q0, sumi);
+    sumi = __dp4a(w1, q1, sumi);
+    dev_iq2_i8x8_lut(grid, signs, (uint8_t)((aux0 >> 8) & 0xffu), (aux1 >> 7) & 127u, &w0, &w1);
+    sumi = __dp4a(w0, q2, sumi);
+    sumi = __dp4a(w1, q3, sumi);
+    dev_iq2_i8x8_lut(grid, signs, (uint8_t)((aux0 >> 16) & 0xffu), (aux1 >> 14) & 127u, &w0, &w1);
+    sumi = __dp4a(w0, q4, sumi);
+    sumi = __dp4a(w1, q5, sumi);
+    dev_iq2_i8x8_lut(grid, signs, (uint8_t)((aux0 >> 24) & 0xffu), (aux1 >> 21) & 127u, &w0, &w1);
+    sumi = __dp4a(w0, q6, sumi);
+    sumi = __dp4a(w1, q7, sumi);
+    return sumi * ls;
+}
+
 __device__ static float dev_dot_iq2_xxs_q8_K_block_lut(
         const cuda_block_iq2_xxs *x,
         const cuda_block_q8_K *y,
@@ -14192,6 +14225,47 @@ __device__ static float dev_dot_iq2_xxs_q8_K_block_lut(
         bsum += sumi * ls;
     }
     return 0.125f * xd * y->d * (float)bsum;
+}
+
+__device__ __forceinline__ static void dev_dot_iq2_xxs_q8_K_pair_block_lut(
+        const cuda_block_iq2_xxs *gate_x,
+        const cuda_block_iq2_xxs *up_x,
+        const cuda_block_q8_K *y,
+        const uint64_t *grid,
+        const uint8_t *signs,
+        float *gate_out,
+        float *up_out) {
+    const float gate_d = dev_f16_to_f32(gate_x->d);
+    const float up_d = dev_f16_to_f32(up_x->d);
+    const uint16_t *gate_q2 = gate_x->qs;
+    const uint16_t *up_q2 = up_x->qs;
+    const int8_t *q8 = y->qs;
+    int32_t gate_bsum = 0;
+    int32_t up_bsum = 0;
+    #pragma unroll
+    for (int ib32 = 0; ib32 < CUDA_QK_K / 32; ib32++) {
+        const int32_t q0 = *(const int32_t *)(q8 + ib32 * 32u + 0);
+        const int32_t q1 = *(const int32_t *)(q8 + ib32 * 32u + 4);
+        const int32_t q2 = *(const int32_t *)(q8 + ib32 * 32u + 8);
+        const int32_t q3 = *(const int32_t *)(q8 + ib32 * 32u + 12);
+        const int32_t q4 = *(const int32_t *)(q8 + ib32 * 32u + 16);
+        const int32_t q5 = *(const int32_t *)(q8 + ib32 * 32u + 20);
+        const int32_t q6 = *(const int32_t *)(q8 + ib32 * 32u + 24);
+        const int32_t q7 = *(const int32_t *)(q8 + ib32 * 32u + 28);
+        const uint32_t gate_aux0 = (uint32_t)gate_q2[0] | ((uint32_t)gate_q2[1] << 16);
+        const uint32_t gate_aux1 = (uint32_t)gate_q2[2] | ((uint32_t)gate_q2[3] << 16);
+        const uint32_t up_aux0 = (uint32_t)up_q2[0] | ((uint32_t)up_q2[1] << 16);
+        const uint32_t up_aux1 = (uint32_t)up_q2[2] | ((uint32_t)up_q2[3] << 16);
+        gate_q2 += 4;
+        up_q2 += 4;
+        gate_bsum += dev_dot_iq2_xxs_q8_K_aux_lut(
+            gate_aux0, gate_aux1, grid, signs, q0, q1, q2, q3, q4, q5, q6, q7);
+        up_bsum += dev_dot_iq2_xxs_q8_K_aux_lut(
+            up_aux0, up_aux1, grid, signs, q0, q1, q2, q3, q4, q5, q6, q7);
+    }
+    const float yd = y->d;
+    *gate_out = 0.125f * gate_d * yd * (float)gate_bsum;
+    *up_out = 0.125f * up_d * yd * (float)up_bsum;
 }
 
 __device__ static float dev_dot_iq2_xxs_q8_K_block_lut_ldg(
@@ -15062,6 +15136,64 @@ __global__ static void moe_gate_up_mid_decode_lut_qwarp32_shape2048_conststride_
         for (uint32_t b = lane; b < DS4_MOE_GATE_SHAPE2048_XQ_BLOCKS; b += 8u) {
             gate += dev_dot_iq2_xxs_q8_K_block_lut(gr + b, xqb + b, s_iq2_grid, s_iq2_signs);
             up += dev_dot_iq2_xxs_q8_K_block_lut(ur + b, xqb + b, s_iq2_grid, s_iq2_signs);
+        }
+        gate = quarter_warp_sum_f32(gate, lane);
+        up = quarter_warp_sum_f32(up, lane);
+        if (lane == 0) {
+            if (clamp > 1.0e-6f) {
+                if (gate > clamp) gate = clamp;
+                if (up > clamp) up = clamp;
+                if (up < -clamp) up = -clamp;
+            }
+            const uint64_t off = (uint64_t)slot * DS4_MOE_GATE_SHAPE2048_MID + row;
+            mid_out[off] = (gate / (1.0f + expf(-gate))) * up * route_weight;
+        }
+    }
+}
+
+__global__ static void moe_gate_up_mid_decode_lut_qwarp32_shape2048_dot2_kernel(
+        float *mid_out,
+        const char *gate_base,
+        const char *up_base,
+        const cuda_block_q8_K *xq,
+        const int32_t *selected,
+        const float *weights,
+        float clamp) {
+    const uint32_t lane = threadIdx.x & 7u;
+    const uint32_t row_lane = threadIdx.x >> 3u;
+    const uint32_t slot = blockIdx.y;
+    int32_t expert_i = selected[slot];
+    if (expert_i < 0) expert_i = 0;
+    const uint32_t expert = (uint32_t)expert_i;
+    const float route_weight = weights[slot];
+    const cuda_block_q8_K *xqb = xq;
+    const cuda_block_iq2_xxs *gate_expert =
+        (const cuda_block_iq2_xxs *)(gate_base + (uint64_t)expert * DS4_MOE_GATE_SHAPE2048_EXPERT_BYTES);
+    const cuda_block_iq2_xxs *up_expert =
+        (const cuda_block_iq2_xxs *)(up_base + (uint64_t)expert * DS4_MOE_GATE_SHAPE2048_EXPERT_BYTES);
+    __shared__ cuda_block_q8_K sxq[DS4_MOE_GATE_SHAPE2048_XQ_BLOCKS];
+    __shared__ uint64_t s_iq2_grid[256];
+    __shared__ uint8_t s_iq2_signs[128];
+    for (uint32_t i = threadIdx.x; i < DS4_MOE_GATE_SHAPE2048_XQ_BLOCKS; i += blockDim.x) sxq[i] = xqb[i];
+    for (uint32_t i = threadIdx.x; i < 256u; i += blockDim.x) s_iq2_grid[i] = cuda_iq2xxs_grid[i];
+    for (uint32_t i = threadIdx.x; i < 128u; i += blockDim.x) s_iq2_signs[i] = cuda_ksigns_iq2xs[i];
+    __syncthreads();
+    xqb = sxq;
+    #pragma unroll
+    for (uint32_t rr = 0; rr < 4u; rr++) {
+        const uint32_t row = blockIdx.x * 128u + row_lane + rr * 32u;
+        const cuda_block_iq2_xxs *gr = gate_expert + (uint64_t)row * DS4_MOE_GATE_SHAPE2048_XQ_BLOCKS;
+        const cuda_block_iq2_xxs *ur = up_expert + (uint64_t)row * DS4_MOE_GATE_SHAPE2048_XQ_BLOCKS;
+        float gate = 0.0f;
+        float up = 0.0f;
+        #pragma unroll
+        for (uint32_t b = lane; b < DS4_MOE_GATE_SHAPE2048_XQ_BLOCKS; b += 8u) {
+            float gate_part;
+            float up_part;
+            dev_dot_iq2_xxs_q8_K_pair_block_lut(
+                gr + b, ur + b, xqb + b, s_iq2_grid, s_iq2_signs, &gate_part, &up_part);
+            gate += gate_part;
+            up += up_part;
         }
         gate = quarter_warp_sum_f32(gate, lane);
         up = quarter_warp_sum_f32(up, lane);
@@ -18262,6 +18394,13 @@ static void cuda_set_moe_gate_cache_config_once(void) {
                 cudaGetErrorString(err));
         (void)cudaGetLastError();
     }
+    err = cudaFuncSetCacheConfig(moe_gate_up_mid_decode_lut_qwarp32_shape2048_dot2_kernel,
+                                 cudaFuncCachePreferL1);
+    if (err != cudaSuccess) {
+        fprintf(stderr, "ds4: CUDA MoE gate shape2048 dot2 prefer-L1 config failed: %s\n",
+                cudaGetErrorString(err));
+        (void)cudaGetLastError();
+    }
     err = cudaFuncSetCacheConfig(moe_gate_up_mid_decode_lut_qwarp32_shape2048_constclamp_kernel,
                                  cudaFuncCachePreferL1);
     if (err != cudaSuccess) {
@@ -18728,6 +18867,19 @@ static int routed_moe_launch(
                             gate_expert_bytes == DS4_MOE_GATE_SHAPE2048_EXPERT_BYTES) {
                             dim3 shape_grid(16u, 6u, 1u);
                             moe_gate_up_mid_decode_lut_qwarp32_shape2048_conststride_kernel<<<shape_grid, 256>>>(
+                                (float *)mid->ptr,
+                                gate_w,
+                                up_w,
+                                xq,
+                                (const int32_t *)selected->ptr,
+                                (const float *)weights->ptr,
+                                clamp);
+                        } else if (g_cuda_moe_decode_gate_shape2048_dot2 &&
+                            gate_shape2048_ready &&
+                            gate_row_bytes == DS4_MOE_GATE_SHAPE2048_ROW_BYTES &&
+                            gate_expert_bytes == DS4_MOE_GATE_SHAPE2048_EXPERT_BYTES) {
+                            dim3 shape_grid(16u, 6u, 1u);
+                            moe_gate_up_mid_decode_lut_qwarp32_shape2048_dot2_kernel<<<shape_grid, 256>>>(
                                 (float *)mid->ptr,
                                 gate_w,
                                 up_w,

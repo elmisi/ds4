@@ -81,6 +81,7 @@ BASE_UNSET_NAMES = {
     "DS4_CUDA_MOE_DECODE_GATE_LDG",
     "DS4_CUDA_MOE_DECODE_GATE_SHAPE2048",
     "DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_CONSTSTRIDE",
+    "DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_DOT2",
     "DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_CONSTCLAMP",
     "DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_SPLITUP",
     "DS4_CUDA_MOE_GATE_PREFER_L1",
@@ -348,6 +349,11 @@ MATRIX = {
         "env": {**EXACT_FAST, **env(DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_CONSTSTRIDE=1)},
         "status": "shape2048 routed MoE gate/up with DS4 constant strides",
     },
+    "moe_gate_shape2048_dot2": {
+        "category": "prototype",
+        "env": {**EXACT_FAST, **env(DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_DOT2=1)},
+        "status": "shape2048 routed MoE gate/up with shared Q8 activation loads",
+    },
     "moe_gate_shape2048_constclamp": {
         "category": "prototype",
         "env": {**EXACT_FAST, **env(DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_CONSTCLAMP=1)},
@@ -579,6 +585,7 @@ ROW_GROUPS = {
         "moe_ldg_weights",
         "moe_gate_shape2048",
         "moe_gate_shape2048_conststride",
+        "moe_gate_shape2048_dot2",
         "moe_gate_shape2048_constclamp",
         "moe_gate_shape2048_splitup",
         "moe_gate_conststride_soa_b_forced",

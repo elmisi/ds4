@@ -5818,6 +5818,55 @@ These are not the next no-MTP route to 20 t/s. They are a bounded MTP-only
 branch if we decide to reopen speculation after the current exact-fast kernel
 frontier stalls.
 
+### 2026-05-24 continuation - routed MoE shape2048 dot2 probe
+
+After the fork audit, the no-MTP path stayed on the only exact small-positive
+routed MoE line: `moe_gate_shape2048_conststride`. A new variant tested whether
+the gate and up IQ2 dots could share the same Q8 activation-block loads inside
+the DS4-specific shape2048 kernel. This is different from the older
+`shared_gate_up_dot2` experiment: that one targeted the shared-expert Q8_0
+SwiGLU path, while this probe targets routed-expert IQ2 decode.
+
+Implementation:
+
+| Row | Flag | Idea |
+| --- | --- | --- |
+| `moe_gate_shape2048_dot2` | `DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_DOT2=1` | compute the gate and up block dots together for each routed row/block, loading the Q8 activation block once while keeping the per-output accumulation order unchanged |
+
+Resource usage from `/usr/local/cuda/bin/cuobjdump --dump-resource-usage
+ds4_cuda.o`:
+
+| Kernel | Registers | Stack | Shared |
+| --- | ---: | ---: | ---: |
+| `shape2048_conststride` | 64 | 0 | 6848 |
+| `shape2048_dot2` | 64 | 0 | 6848 |
+
+Smoke:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast \
+  moe_gate_shape2048_conststride moe_gate_shape2048_dot2 \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260524_moe_gate_shape2048_dot2 \
+  --summary tuning/gx10_matrix_results/prototype_20260524_moe_gate_shape2048_dot2/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260524_moe_gate_shape2048_dot2/summary.md
+```
+
+Result:
+
+| Row | 8192/128 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **16.06** | 393.50 | control |
+| `moe_gate_shape2048_conststride` | **16.15** | 390.44 | still small positive |
+| `moe_gate_shape2048_dot2` | **15.81** | 389.37 | negative |
+
+Decision: reject `moe_gate_shape2048_dot2`. The activation Q8 block is already
+resident in shared memory in the shape2048 kernels, so reducing the explicit
+load count does not beat the extra instruction scheduling pressure. Do not
+repeat gate/up dot-pairing on routed MoE unless the underlying weight/activation
+layout changes. `moe_gate_shape2048_conststride` remains the only exact small
+positive on this frontier.
+
 ## Branch / commit map
 
 ```

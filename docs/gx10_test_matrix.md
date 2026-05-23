@@ -197,6 +197,7 @@ door on hard but plausible kernel work.
 | `moe_ldg_weights` | both `*_LDG` flags | combined read-only-cache path was slower: 15.86 vs 16.15 t/s control | diagnostic only; do not promote |
 | `moe_gate_shape2048` | `DS4_CUDA_MOE_DECODE_GATE_SHAPE2048=1` | exact and byte-identical; small positive signal: 16.24 vs 16.05 at 128 tokens, 16.22 vs 15.87 at 256 tokens | candidate for retest/combination; not promoted alone |
 | `moe_gate_shape2048_conststride` | `DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_CONSTSTRIDE=1` | exact and byte-identical; small positive: 16.23 vs 16.09 at 128 tokens, 16.12 vs 15.80 at 256 tokens | minor candidate; not promoted alone |
+| `moe_gate_shape2048_dot2` | `DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_DOT2=1` | shared Q8 activation load across routed gate/up IQ2 dots; same resources as const-stride (`REG:64`) but slower: 15.81 vs 16.06 t/s control | diagnostic only; do not promote |
 | `moe_gate_shape2048_constclamp` | `DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_CONSTCLAMP=1` | hardcoded DS4 clamp on top of const-stride was slower: 15.97 vs 16.07 t/s control | diagnostic only; do not promote |
 | `moe_gate_shape2048_splitup` | `DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_SPLITUP=1` | gate-first/up-second scheduling had no resource win and was slower: 16.08 vs 16.14 t/s control | diagnostic only; do not promote |
 | `moe_gate_conststride_soa_b_forced` | `DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_CONSTSTRIDE=1 DS4_CUDA_Q8_SOA_ATTN_OUTPUT_B_DECODE=1` | combo did not compose: 15.95 vs 16.08 t/s control; `soa_b_forced` alone was 15.85 | diagnostic only; do not promote |
