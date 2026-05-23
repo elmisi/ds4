@@ -179,6 +179,7 @@ door on hard but plausible kernel work.
 | `f16_pair_fast_reduce` | `DS4_CUDA_F16_PAIR_FAST_REDUCE=1` | exact-order final-warp sync reduction for compressor F16 pair was neutral/slower: 16.04 vs 16.07 t/s control | diagnostic only; do not promote |
 | `compressor_pair_off` | `DS4_METAL_DISABLE_COMPRESSOR_PAIR_PROJ=1` | disabling paired F16 compressor projections was slower: 15.85 vs 16.09 t/s control | diagnostic only; keep pair path |
 | `graph_canonical_hc` | `DS4_CUDA_GRAPH_CANONICAL_HC=1` | restores `cur_hc` / `after_ffn_hc` labels after odd-layer decode tokens; external graph-WIP idea was negative: 16.35 vs 16.54 t/s control | diagnostic only; do not promote |
+| `graph_reuse_unsafe` | `DS4_CUDA_GRAPH_REUSE_UNSAFE=1` | quality-unsafe no-recapture/no-update graph upper bound: 17.10 vs 16.48 t/s control, with execute still about 58 ms/token | diagnostic ceiling only; never promote |
 | `soa_cache_x` | `DS4_CUDA_Q8_SOA_CACHE_X=1` | noisy/unstable and slower | re-test only after kernel change |
 | `output_top1` | `DS4_CUDA_OUTPUT_TOP1=1` | exact but slower than full logits in A/B | diagnostic only |
 | `output_q8_warp8` | `DS4_CUDA_OUTPUT_Q8_WARP8=1` | graph nsys showed full-logits output head on generic Q8, but warp8 routing was slower: 15.93 vs 16.13 and changes reduction order | diagnostic only; do not promote |

@@ -15369,6 +15369,12 @@ static int cuda_graph_decode_canonical_hc(void) {
     return cached;
 }
 
+static int cuda_graph_decode_reuse_unsafe(void) {
+    static int cached = -1;
+    if (cached < 0) cached = getenv("DS4_CUDA_GRAPH_REUSE_UNSAFE") != NULL ? 1 : 0;
+    return cached;
+}
+
 static void metal_graph_canonicalize_decode_hc(ds4_gpu_graph *g) {
     if (!g || !cuda_graph_decode_canonical_hc() || !(DS4_N_LAYER & 1u)) return;
     ds4_gpu_tensor *tmp = g->cur_hc;
@@ -15423,20 +15429,23 @@ static bool metal_graph_eval_token_raw_swa(
         const uint32_t n_raw = metal_graph_raw_span_for_batch(g, pos, 1);
         ds4_gpu_use_decode_state(1);
         ok = ds4_gpu_decode_state_set((uint32_t)token, pos, raw_row, n_raw) != 0;
-        if (ok) {
+        if (ok && cached_handle && cuda_graph_decode_reuse_unsafe()) {
+            t_encoded = profile ? now_sec() : 0.0;
+            ok = ds4_gpu_graph_launch(cached_handle) != 0;
+        } else if (ok) {
             ok = cuda_graph_decode_no_pre_sync()
                 ? ds4_gpu_graph_capture_begin_no_sync() != 0
                 : ds4_gpu_graph_capture_begin() != 0;
-        }
-        if (ok) ok = metal_graph_encode_token_raw_swa(g, model, weights, token, pos, logits != NULL, false);
-        t_encoded = profile ? now_sec() : 0.0;
-        if (ok) {
-            ok = ds4_gpu_graph_capture_end_update(&cached_handle) != 0;
-        }
-        if (ok && cached_handle) {
-            ok = ds4_gpu_graph_launch(cached_handle) != 0;
-        } else if (ok) {
-            ok = false;
+            if (ok) ok = metal_graph_encode_token_raw_swa(g, model, weights, token, pos, logits != NULL, false);
+            t_encoded = profile ? now_sec() : 0.0;
+            if (ok) {
+                ok = ds4_gpu_graph_capture_end_update(&cached_handle) != 0;
+            }
+            if (ok && cached_handle) {
+                ok = ds4_gpu_graph_launch(cached_handle) != 0;
+            } else if (ok) {
+                ok = false;
+            }
         }
         ds4_gpu_use_decode_state(0);
     } else {
@@ -15500,21 +15509,24 @@ static bool metal_graph_eval_token_raw_swa_top(
         const uint32_t n_raw = metal_graph_raw_span_for_batch(g, pos, 1);
         ds4_gpu_use_decode_state(1);
         ok = ds4_gpu_decode_state_set((uint32_t)token, pos, raw_row, n_raw) != 0;
-        if (ok) {
+        if (ok && cached_top_handle && cuda_graph_decode_reuse_unsafe()) {
+            t_encoded = profile ? now_sec() : 0.0;
+            ok = ds4_gpu_graph_launch(cached_top_handle) != 0;
+        } else if (ok) {
             ok = cuda_graph_decode_no_pre_sync()
                 ? ds4_gpu_graph_capture_begin_no_sync() != 0
                 : ds4_gpu_graph_capture_begin() != 0;
-        }
-        if (ok) ok = metal_graph_encode_token_raw_swa(g, model, weights,
-                                                      token, pos, false, false);
-        if (ok) ok = metal_graph_encode_output_head_top(g, model, weights,
-                                                        weights->output->dim[1]);
-        t_encoded = profile ? now_sec() : 0.0;
-        if (ok) ok = ds4_gpu_graph_capture_end_update(&cached_top_handle) != 0;
-        if (ok && cached_top_handle) {
-            ok = ds4_gpu_graph_launch(cached_top_handle) != 0;
-        } else if (ok) {
-            ok = false;
+            if (ok) ok = metal_graph_encode_token_raw_swa(g, model, weights,
+                                                          token, pos, false, false);
+            if (ok) ok = metal_graph_encode_output_head_top(g, model, weights,
+                                                            weights->output->dim[1]);
+            t_encoded = profile ? now_sec() : 0.0;
+            if (ok) ok = ds4_gpu_graph_capture_end_update(&cached_top_handle) != 0;
+            if (ok && cached_top_handle) {
+                ok = ds4_gpu_graph_launch(cached_top_handle) != 0;
+            } else if (ok) {
+                ok = false;
+            }
         }
         ds4_gpu_use_decode_state(0);
     } else {

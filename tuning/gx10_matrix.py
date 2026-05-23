@@ -22,6 +22,7 @@ BASE_UNSET_NAMES = {
     "DS4_CUDA_GRAPH_DECODE",
     "DS4_CUDA_GRAPH_DECODE_NO_SYNC",
     "DS4_CUDA_GRAPH_CANONICAL_HC",
+    "DS4_CUDA_GRAPH_REUSE_UNSAFE",
     "DS4_CUDA_GRAPH_VERIFY",
     "DS4_CUDA_DIRECT_MODEL",
     "DS4_CUDA_OUTPUT_TOP1",
@@ -487,6 +488,11 @@ MATRIX = {
         "category": "prototype",
         "env": {**EXACT_FAST, **env(DS4_CUDA_GRAPH_CANONICAL_HC=1)},
         "status": "restore cur_hc/after_ffn_hc labels after odd-layer decode tokens to reduce graph arg drift",
+    },
+    "graph_reuse_unsafe": {
+        "category": "prototype",
+        "env": {**EXACT_FAST, **env(DS4_CUDA_GRAPH_REUSE_UNSAFE=1)},
+        "status": "quality-unsafe upper bound: reuse first decode graph without per-token recapture/update",
     },
     "weight_tensor_align2m": {
         "category": "prototype",

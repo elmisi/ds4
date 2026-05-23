@@ -5943,6 +5943,48 @@ recaptures and calls `cudaGraphExecUpdate` every token; this small pointer-label
 cleanup did not improve wall-clock. Do not repeat this unless the graph path is
 redesigned around device-resident arguments and skipped/no-op graph updates.
 
+The next diagnostic tested that graph-update ceiling directly with an explicitly
+quality-unsafe upper bound:
+
+| Row | Env delta over `exact_fast` | Meaning |
+| --- | --- | --- |
+| `graph_reuse_unsafe` | `DS4_CUDA_GRAPH_REUSE_UNSAFE=1` | capture the first decode graph, then launch the cached graph on later tokens without recapturing or calling `cudaGraphExecUpdate` |
+
+This is not quality-correct: CPU-side cache counters, captured scalar args, and
+some graph topology assumptions are stale after the first token. It is only a
+speed ceiling for "what if recapture/update disappeared".
+
+Speed smoke:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast graph_reuse_unsafe \
+  --model /home/alessandro/projects/ds4/ds4flash.gguf \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_graph_reuse_unsafe \
+  --summary tuning/gx10_matrix_results/prototype_20260523_graph_reuse_unsafe/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_graph_reuse_unsafe/summary.md
+```
+
+Result:
+
+| Row | 8192/128 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **16.48** | 393.31 | control |
+| `graph_reuse_unsafe` | **17.10** | 390.07 | quality-unsafe upper bound |
+
+Short token profile (`DS4_METAL_GRAPH_TOKEN_PROFILE=1`, 8 gen tokens):
+
+- normal `exact_fast`: after first token, encode/capture was about `0.9-1.1 ms`
+  and execute was `58-61 ms`;
+- `graph_reuse_unsafe`: after first token, encode was `0.002-0.008 ms` and
+  execute stayed about `58.1 ms`.
+
+Decision: a correct no-recapture/no-update graph path may be worth a small
+cleanup later, but it is not the missing 20 t/s path by itself. The GPU kernel
+body remains the dominant cost. Do not spend a large implementation pass on
+full device-argument graph reuse unless it also enables kernel fusion or removes
+real GPU work.
+
 ## Branch / commit map
 
 ```
