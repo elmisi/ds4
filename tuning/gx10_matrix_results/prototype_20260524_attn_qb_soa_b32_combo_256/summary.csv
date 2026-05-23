@@ -1,0 +1,5 @@
+row,rows,ctx_first,ctx_last,gen_first,gen_8192,gen_last,gen_mean,gen_max,gen_ss_mean,prefill_mean,prefill_max
+attn_qb_soa_b32_special,1,8192,8192,16.06,16.06,16.06,16.06,16.06,16.06,385.98,385.98
+exact_fast,1,8192,8192,16.04,16.04,16.04,16.04,16.04,16.04,390.16,390.16
+moe_gate_shape2048_conststride,1,8192,8192,16.04,16.04,16.04,16.04,16.04,16.04,388.44,388.44
+shape_gate_attn_qb_soa_b32,1,8192,8192,16.21,16.21,16.21,16.21,16.21,16.21,386.98,386.98

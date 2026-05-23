@@ -1,0 +1,30 @@
+[
+  {
+    "row": "exact_fast",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 15.85,
+    "gen_8192": 15.85,
+    "gen_last": 15.85,
+    "gen_mean": 15.85,
+    "gen_max": 15.85,
+    "gen_ss_mean": 15.85,
+    "prefill_mean": 391.51,
+    "prefill_max": 391.51
+  },
+  {
+    "row": "shape_gate_attn_qb_soa_b32",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 16.18,
+    "gen_8192": 16.18,
+    "gen_last": 16.18,
+    "gen_mean": 16.18,
+    "gen_max": 16.18,
+    "gen_ss_mean": 16.18,
+    "prefill_mean": 388.48,
+    "prefill_max": 388.48
+  }
+]

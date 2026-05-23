@@ -39,6 +39,7 @@ BASE_UNSET_NAMES = {
     "DS4_CUDA_ATTN_Q_B_CUBLAS_DECODE",
     "DS4_CUDA_ATTN_Q_B_HWARP16",
     "DS4_CUDA_ATTN_Q_B_B32_SPECIAL",
+    "DS4_CUDA_ATTN_Q_B_SOA_B32_SPECIAL",
     "DS4_CUDA_ATTN_QKV_PAIR_SHAPE",
     "DS4_METAL_DISABLE_QKV_PAIR_PROJ",
     "DS4_METAL_DISABLE_COMPRESSOR_PAIR_PROJ",
@@ -181,10 +182,30 @@ MATRIX = {
         "env": {**EXACT_FAST, **env(DS4_CUDA_ATTN_Q_B_B32_SPECIAL=1)},
         "status": "exact-order attn_q_b blocks=32 specialized kernel",
     },
+    "attn_qb_soa_b32_special": {
+        "category": "diagnostic",
+        "env": {
+            **EXACT_FAST,
+            **env(DS4_CUDA_Q8_SOA_QB=1, DS4_CUDA_ATTN_Q_B_SOA_B32_SPECIAL=1),
+        },
+        "status": "SoA exact-order attn_q_b blocks=32 specialized kernel",
+    },
     "attn_qkv_pair_shape": {
         "category": "prototype",
         "env": {**EXACT_FAST, **env(DS4_CUDA_ATTN_QKV_PAIR_SHAPE=1)},
         "status": "exact-order attention q_a/kv pair 4096->1024+512 shape-specialized kernel",
+    },
+    "shape_gate_attn_qb_soa_b32": {
+        "category": "prototype",
+        "env": {
+            **EXACT_FAST,
+            **env(
+                DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_CONSTSTRIDE=1,
+                DS4_CUDA_Q8_SOA_QB=1,
+                DS4_CUDA_ATTN_Q_B_SOA_B32_SPECIAL=1,
+            ),
+        },
+        "status": "routed MoE const-stride plus SoA blocks=32 attn_q_b specialization",
     },
     "soa_qkv": {
         "category": "diagnostic",
@@ -554,7 +575,9 @@ ROW_GROUPS = {
         "attn_qb_hwarp16",
         "attn_qb_soa_hwarp16",
         "attn_qb_b32_special",
+        "attn_qb_soa_b32_special",
         "attn_qkv_pair_shape",
+        "shape_gate_attn_qb_soa_b32",
         "soa_qkv",
         "soa_qkv_no_pair",
         "soa_shared",

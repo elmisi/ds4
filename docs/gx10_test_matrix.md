@@ -163,6 +163,7 @@ door on hard but plausible kernel work.
 | `attn_qb_hwarp16` | `DS4_CUDA_ATTN_Q_B_HWARP16=1` | 15.92 vs 16.13 t/s same-run control; changes reduction shape | diagnostic only; do not promote |
 | `attn_qb_soa_hwarp16` | `DS4_CUDA_Q8_SOA_QB=1 DS4_CUDA_ATTN_Q_B_HWARP16=1` | 16.03 vs 16.13 t/s same-run control; changes reduction shape | diagnostic only; do not promote |
 | `attn_qb_b32_special` | `DS4_CUDA_ATTN_Q_B_B32_SPECIAL=1` | exact-order decode-shape specialization, 16.07 vs 16.12 t/s control | diagnostic only; do not promote |
+| `attn_qb_soa_b32_special` | `DS4_CUDA_Q8_SOA_QB=1 DS4_CUDA_ATTN_Q_B_SOA_B32_SPECIAL=1` | SoA exact-order blocks=32 specialization; small/noisy positive alone: 16.09 vs 15.98 at 128 tokens and 16.06 vs 16.04 at 256 tokens | candidate only as combo input; not default alone |
 | `attn_qkv_pair_shape` | `DS4_CUDA_ATTN_QKV_PAIR_SHAPE=1` | exact-order QKV pair shape specialization, 16.07 vs 16.12 t/s control and higher register use | diagnostic only; do not promote |
 | `attn_b_shape4096` | `DS4_CUDA_ATTENTION_OUTPUT_B_SHAPE4096=1` | exact-order attention-output-B shape specialization, 15.90 vs 16.12 t/s control and higher register use | diagnostic only; do not promote |
 | `soa_qkv_no_pair` | `DS4_CUDA_Q8_SOA_QKV=1 DS4_METAL_DISABLE_QKV_PAIR_PROJ=1` | disabling the pair projection did not rescue QKV SoA: 15.70 vs 15.94 t/s control | diagnostic only; do not promote |
@@ -207,6 +208,7 @@ door on hard but plausible kernel work.
 | `shared_gate_up_shape2048` | `DS4_CUDA_SHARED_GATE_UP_SHAPE2048=1` | too small: 16.07 vs 15.98 t/s control | diagnostic only; do not promote |
 | `shape_gate_shared` | routed gate shape + shared gate shape | too small in 256-token recheck: 16.03 vs 15.95 t/s control | diagnostic only; do not promote |
 | `shape_gate_attn_a` | routed gate shape + attention-output-A shape | did not compound: 16.16 vs 16.18 for routed gate shape alone | diagnostic only; do not promote |
+| `shape_gate_attn_qb_soa_b32` | `DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_CONSTSTRIDE=1 DS4_CUDA_Q8_SOA_QB=1 DS4_CUDA_ATTN_Q_B_SOA_B32_SPECIAL=1` | composed signal: 16.21 vs 16.04 at 256 tokens, repeat 16.18 vs 15.85; selected tokens matched in a 32-step logprob check with ~7.7e-6 max diff, and 2q `ds4-eval` smoke was 2/2 for both control and combo | candidate for larger quality/speed gate; not promoted yet |
 | `indexer_topk_chunk8192` | `DS4_CUDA_TOPK_CHUNK8192=1` | long-context top-k chunking negative: 13.36 vs 13.46 t/s at frontier 65536; `uint32_t` 8192 chunk exceeded shared memory | diagnostic only; do not promote |
 | `graph_no_presync` | `DS4_CUDA_GRAPH_DECODE_NO_SYNC=1` | normal decode graph capture without pre-sync was slower: 16.03 vs 16.18 t/s control | diagnostic only; do not promote |
 | `weight_tensor_align2m` | `DS4_CUDA_WEIGHT_TENSOR_ALIGN_MB=2` | 2 MiB tensor-base alignment in the local CUDA arena was slower: 15.95 vs 16.04 t/s control | diagnostic only; do not promote |

@@ -141,6 +141,7 @@ static int g_cuda_q8_cublas_decode;
 static int g_cuda_attn_q_b_cublas_decode;
 static int g_cuda_attn_q_b_hwarp16;
 static int g_cuda_attn_q_b_b32_special;
+static int g_cuda_attn_q_b_soa_b32_special;
 static int g_cuda_attn_qkv_pair_shape;
 static int g_cuda_attn_output_b_shape4096;
 static int g_cuda_attn_output_b_cublas_min;
@@ -1820,6 +1821,7 @@ extern "C" int ds4_gpu_init(void) {
     g_cuda_attn_q_b_cublas_decode = getenv("DS4_CUDA_ATTN_Q_B_CUBLAS_DECODE") != NULL;
     g_cuda_attn_q_b_hwarp16 = getenv("DS4_CUDA_ATTN_Q_B_HWARP16") != NULL;
     g_cuda_attn_q_b_b32_special = getenv("DS4_CUDA_ATTN_Q_B_B32_SPECIAL") != NULL;
+    g_cuda_attn_q_b_soa_b32_special = getenv("DS4_CUDA_ATTN_Q_B_SOA_B32_SPECIAL") != NULL;
     g_cuda_attn_qkv_pair_shape = getenv("DS4_CUDA_ATTN_QKV_PAIR_SHAPE") != NULL;
     g_cuda_attn_output_b_shape4096 = getenv("DS4_CUDA_ATTENTION_OUTPUT_B_SHAPE4096") != NULL;
     g_cuda_output_q8_warp8 = getenv("DS4_CUDA_OUTPUT_Q8_WARP8") != NULL;
@@ -3704,6 +3706,25 @@ __global__ static void matmul_q8_0_preq_warp8_soa_kernel(
         int dot = dot_i8_block_weight_aligned(qs, xqb, bn, use_dp4a);
         acc += __half2float(sr[b]) * xscale[b] * (float)dot;
     }
+    acc = warp_sum_f32(acc);
+    if (lane == 0) out[row] = acc;
+}
+
+__global__ static void matmul_q8_0_attn_qb_soa_b32_special_kernel(
+        float *out,
+        const __half *wscale,
+        const int8_t *wq,
+        const int8_t *xq,
+        const float *xscale,
+        int use_dp4a) {
+    const uint64_t row = (uint64_t)blockIdx.x * 8u + (threadIdx.x >> 5u);
+    const uint32_t lane = threadIdx.x & 31u;
+    if (row >= 32768u) return;
+    const __half *sr = wscale + row * 32u;
+    const int8_t *qs = wq + (row * 32u + lane) * 32u;
+    const int8_t *xqb = xq + (uint64_t)lane * 32u;
+    const int dot = dot_i8_block_weight_aligned(qs, xqb, 32u, use_dp4a);
+    float acc = __half2float(sr[lane]) * xscale[lane] * (float)dot;
     acc = warp_sum_f32(acc);
     if (lane == 0) out[row] = acc;
 }
@@ -11080,6 +11101,12 @@ static int cuda_matmul_q8_0_tensor_labeled(ds4_gpu_tensor *out, const void *mode
         in_dim == 1024u &&
         out_dim == 32768u &&
         blocks == 32u;
+    const int attn_q_b_soa_b32_special_target =
+        g_cuda_attn_q_b_soa_b32_special &&
+        n_tok == 1 &&
+        in_dim == 1024u &&
+        out_dim == 32768u &&
+        blocks == 32u;
     if (attn_q_b_b32_special_target) {
         matmul_q8_0_attn_qb_b32_special_kernel<<<4096, 256>>>(
                 (float *)out->ptr,
@@ -11127,7 +11154,15 @@ static int cuda_matmul_q8_0_tensor_labeled(ds4_gpu_tensor *out, const void *mode
                                                        out_dim,
                                                        label);
         if (soa) {
-            if (attn_q_b_hwarp16_target) {
+            if (attn_q_b_soa_b32_special_target) {
+                matmul_q8_0_attn_qb_soa_b32_special_kernel<<<4096, 256>>>(
+                        (float *)out->ptr,
+                        soa->scale_ptr,
+                        soa->quant_ptr,
+                        xq,
+                        xscale,
+                        use_dp4a);
+            } else if (attn_q_b_hwarp16_target) {
                 matmul_q8_0_preq_hwarp16_soa_kernel<<<((unsigned)out_dim + 15u) / 16u, 256>>>(
                         (float *)out->ptr,
                         soa->scale_ptr,

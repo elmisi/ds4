@@ -1,0 +1,4 @@
+row,rows,ctx_first,ctx_last,gen_first,gen_8192,gen_last,gen_mean,gen_max,gen_ss_mean,prefill_mean,prefill_max
+attn_qb_soa_b32_special,1,8192,8192,16.09,16.09,16.09,16.09,16.09,16.09,389.59,389.59
+exact_fast,1,8192,8192,15.98,15.98,15.98,15.98,15.98,15.98,393.94,393.94
+soa_qb,1,8192,8192,16.04,16.04,16.04,16.04,16.04,16.04,390.25,390.25

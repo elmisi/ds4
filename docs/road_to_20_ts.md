@@ -5867,6 +5867,94 @@ repeat gate/up dot-pairing on routed MoE unless the underlying weight/activation
 layout changes. `moe_gate_shape2048_conststride` remains the only exact small
 positive on this frontier.
 
+### 2026-05-24 continuation - SoA blocks=32 `attn_q_b` specialization
+
+The next non-repeating probe returned to `attn_q_b`, but avoided the already
+closed lines:
+
+- not the old `soa_qb` rerun, which only changed cache selection;
+- not `attn_qb_hwarp16` / `attn_qb_soa_hwarp16`, which changed the reduction
+  shape and regressed;
+- not the interleaved `attn_qb_b32_special`, which preserved order but was
+  negative.
+
+New row:
+
+| Row | Flag(s) | Intent |
+| --- | --- | --- |
+| `attn_qb_soa_b32_special` | `DS4_CUDA_Q8_SOA_QB=1 DS4_CUDA_ATTN_Q_B_SOA_B32_SPECIAL=1` | use the SoA Q/B cache, but specialize the exact decode shape `1024 -> 32768, blocks=32` while keeping one lane per block and the same warp reduction |
+| `shape_gate_attn_qb_soa_b32` | previous row + `DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_CONSTSTRIDE=1` | test whether the small routed gate/up shape win composes with the Q/B kernel gain |
+
+Resource usage was not promising by itself:
+
+| Kernel | Registers | Stack | Shared |
+| --- | ---: | ---: | ---: |
+| generic SoA `matmul_q8_0_preq_warp8_soa_kernel` | 51 | 0 | 0 |
+| `attn_qb_soa_b32_special` | 64 | 0 | 0 |
+
+The first smoke still showed a small positive:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast soa_qb attn_qb_soa_b32_special \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260524_attn_qb_soa_b32_special \
+  --summary tuning/gx10_matrix_results/prototype_20260524_attn_qb_soa_b32_special/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260524_attn_qb_soa_b32_special/summary.md
+```
+
+| Row | 8192/128 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **15.98** | 393.94 | control |
+| `soa_qb` | **16.04** | 390.25 | small/noisy |
+| `attn_qb_soa_b32_special` | **16.09** | 389.59 | small positive |
+
+The 256-token composition check was stronger:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast \
+  moe_gate_shape2048_conststride attn_qb_soa_b32_special \
+  shape_gate_attn_qb_soa_b32 \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 256 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260524_attn_qb_soa_b32_combo_256 \
+  --summary tuning/gx10_matrix_results/prototype_20260524_attn_qb_soa_b32_combo_256/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260524_attn_qb_soa_b32_combo_256/summary.md
+```
+
+| Row | 8192/256 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **16.04** | 390.16 | control |
+| `moe_gate_shape2048_conststride` | **16.04** | 388.44 | noisy neutral in this run |
+| `attn_qb_soa_b32_special` | **16.06** | 385.98 | small/noisy |
+| `shape_gate_attn_qb_soa_b32` | **16.21** | 386.98 | best row |
+
+Repeat A/B:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast shape_gate_attn_qb_soa_b32 \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 256 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260524_attn_qb_soa_b32_combo_256_repeat \
+  --summary tuning/gx10_matrix_results/prototype_20260524_attn_qb_soa_b32_combo_256_repeat/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260524_attn_qb_soa_b32_combo_256_repeat/summary.md
+```
+
+| Row | 8192/256 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **15.85** | 391.51 | control |
+| `shape_gate_attn_qb_soa_b32` | **16.18** | 388.48 | repeated positive |
+
+Quality canaries:
+
+- 32-step coding logprob check against `exact_fast`: selected token IDs matched;
+  max top-5 logit/logprob delta was about `7.7e-6`, so this is not
+  byte-identical.
+- 2-question `ds4-eval` smoke, `--nothink --seed 1`, passed **2/2** for both
+  `exact_fast` and `shape_gate_attn_qb_soa_b32`.
+
+Decision: keep `shape_gate_attn_qb_soa_b32` as the first recent exact-intent
+combo candidate that actually composes. Do not promote it yet: it needs a wider
+quality gate because the logprob JSON is not byte-identical, and it needs a
+larger speed gate because the gain is still well below the 20 t/s target.
+
 ## Branch / commit map
 
 ```

@@ -115,6 +115,8 @@ kernel change creates a new reason to retest them.
 | `attn_a_shape8192` / `DS4_CUDA_ATTENTION_OUTPUT_A_SHAPE8192=1` | Exact-order attention-output-A shape specialization lowered resources after removing unroll (`REG:36`), but 256-token run was slower: 15.95 vs 16.04. |
 | `attn_a_cache_x16` / `DS4_CUDA_ATTENTION_OUTPUT_A_CACHE_X16=1` | Full-warp 16-row shared-x attention-output-A probe was slower: 15.90 vs 15.94 and used `REG:64`. |
 | `shape_gate_attn_a` | Combining `moe_gate_shape2048` with `attn_a_shape8192` did not compound: 16.16 vs 16.18 for gate shape alone. |
+| `attn_qb_soa_b32_special` / `DS4_CUDA_Q8_SOA_QB=1 DS4_CUDA_ATTN_Q_B_SOA_B32_SPECIAL=1` | Small positive/noisy: 16.09 vs 15.98 at 128 tokens and 16.06 vs 16.04 at 256 tokens, with `REG:64` vs generic SoA `REG:51`. Candidate only in combo. |
+| `shape_gate_attn_qb_soa_b32` | Routed MoE const-stride plus SoA `attn_q_b` blocks=32 specialization composed better than either alone: 16.21 vs 16.04 at 256 tokens, repeat 16.18 vs 15.85. Short logprob selected tokens matched with ~7.7e-6 max logit/logprob diff; 2-question `ds4-eval` smoke passed 2/2 for both control and combo. Needs larger quality gate before promotion. |
 | `indexer_topk_chunk8192` / `DS4_CUDA_TOPK_CHUNK8192=1` | Long-context top-k chunking was negative: 13.36 vs 13.46 t/s at frontier 65536; `uint32_t` 8192 chunk also exceeded GB10 shared memory. |
 | `graph_no_presync` / `DS4_CUDA_GRAPH_DECODE_NO_SYNC=1` | Normal decode graph capture without pre-sync was slower: 16.03 vs 16.18 t/s same-run control. |
 | `weight_tensor_align2m` / `DS4_CUDA_WEIGHT_TENSOR_ALIGN_MB=2` | Entrpi-inspired 2 MiB tensor-base alignment in the local arena was slower: 15.95 vs 16.04 t/s control. |
@@ -207,14 +209,14 @@ decode-window Nsight run with `--delay=22 --duration=6` produced:
    prior row-major/native-pack/meta-cache/LDG/row4/parallel/shape probes;
 4. shared gate/up, attention, f16 pair, and output head behind those rows.
 
-The latest pass also rejected the narrow `attn_q_b` half-warp/SoA/specialized
-variants, HC-expand exact-shape/no-block-out variants, MoE span/global-LUT/
-register-cap/read-only-cache variants, shared expert no-aux writes, and
-long-context top-k chunk-size-only variants. Shape-specializing routed gate/up
-is the only exact small positive after this pass, but it is still below the
-promotion gate by itself. The next credible attempt must either compound that
-small win with another exact kernel-level gain or be structural: reduce real
-routed-MoE or Q8 projection weight traffic, classify the f16 pair path, or
-change scheduling around existing exact kernels without repeating the
+The latest pass also rejected the narrow `attn_q_b` half-warp/interleaved
+specialization variants, HC-expand exact-shape/no-block-out variants, MoE
+span/global-LUT/register-cap/read-only-cache variants, shared expert no-aux
+writes, and long-context top-k chunk-size-only variants. The best current
+non-default candidate is the combo `shape_gate_attn_qb_soa_b32`: routed gate/up
+const-stride plus SoA blocks=32 `attn_q_b`. It repeats positive, but is not
+byte-identical and is still below the 20 t/s target, so the next credible
+attempt must either validate it with a wider quality gate or find a structural
+gain in real routed-MoE or Q8 projection weight traffic without repeating the
 row-major/block-paired/native-pack/cache-x/F16/cuBLAS/top-k-chunk experiments
 already rejected.
