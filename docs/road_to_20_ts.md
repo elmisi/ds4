@@ -7038,6 +7038,35 @@ Decision: do not change the Makefile for debug-info flags. Keep `-lineinfo`
 because it is useful for Nsight attribution and has no demonstrated throughput
 cost in the current cheap gate.
 
+#### Global load cache-policy compile probe
+
+One ptxas cache-policy variant was tested because the frontier kernels stream
+large quantized weight rows and the older local `__ldg`/prefer-L1 probes had
+only tested targeted source-level cache behavior:
+
+```sh
+make clean
+make -j$(nproc) cuda-spark \
+  NVCCFLAGS='-O3 -g -lineinfo --use_fast_math --default-stream per-thread -std=c++17 -Xptxas -dlcm=cg -Xcompiler -march=native -Xcompiler -pthread'
+
+python3 tuning/gx10_matrix.py bench-suite exact_fast \
+  --model /home/alessandro/projects/ds4/ds4flash.gguf \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_nvcc_dlcm_cg_bench \
+  --summary tuning/gx10_matrix_results/prototype_20260523_nvcc_dlcm_cg_bench/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_nvcc_dlcm_cg_bench/summary.md \
+  --stop-on-fail
+```
+
+Result: `exact_fast` collapsed to **3.53 t/s**, prefill **259.46 t/s**.
+Bypassing L1 globally is catastrophic for this code path, likely because small
+activation/state traffic and repeated metadata benefit from the default caching
+even when weight rows are mostly streaming.
+
+Decision: reject global `-dlcm=cg` and do not spend more time on global ptxas
+cache-policy variants without a kernel-specific reason. The binaries were
+rebuilt back with standard `make cuda-spark`.
+
 ## Branch / commit map
 
 ```

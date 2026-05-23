@@ -1,0 +1,2 @@
+row,rows,ctx_first,ctx_last,gen_first,gen_8192,gen_last,gen_mean,gen_max,gen_ss_mean,prefill_mean,prefill_max
+exact_fast,1,8192,8192,3.53,3.53,3.53,3.53,3.53,3.53,259.46,259.46
