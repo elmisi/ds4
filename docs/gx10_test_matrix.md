@@ -171,6 +171,7 @@ door on hard but plausible kernel work.
 | `shared_gate_up_noaux` | `DS4_CUDA_SHARED_GATE_UP_NOAUX=1` | shared expert mid-only kernel, 16.01 vs 16.15 t/s control | diagnostic only; do not promote |
 | `soa_cache_x` | `DS4_CUDA_Q8_SOA_CACHE_X=1` | noisy/unstable and slower | re-test only after kernel change |
 | `output_top1` | `DS4_CUDA_OUTPUT_TOP1=1` | exact but slower than full logits in A/B | diagnostic only |
+| `output_q8_warp8` | `DS4_CUDA_OUTPUT_Q8_WARP8=1` | graph nsys showed full-logits output head on generic Q8, but warp8 routing was slower: 15.93 vs 16.13 and changes reduction order | diagnostic only; do not promote |
 | `attn_b_cublas_min1` | `DS4_CUDA_ATTENTION_OUTPUT_B_CUBLAS_MIN=1` | did not improve refreshed profile | diagnostic only |
 | `attn_a_hwarp16` | `DS4_CUDA_ATTENTION_OUTPUT_A_HWARP16=1` | negative in 8192/128 smoke; changes reduction order | diagnostic only; do not promote |
 | `attn_a_shape8192` | `DS4_CUDA_ATTENTION_OUTPUT_A_SHAPE8192=1` | exact-order DS4-shape SoA kernel; no-unroll resource was `REG:36`, but 256-token run was negative: 15.95 vs 16.04 | diagnostic only; do not promote |
