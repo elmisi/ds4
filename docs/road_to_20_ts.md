@@ -6220,6 +6220,56 @@ our local default had already moved away from ordered F16 on GB10. Do not
 repeat F16 vector-load-only probes unless they are paired with a larger pipeline
 change that removes launches or changes tensor residency.
 
+### 2026-05-23 continuation - HC-expand one-row-per-CTA Q8 probe
+
+The next cghart-inspired idea was their Q8 `warp1`/CTA-per-row rewrite. The
+generic pair form is less directly applicable here because this branch already
+has a fused shared gate/up+SwiGLU Q8 kernel, while cghart's branch still routed
+shared gate/up through the generic pair API. The applicable hot target here is
+HC-expand, especially the SoA path used by `exact_fast`.
+
+A narrow local probe added:
+
+| Row | Env delta over `exact_fast` | Meaning |
+| --- | --- | --- |
+| `hc_expand_warp1_raw` | `DS4_CUDA_Q8_HC_EXPAND_WARP1=1` | raw Q8 HC-expand with one output row per CTA for `blocks=64/256` |
+| `hc_expand_warp1_soa` | `DS4_CUDA_Q8_HC_EXPAND_SOA_WARP1=1` | SoA Q8 HC-expand with one output row per CTA for `blocks=64/256` |
+| `hc_expand_warp1_all` | both flags | raw and SoA routes enabled together |
+
+Build:
+
+```sh
+make -j$(nproc) cuda-spark
+```
+
+Result: success.
+
+Speed smoke:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast \
+  hc_expand_warp1_raw hc_expand_warp1_soa hc_expand_warp1_all \
+  --model /home/alessandro/projects/ds4/ds4flash.gguf \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_hc_expand_warp1 \
+  --summary tuning/gx10_matrix_results/prototype_20260523_hc_expand_warp1/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_hc_expand_warp1/summary.md \
+  --stop-on-fail
+```
+
+| Row | 8192/128 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **16.22** | 393.40 | control |
+| `hc_expand_warp1_raw` | **16.05** | 389.92 | reject |
+| `hc_expand_warp1_soa` | **16.14** | 389.53 | reject |
+| `hc_expand_warp1_all` | **16.13** | 388.52 | reject |
+
+Decision: reject. The CTA-count/occupancy hypothesis does not beat the
+existing warp8 HC-expand mapping in this branch, even when preserving the SoA
+layout. Do not repeat HC-expand CTA-per-row variants unless a future change
+also removes the surrounding quantize/graph launch cost or changes the
+post-HC store work.
+
 ## Branch / commit map
 
 ```

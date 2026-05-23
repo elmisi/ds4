@@ -162,6 +162,8 @@ static int g_cuda_hc_expand_soa_ldg;
 static int g_cuda_hc_expand_soa_par_hc4;
 static int g_cuda_hc_expand_nhc4_special;
 static int g_cuda_hc_expand_no_block_out;
+static int g_cuda_q8_hc_expand_warp1;
+static int g_cuda_q8_hc_expand_soa_warp1;
 static int g_cuda_attn_output_a_cache_x;
 static int g_cuda_attn_output_a_hwarp16;
 static int g_cuda_attn_output_a_shape8192;
@@ -1853,6 +1855,8 @@ extern "C" int ds4_gpu_init(void) {
     g_cuda_hc_expand_soa_par_hc4 = getenv("DS4_CUDA_HC_EXPAND_SOA_PAR_HC4") != NULL;
     g_cuda_hc_expand_nhc4_special = getenv("DS4_CUDA_HC_EXPAND_NHC4_SPECIAL") != NULL;
     g_cuda_hc_expand_no_block_out = getenv("DS4_CUDA_HC_EXPAND_NO_BLOCK_OUT") != NULL;
+    g_cuda_q8_hc_expand_warp1 = getenv("DS4_CUDA_Q8_HC_EXPAND_WARP1") != NULL;
+    g_cuda_q8_hc_expand_soa_warp1 = getenv("DS4_CUDA_Q8_HC_EXPAND_SOA_WARP1") != NULL;
     g_cuda_attn_output_a_cache_x = getenv("DS4_CUDA_ATTENTION_OUTPUT_A_CACHE_X") != NULL;
     g_cuda_attn_output_a_hwarp16 = getenv("DS4_CUDA_ATTENTION_OUTPUT_A_HWARP16") != NULL;
     g_cuda_attn_output_a_shape8192 = getenv("DS4_CUDA_ATTENTION_OUTPUT_A_SHAPE8192") != NULL;
@@ -4918,6 +4922,66 @@ __global__ static void matmul_q8_0_hc_expand_preq_warp8_kernel(
     }
 }
 
+template <uint32_t BLOCKS, uint32_t WARPS_PER_OUT>
+__global__ static void matmul_q8_0_hc_expand_preq_warp1_kernel(
+        float *out_hc,
+        float *block_out,
+        const float *block_add,
+        const float *residual_hc,
+        const float *split,
+        const unsigned char *w,
+        const int8_t *xq,
+        const float *xscale,
+        uint64_t out_dim,
+        uint32_t n_embd,
+        uint32_t n_hc,
+        int has_add,
+        int use_dp4a) {
+    static_assert(BLOCKS == WARPS_PER_OUT * 32u,
+                  "matmul_q8_0_hc_expand_preq_warp1_kernel: BLOCKS must equal WARPS_PER_OUT * 32");
+    const uint64_t row = (uint64_t)blockIdx.x;
+    if (row >= out_dim) return;
+
+    const uint32_t lane = threadIdx.x & 31u;
+    const uint32_t warp_id = threadIdx.x >> 5u;
+    const uint32_t b = warp_id * 32u + lane;
+    const unsigned char *wr = w + row * BLOCKS * 34u;
+    float acc = 0.0f;
+    if (b < BLOCKS) {
+        const __half *scale_h = (const __half *)(wr + b * 34u);
+        const int8_t *qs = (const int8_t *)(wr + b * 34u + 2u);
+        const int8_t *xqb = xq + b * 32u;
+        const int dot = dot_i8_block(qs, xqb, 32u, use_dp4a);
+        acc = __half2float(*scale_h) * xscale[b] * (float)dot;
+    }
+    acc = warp_sum_f32(acc);
+
+    __shared__ float partial[WARPS_PER_OUT];
+    if (lane == 0) partial[warp_id] = acc;
+    __syncthreads();
+
+    if (warp_id == 0 && lane == 0) {
+        float total = 0.0f;
+#pragma unroll
+        for (uint32_t i = 0; i < WARPS_PER_OUT; i++) total += partial[i];
+        const uint32_t d = (uint32_t)row;
+        block_out[d] = total;
+        float block_v = total;
+        if (has_add) block_v += block_add[d];
+        const float *post = split + n_hc;
+        const float *comb = split + 2u * n_hc;
+        for (uint32_t dst_hc = 0; dst_hc < n_hc; dst_hc++) {
+            float hc_acc = block_v * post[dst_hc];
+            for (uint32_t src_hc = 0; src_hc < n_hc; src_hc++) {
+                const float comb_v = comb[dst_hc + (uint64_t)src_hc * n_hc];
+                const float res_v = residual_hc[(uint64_t)src_hc * n_embd + d];
+                hc_acc += comb_v * res_v;
+            }
+            out_hc[(uint64_t)dst_hc * n_embd + d] = hc_acc;
+        }
+    }
+}
+
 __device__ __forceinline__ static void hc_expand_store_nhc4(
         float *out_hc,
         float *block_out,
@@ -5175,6 +5239,67 @@ __global__ static void matmul_q8_0_hc_expand_preq_warp8_soa_kernel(
         const uint32_t d = (uint32_t)row;
         block_out[d] = acc;
         float block_v = acc;
+        if (has_add) block_v += block_add[d];
+        const float *post = split + n_hc;
+        const float *comb = split + 2u * n_hc;
+        for (uint32_t dst_hc = 0; dst_hc < n_hc; dst_hc++) {
+            float hc_acc = block_v * post[dst_hc];
+            for (uint32_t src_hc = 0; src_hc < n_hc; src_hc++) {
+                const float comb_v = comb[dst_hc + (uint64_t)src_hc * n_hc];
+                const float res_v = residual_hc[(uint64_t)src_hc * n_embd + d];
+                hc_acc += comb_v * res_v;
+            }
+            out_hc[(uint64_t)dst_hc * n_embd + d] = hc_acc;
+        }
+    }
+}
+
+template <uint32_t BLOCKS, uint32_t WARPS_PER_OUT>
+__global__ static void matmul_q8_0_hc_expand_preq_warp1_soa_kernel(
+        float *out_hc,
+        float *block_out,
+        const float *block_add,
+        const float *residual_hc,
+        const float *split,
+        const __half *wscale,
+        const int8_t *wq,
+        const int8_t *xq,
+        const float *xscale,
+        uint64_t out_dim,
+        uint32_t n_embd,
+        uint32_t n_hc,
+        int has_add,
+        int use_dp4a) {
+    static_assert(BLOCKS == WARPS_PER_OUT * 32u,
+                  "matmul_q8_0_hc_expand_preq_warp1_soa_kernel: BLOCKS must equal WARPS_PER_OUT * 32");
+    const uint64_t row = (uint64_t)blockIdx.x;
+    if (row >= out_dim) return;
+
+    const uint32_t lane = threadIdx.x & 31u;
+    const uint32_t warp_id = threadIdx.x >> 5u;
+    const uint32_t b = warp_id * 32u + lane;
+    const __half *sr = wscale + row * BLOCKS;
+    const int8_t *qr = wq + row * BLOCKS * 32u;
+    float acc = 0.0f;
+    if (b < BLOCKS) {
+        const int8_t *qs = qr + b * 32u;
+        const int8_t *xqb = xq + b * 32u;
+        const int dot = dot_i8_block_weight_aligned(qs, xqb, 32u, use_dp4a);
+        acc = __half2float(sr[b]) * xscale[b] * (float)dot;
+    }
+    acc = warp_sum_f32(acc);
+
+    __shared__ float partial[WARPS_PER_OUT];
+    if (lane == 0) partial[warp_id] = acc;
+    __syncthreads();
+
+    if (warp_id == 0 && lane == 0) {
+        float total = 0.0f;
+#pragma unroll
+        for (uint32_t i = 0; i < WARPS_PER_OUT; i++) total += partial[i];
+        const uint32_t d = (uint32_t)row;
+        block_out[d] = total;
+        float block_v = total;
         if (has_add) block_v += block_add[d];
         const float *post = split + n_hc;
         const float *comb = split + 2u * n_hc;
@@ -11795,6 +11920,46 @@ static int cuda_matmul_q8_0_hc_expand_tensor_labeled(
                                                    out_dim,
                                                    label ? label : "q8_0_hc_expand");
     if (soa) {
+        if (g_cuda_q8_hc_expand_soa_warp1 &&
+            in_dim == blocks * 32u &&
+            blocks == 256u) {
+            matmul_q8_0_hc_expand_preq_warp1_soa_kernel<256, 8><<<(unsigned)out_dim, 256>>>(
+                    (float *)out_hc->ptr,
+                    (float *)block_out->ptr,
+                    block_add ? (const float *)block_add->ptr : (const float *)block_out->ptr,
+                    (const float *)residual_hc->ptr,
+                    (const float *)split->ptr,
+                    soa->scale_ptr,
+                    soa->quant_ptr,
+                    xq,
+                    xscale,
+                    out_dim,
+                    n_embd,
+                    n_hc,
+                    block_add ? 1 : 0,
+                    use_dp4a);
+            return cuda_ok(cudaGetLastError(), "matmul_q8_0_hc_expand soa warp1<256,8> launch");
+        }
+        if (g_cuda_q8_hc_expand_soa_warp1 &&
+            in_dim == blocks * 32u &&
+            blocks == 64u) {
+            matmul_q8_0_hc_expand_preq_warp1_soa_kernel<64, 2><<<(unsigned)out_dim, 64>>>(
+                    (float *)out_hc->ptr,
+                    (float *)block_out->ptr,
+                    block_add ? (const float *)block_add->ptr : (const float *)block_out->ptr,
+                    (const float *)residual_hc->ptr,
+                    (const float *)split->ptr,
+                    soa->scale_ptr,
+                    soa->quant_ptr,
+                    xq,
+                    xscale,
+                    out_dim,
+                    n_embd,
+                    n_hc,
+                    block_add ? 1 : 0,
+                    use_dp4a);
+            return cuda_ok(cudaGetLastError(), "matmul_q8_0_hc_expand soa warp1<64,2> launch");
+        }
         if (g_cuda_hc_expand_soa_par_hc4 && n_hc == 4u && out_dim == (uint64_t)n_embd) {
             matmul_q8_0_hc_expand_preq_warp8_soa_par_hc4_kernel<<<((unsigned)out_dim + 7u) / 8u, 256>>>(
                     (float *)out_hc->ptr,
@@ -11900,6 +12065,44 @@ static int cuda_matmul_q8_0_hc_expand_tensor_labeled(
                     use_dp4a);
         }
         return cuda_ok(cudaGetLastError(), "matmul_q8_0_hc_expand soa launch");
+    }
+    if (g_cuda_q8_hc_expand_warp1 &&
+        in_dim == blocks * 32u &&
+        blocks == 256u) {
+        matmul_q8_0_hc_expand_preq_warp1_kernel<256, 8><<<(unsigned)out_dim, 256>>>(
+                (float *)out_hc->ptr,
+                (float *)block_out->ptr,
+                block_add ? (const float *)block_add->ptr : (const float *)block_out->ptr,
+                (const float *)residual_hc->ptr,
+                (const float *)split->ptr,
+                reinterpret_cast<const unsigned char *>(wptr),
+                xq,
+                xscale,
+                out_dim,
+                n_embd,
+                n_hc,
+                block_add ? 1 : 0,
+                use_dp4a);
+        return cuda_ok(cudaGetLastError(), "matmul_q8_0_hc_expand warp1<256,8> launch");
+    }
+    if (g_cuda_q8_hc_expand_warp1 &&
+        in_dim == blocks * 32u &&
+        blocks == 64u) {
+        matmul_q8_0_hc_expand_preq_warp1_kernel<64, 2><<<(unsigned)out_dim, 64>>>(
+                (float *)out_hc->ptr,
+                (float *)block_out->ptr,
+                block_add ? (const float *)block_add->ptr : (const float *)block_out->ptr,
+                (const float *)residual_hc->ptr,
+                (const float *)split->ptr,
+                reinterpret_cast<const unsigned char *>(wptr),
+                xq,
+                xscale,
+                out_dim,
+                n_embd,
+                n_hc,
+                block_add ? 1 : 0,
+                use_dp4a);
+        return cuda_ok(cudaGetLastError(), "matmul_q8_0_hc_expand warp1<64,2> launch");
     }
     if (g_cuda_hc_expand_no_block_out && !block_add && n_hc == 4u && out_dim == (uint64_t)n_embd) {
         matmul_q8_0_hc_expand_preq_warp8_nhc4_no_block_out_kernel<<<((unsigned)out_dim + 7u) / 8u, 256>>>(

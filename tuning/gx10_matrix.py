@@ -62,6 +62,8 @@ BASE_UNSET_NAMES = {
     "DS4_CUDA_HC_EXPAND_SOA_PAR_HC4",
     "DS4_CUDA_HC_EXPAND_NHC4_SPECIAL",
     "DS4_CUDA_HC_EXPAND_NO_BLOCK_OUT",
+    "DS4_CUDA_Q8_HC_EXPAND_WARP1",
+    "DS4_CUDA_Q8_HC_EXPAND_SOA_WARP1",
     "DS4_CUDA_Q8_SOA_CACHE",
     "DS4_CUDA_Q8_SOA_BATCH2",
     "DS4_CUDA_Q8_SOA_BATCH2_ATTN_OUTPUT_B",
@@ -262,6 +264,24 @@ MATRIX = {
         "category": "prototype",
         "env": {**EXACT_FAST, **env(DS4_CUDA_HC_EXPAND_SOA_PAR_HC4=1)},
         "status": "parallelize n_hc=4 HC expansion stores across lanes after exact Q8 SoA dot",
+    },
+    "hc_expand_warp1_raw": {
+        "category": "prototype",
+        "env": {**EXACT_FAST, **env(DS4_CUDA_Q8_HC_EXPAND_WARP1=1)},
+        "status": "raw Q8 HC-expand one-output-per-CTA path for blocks=64/256",
+    },
+    "hc_expand_warp1_soa": {
+        "category": "prototype",
+        "env": {**EXACT_FAST, **env(DS4_CUDA_Q8_HC_EXPAND_SOA_WARP1=1)},
+        "status": "SoA Q8 HC-expand one-output-per-CTA path for blocks=64/256",
+    },
+    "hc_expand_warp1_all": {
+        "category": "prototype",
+        "env": {
+            **EXACT_FAST,
+            **env(DS4_CUDA_Q8_HC_EXPAND_WARP1=1, DS4_CUDA_Q8_HC_EXPAND_SOA_WARP1=1),
+        },
+        "status": "raw and SoA Q8 HC-expand one-output-per-CTA paths for blocks=64/256",
     },
     "shared_gate_up_noaux": {
         "category": "diagnostic",
@@ -650,6 +670,9 @@ ROW_GROUPS = {
         "hc_expand_no_block_out",
         "hc_expand_soa_ldg",
         "hc_expand_soa_par_hc4",
+        "hc_expand_warp1_raw",
+        "hc_expand_warp1_soa",
+        "hc_expand_warp1_all",
         "shared_gate_up_noaux",
         "mmq_moe_gate_up",
         "mmvq_moe_gate_up_persist",

@@ -1,0 +1,5 @@
+row,rows,ctx_first,ctx_last,gen_first,gen_8192,gen_last,gen_mean,gen_max,gen_ss_mean,prefill_mean,prefill_max
+exact_fast,1,8192,8192,16.22,16.22,16.22,16.22,16.22,16.22,393.4,393.4
+hc_expand_warp1_all,1,8192,8192,16.13,16.13,16.13,16.13,16.13,16.13,388.52,388.52
+hc_expand_warp1_raw,1,8192,8192,16.05,16.05,16.05,16.05,16.05,16.05,389.92,389.92
+hc_expand_warp1_soa,1,8192,8192,16.14,16.14,16.14,16.14,16.14,16.14,389.53,389.53
