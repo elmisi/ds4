@@ -5577,6 +5577,57 @@ Decision: reject both new probes, but keep the diagnostic flags and summaries.
 The paired F16 compressor kernel is already the right path; the remaining
 headroom is not in its final barrier pattern.
 
+### 2026-05-23 continuation - shared gate/up dot2 probe
+
+After re-checking the roadmap, MoE down stayed closed: the decode-window
+profile puts it behind the Q8 projection frontier, and the branch already has
+row-major/native pack, metadata-cache, `__ldg`, row4, parallel, shape4096, and
+reduced-K direct attempts recorded.
+
+The next exact probe targeted the fused shared-expert gate/up SwiGLU Q8 kernel
+without repeating the failed shared-memory cache-x idea. The baseline computes
+the gate and up dot products separately against the same prequantized
+activation block, so `DS4_CUDA_SHARED_GATE_UP_DOT2=1` added:
+
+- `dot_i8_block2_shared_x`, which loads the aligned activation vector once and
+  applies it to the two unaligned Q8_0 weight blocks;
+- `matmul_q8_0_pair_swiglu_preq_warp8_dot2_kernel`, preserving the per-dot
+  DP4A loop and accumulation order;
+- a matrix row, `shared_gate_up_dot2`, to keep the probe opt-in.
+
+Resource usage was slightly better than the baseline:
+
+| Kernel | Registers |
+| --- | ---: |
+| `matmul_q8_0_pair_swiglu_preq_warp8_dot2_kernel` | 61 |
+| `matmul_q8_0_pair_swiglu_preq_warp8_kernel` | 62 |
+| `matmul_q8_0_pair_swiglu_preq_warp8_cached_x_kernel` | 62 |
+
+Smoke:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast shared_gate_up_dot2 \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_shared_gate_up_dot2 \
+  --summary tuning/gx10_matrix_results/prototype_20260523_shared_gate_up_dot2/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_shared_gate_up_dot2/summary.md
+```
+
+Result:
+
+| Row | 8192/128 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **15.97** | 393.09 | control |
+| `shared_gate_up_dot2` | **15.89** | 389.92 | negative |
+
+Decision: reject for promotion. The single-load dot2 form saves a register but
+does not improve end-to-end decode; the likely cost is instruction scheduling
+and independent memory latency hiding inside the existing two-dot loop. Keep the
+flag and artifact as a negative probe so this exact idea is not repeated. The
+next promising local directions are not MoE down or shared activation staging;
+they are either a real native paired Q8 layout/tensor-core port branch, or
+another measured frontier kernel with a structural change.
+
 ## Branch / commit map
 
 ```

@@ -110,3 +110,19 @@ existing exact-safe rows. The next non-trivial speed branch should be one of:
    cache guard if they reproduce.
 3. Continue original kernel-level exact work on Q8 projection reads and routed
    MoE, using fork results only as design references.
+
+## 2026-05-23 External Project Check
+
+A follow-up search around llama.cpp/ggml CUDA, DeepEP, DeepGEMM, Tutel, and
+similar MoE inference kernels did not expose a small exact-safe DS4 patch that
+we can drop into this branch. The useful signal is architectural:
+
+- ggml/llama.cpp CUDA keeps a split between DP4A vector kernels and MMQ/MMA
+  tensor-core kernels; that validates an isolated MMQ/MMVQ port track, not
+  another local flag around the current warp8 kernels.
+- DeepEP/DeepGEMM/Tutel style work is mostly expert dispatch, grouped GEMM, FP8
+  or multi-GPU routing. Those ideas are high-throughput serving directions, but
+  they do not directly solve this single-token, Q8_0/IQ2 exact decode path.
+- The remaining local work should therefore either be a real native-layout or
+  tensor-core port branch, or narrow exact probes on the four measured frontier
+  kernels. MoE down remains closed unless a profile changes.
