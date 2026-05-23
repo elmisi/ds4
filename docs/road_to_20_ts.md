@@ -6072,6 +6072,43 @@ Decision: reject. The final device synchronize is not a measurable positive
 target in this path; removing it shifts waiting into the required readback and
 adds noise/regression. Do not repeat final-sync-only graph probes.
 
+### 2026-05-23 continuation - global Q8 SoA layout probe
+
+After the targeted SoA probes (`attn_q_b`, `attn_q_a/attn_kv`,
+shared-expert Q8, and HC-expand), one remaining memory-for-layout question was
+whether the individual neutral/negative SoA routes compose if every
+budget-fitting Q8 decode tensor is allowed to use the SoA cache. The machine has
+enough memory headroom for the 6 GiB SoA budget, so `soa_all` was added to the
+matrix as:
+
+| Row | Env delta over `exact_fast` | Meaning |
+| --- | --- | --- |
+| `soa_all` | `DS4_CUDA_Q8_SOA_ALL=1` | route all budget-fitting Q8 decode tensors through the SoA cache/layout |
+
+Speed smoke:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast soa_all \
+  --model /home/alessandro/projects/ds4/ds4flash.gguf \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_soa_all \
+  --summary tuning/gx10_matrix_results/prototype_20260523_soa_all/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_soa_all/summary.md \
+  --stop-on-fail
+```
+
+Result:
+
+| Row | 8192/128 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **16.24** | 392.27 | control |
+| `soa_all` | **16.07** | 390.62 | reject |
+
+Decision: reject. Broad SoA routing does not compose into an end-to-end win;
+the memory budget is not the blocker for the Q8 layout family. Do not repeat
+global SoA cache experiments unless a future kernel changes the SoA access
+pattern rather than only expanding the set of cached tensors.
+
 ## Branch / commit map
 
 ```

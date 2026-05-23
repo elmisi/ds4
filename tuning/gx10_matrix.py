@@ -235,6 +235,11 @@ MATRIX = {
         "env": {**EXACT_FAST, **env(DS4_CUDA_Q8_SOA_HC_EXPAND=1)},
         "status": "target only the remaining HC-expand Q8 path",
     },
+    "soa_all": {
+        "category": "prototype",
+        "env": {**EXACT_FAST, **env(DS4_CUDA_Q8_SOA_ALL=1)},
+        "status": "route all budget-fitting Q8 decode tensors through the SoA cache/layout",
+    },
     "hc_expand_nhc4_special": {
         "category": "diagnostic",
         "env": {**EXACT_FAST, **env(DS4_CUDA_HC_EXPAND_NHC4_SPECIAL=1)},
@@ -617,6 +622,7 @@ ROW_GROUPS = {
         "soa_qkv_no_pair",
         "soa_shared",
         "soa_hc_expand",
+        "soa_all",
         "hc_expand_nhc4_special",
         "hc_expand_no_block_out",
         "hc_expand_soa_ldg",
