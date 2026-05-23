@@ -6671,6 +6671,57 @@ probe; continue by fixing the exact lazy scheduling boundary or by moving to a
 larger structural launch-fusion path if the corrected lazy variant is too
 small.
 
+Follow-up phase-mask fix:
+
+- added per-layer pending phase masks and a clean-window bit;
+- `DS4_CUDA_COMPRESSOR_LAZY_RATIO4=1` is disabled under MTP because the new
+  pending frontier is not snapshotted in the speculative verifier path;
+- partial decode windows after prefill stay on the exact per-token update path;
+- lazy batching starts only when phases 0, 1, 2, and 3 were all captured on the
+  decode side.
+
+Parity smoke:
+
+```sh
+python3 tuning/gx10_matrix.py run exact_fast -- ./ds4 --cuda \
+  -m /home/alessandro/projects/ds4/ds4flash.gguf --ctx 100000 \
+  --dump-logprobs tuning/gx10_matrix_results/prototype_20260523_compressor_lazy_ratio4_phasefix_exact.json \
+  --logprobs-top-k 5 --temp 0 -n 32 --nothink \
+  -p "Racconta in breve la storia della Repubblica Italiana."
+
+python3 tuning/gx10_matrix.py run compressor_lazy_ratio4 -- ./ds4 --cuda \
+  -m /home/alessandro/projects/ds4/ds4flash.gguf --ctx 100000 \
+  --dump-logprobs tuning/gx10_matrix_results/prototype_20260523_compressor_lazy_ratio4_phasefix_candidate.json \
+  --logprobs-top-k 5 --temp 0 -n 32 --nothink \
+  -p "Racconta in breve la storia della Repubblica Italiana."
+```
+
+Result: `cmp` matched both JSON logprobs and stdout.
+
+Throughput smoke:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast compressor_lazy_ratio4 \
+  --model /home/alessandro/projects/ds4/ds4flash.gguf \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_compressor_lazy_ratio4_phasefix \
+  --summary tuning/gx10_matrix_results/prototype_20260523_compressor_lazy_ratio4_phasefix/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_compressor_lazy_ratio4_phasefix/summary.md \
+  --stop-on-fail
+```
+
+| Row | 8192/128 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **16.20** | 392.13 | control |
+| `compressor_lazy_ratio4` | **16.27** | 389.07 | exact but marginal |
+
+Decision: do not promote as a main candidate. The exact lazy route saves some
+launches but performs the same compressor projection arithmetic at emit time;
+the upper-bound gain came mostly from skipping arithmetic, which is not a
+full-quality option. Keep this as a closed diagnostic unless it becomes part of
+a broader fused compressor/indexer kernel that removes more work than launch
+overhead.
+
 ## Branch / commit map
 
 ```

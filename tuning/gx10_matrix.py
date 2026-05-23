@@ -612,7 +612,7 @@ MATRIX = {
     "compressor_lazy_ratio4": {
         "category": "prototype",
         "env": {**EXACT_FAST, **env(DS4_CUDA_COMPRESSOR_LAZY_RATIO4=1)},
-        "status": "WIP exact-intent ratio-4 compressor buffering; current probe failed logprob parity",
+        "status": "phase-masked exact-intent ratio-4 compressor buffering; logprob parity smoke passed, speed marginal",
     },
     "sample_cache_probs": {
         "category": "prototype",
