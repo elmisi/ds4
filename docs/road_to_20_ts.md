@@ -7067,6 +7067,33 @@ Decision: reject global `-dlcm=cg` and do not spend more time on global ptxas
 cache-policy variants without a kernel-specific reason. The binaries were
 rebuilt back with standard `make cuda-spark`.
 
+#### CUDA device-LTO compile probe
+
+The final build-only probe enabled CUDA device link-time optimization:
+
+```sh
+make clean
+make -j$(nproc) cuda-spark \
+  NVCCFLAGS='-O3 -g -lineinfo --use_fast_math --default-stream per-thread -std=c++17 -dlto -Xcompiler -march=native -Xcompiler -pthread'
+
+python3 tuning/gx10_matrix.py bench-suite exact_fast \
+  --model /home/alessandro/projects/ds4/ds4flash.gguf \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_nvcc_dlto_bench \
+  --summary tuning/gx10_matrix_results/prototype_20260523_nvcc_dlto_bench/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_nvcc_dlto_bench/summary.md \
+  --stop-on-fail
+```
+
+Result: `exact_fast` measured **16.05 t/s**, prefill **377.09 t/s**. It did
+not improve decode, reduced prefill, and increased startup model-cache
+preparation in the bench log to **67.665s** versus the usual ~19-24s band.
+
+Decision: reject `-dlto` for this branch. Build-flag probes are now closed for
+the current toolchain: explicit `sm_120`/`sm_121`, removing debug info, global
+`-dlcm=cg`, and device LTO all failed the cheap gate. Future work should return
+to measured kernel changes rather than more global compile flags.
+
 ## Branch / commit map
 
 ```

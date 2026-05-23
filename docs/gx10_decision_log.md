@@ -115,6 +115,7 @@ kernel change creates a new reason to retest them.
 | explicit `sm_120`/`sm_121` build targets | Slower than the default `cuda-spark` build; `sm_121` also changed the greedy parity stream at step 2. Reject unless future toolchain/codegen changes make this worth retesting. |
 | NVCC without `-g -lineinfo` | No throughput gain: 16.03 t/s in the cheap gate. Keep `-lineinfo` for profiling. |
 | NVCC `-Xptxas -dlcm=cg` | Catastrophic: 3.53 t/s. Do not bypass L1 globally for this path. |
+| NVCC `-dlto` | No decode gain: 16.05 t/s, slower prefill, and much slower startup cache preparation. |
 | `moe_meta_cache` / both metadata-cache flags | Negative speed smoke. |
 | MTP graph/guard/prefix rows | Diagnostic only unless user explicitly accepts the quality/speed tradeoff. |
 
