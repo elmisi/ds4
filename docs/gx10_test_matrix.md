@@ -258,7 +258,7 @@ matrix rows.
 
 | Candidate | Source branch | Why it matters | Current decision |
 | --- | --- | --- | --- |
-| CUDA MMQ + layer graphs | `Entrpi/ds4:mmq-step-A-full-layer-graphs` | vendored llama.cpp MMQ/MMVQ, per-layer CUDA graph replay, VMM arena, proof harness | invasive port branch only; public GB10 CSV reports 13.74 t/s at ctx=8192/128 and 11.70 t/s at ctx=65536/128, below current exact-fast |
+| CUDA MMQ + layer graphs | `Entrpi/ds4:mmq-step-A-full-layer-graphs` | vendored llama.cpp MMQ/MMVQ, per-layer CUDA graph replay, VMM arena, proof harness | isolated branch `gx10-mmqv-port`; first checkpoint imports/builds `cuda/mmq/` only, runtime inactive; public GB10 CSV reports 13.74 t/s at ctx=8192/128 and 11.70 t/s at ctx=65536/128, below current exact-fast |
 | MTP prefix/fused verifier | `reffdev/ds4:fused-matmul-mtp`, Entrpi MTP commits | alternative MTP verifier architecture and prefix-K ideas | keep as research input; no simple env drop-in here |
 | KV self-eviction guard | `audreyt/ds4:feat/kv-cache-guard-fresh-cold-saves` | one-commit server cache correctness guard | small import candidate if reproduces locally |
 | ROCm/HIP prequant ideas | `ejpir/ds4-hip`, `chiefnoah/ds4` | prequant/f16 scratch and launch-overhead work | architecture-specific; mine for concepts only |

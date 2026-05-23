@@ -198,3 +198,33 @@ routed-MoE or Q8 projection weight traffic, classify the f16 pair path, or
 change scheduling around existing exact kernels without repeating the
 row-major/block-paired/native-pack/cache-x/F16/cuBLAS/top-k-chunk experiments
 already rejected.
+
+## 2026-05-23 MMQ/MMVQ Port Decision
+
+Start the tensor-core/MMQ/MMVQ path in isolation, not on the main tuning branch.
+
+Accepted first step:
+
+- create `gx10-mmqv-port` in `/home/alessandro/projects/ds4-mmqv-port`;
+- import `cuda/mmq/` from `Entrpi/ds4:mmq-step-A-full-layer-graphs`;
+- link the MMQ/MMVQ objects into the standard CUDA Spark binaries;
+- keep runtime routing inactive until an explicit opt-in path is added.
+
+Rejected for the first step:
+
+- importing layer graphs;
+- importing VMM arena policy;
+- importing MoE graph replay;
+- changing default Q8 dispatcher behavior;
+- treating Entrpi's full branch as a benchmark target, since its public GB10 CSV
+  is below this branch's exact-fast baseline.
+
+Build gate passed with:
+
+```sh
+make -j$(nproc) cuda-spark
+```
+
+Next decision gate: one narrow, env-gated, single-token Q8 projection route.
+If that route does not beat same-run `exact_fast` by the cheap speed gate, park
+the MMQ/MMVQ branch without expanding the import surface.

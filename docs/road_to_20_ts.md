@@ -5770,6 +5770,36 @@ kernel; the Q8 dot and memory behavior dominate. Together with `hc_expand_soa_ld
 HC-expand should stay closed until a tensor-core/native-layout rewrite is on
 the table.
 
+### 2026-05-23 continuation - isolated MMQ/MMVQ port branch
+
+The next structural path is now being worked in an isolated worktree instead of
+on the main tuning branch:
+
+- worktree: `/home/alessandro/projects/ds4-mmqv-port`;
+- branch: `gx10-mmqv-port`;
+- base: current `gx10-cuda-graph-decode` after commit `7fee9f1`;
+- source reference: `Entrpi/ds4:mmq-step-A-full-layer-graphs`;
+- scope for the first checkpoint: import only `cuda/mmq/`, build it beside the
+  current backend, and keep runtime routing unchanged.
+
+This deliberately excludes Entrpi's layer graphs, MoE graphs, VMM arena, MTP
+proof harness, and dispatcher policy. The imported source is useful as a
+kernel/library scaffold, but the branch's public GB10 CSV remains below this
+branch's current exact-fast band, so this is not being treated as a drop-in win.
+
+Checkpoint build:
+
+```sh
+make -j$(nproc) cuda-spark
+```
+
+Result: success. `ds4`, `ds4-server`, `ds4-bench`, `ds4-eval`, and `ds4-agent`
+now link with the MMQ/MMVQ objects, but no Q8 runtime path calls them yet.
+
+Decision: keep as an inactive scaffold and commit separately. The next gate is
+an explicit opt-in single-token Q8 projection route, measured against same-run
+`exact_fast` before any larger dispatcher or graph-capture changes.
+
 ## Branch / commit map
 
 ```
