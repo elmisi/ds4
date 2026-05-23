@@ -6436,6 +6436,53 @@ current rope+output-A+SoA path remains faster. Do not repeat direct A/B/HC
 fusion unless the output-A-to-Q8 writer is redesigned to preserve the current
 warp8/SoA occupancy profile or fused with a larger graph-level change.
 
+### 2026-05-23: Token/stage profile checkpoint after the AB-fusion reject
+
+The next diagnostic pass saved the first short post-reboot profile artifacts:
+
+- `tuning/gx10_matrix_results/token_profile_20260523_exact_fast_8192.csv`
+- `tuning/gx10_matrix_results/stage_profile_20260523_soa_8192.csv`
+
+Token profile command:
+
+```sh
+python3 tuning/gx10_matrix.py run exact_fast -- env DS4_METAL_GRAPH_TOKEN_PROFILE=1 \
+  ./ds4-bench --cuda -m /home/alessandro/projects/ds4/ds4flash.gguf \
+  --prompt-file speed-bench/promessi_sposi.txt \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 8 \
+  --csv tuning/gx10_matrix_results/token_profile_20260523_exact_fast_8192.csv
+```
+
+CSV result:
+
+| ctx | prefill t/s | gen t/s | KV bytes |
+| ---: | ---: | ---: | ---: |
+| 8192 | 391.75 | 15.88 | 136750476 |
+
+The per-token trace showed the first decode token at about 67.8 ms total
+(`execute` about 65.8 ms), then steady tokens at about 60-64 ms total
+(`execute` about 59-63 ms, `encode` about 0.9-1.1 ms). This keeps the main
+remaining target in CUDA execution rather than host encode/readback.
+
+Stage-profile smoke:
+
+```sh
+python3 tuning/gx10_matrix.py run soa -- env DS4_METAL_DECODE_STAGE_PROFILE=1 \
+  DS4_CUDA_MOE_PROFILE=1 ./ds4-bench --cuda \
+  -m /home/alessandro/projects/ds4/ds4flash.gguf \
+  --prompt-file speed-bench/promessi_sposi.txt \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 1 \
+  --csv tuning/gx10_matrix_results/stage_profile_20260523_soa_8192.csv
+```
+
+The throughput line (`14.78` gen t/s) is not comparable with normal rows
+because the stage/MoE profilers synchronize and print heavily. The useful
+signal was the stage shape: routed MoE remained the largest per-layer block
+(roughly 0.36-0.44 ms/layer in the visible decode trace), followed by
+attention output, Q path, compressor/indexer, and attention. That confirms the
+next work should still target structural CUDA execution savings, but not by
+repeating already rejected MoE micro-variants.
+
 ## Branch / commit map
 
 ```
