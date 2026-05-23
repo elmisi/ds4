@@ -1,0 +1,16 @@
+[
+  {
+    "row": "exact_fast",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 15.99,
+    "gen_8192": 15.99,
+    "gen_last": 15.99,
+    "gen_mean": 15.99,
+    "gen_max": 15.99,
+    "gen_ss_mean": 15.99,
+    "prefill_mean": 378.88,
+    "prefill_max": 378.88
+  }
+]

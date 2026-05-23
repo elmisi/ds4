@@ -6985,10 +6985,30 @@ python3 tuning/gx10_matrix.py bench-suite exact_fast moe_conststride_lazy_ratio4
 | `exact_fast` (`sm_121` build) | **15.92** | 376.84 | slower and non-byte-identical |
 | `moe_conststride_lazy_ratio4` (`sm_121` build) | **16.07** | 377.25 | slower than default build recheck |
 
-Decision: reject explicit `sm_121` for now. It is slower than the default
-`cuda-spark` build in the same branch and changes greedy output on the parity
-prompt. The local binaries were rebuilt back with `make cuda-spark` after the
-probe so the working copy runs the previously tested build profile.
+Follow-up `sm_120` check:
+
+```sh
+make clean
+make -j$(nproc) cuda CUDA_ARCH=sm_120
+
+python3 tuning/gx10_matrix.py bench-suite exact_fast \
+  --model /home/alessandro/projects/ds4/ds4flash.gguf \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_sm120_build_bench \
+  --summary tuning/gx10_matrix_results/prototype_20260523_sm120_build_bench/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_sm120_build_bench/summary.md \
+  --stop-on-fail
+```
+
+Result: `exact_fast` measured **15.99 t/s** prefill **378.88 t/s**, also
+slower than the default `cuda-spark` build. Because it failed the speed gate,
+no parity/eval was run for `sm_120`.
+
+Decision: reject explicit `sm_120`/`sm_121` for now. They are slower than the
+default `cuda-spark` build in the same branch; `sm_121` also changes greedy
+output on the parity prompt. The local binaries were rebuilt back with
+`make cuda-spark` after the probes so the working copy runs the previously
+tested build profile.
 
 ## Branch / commit map
 

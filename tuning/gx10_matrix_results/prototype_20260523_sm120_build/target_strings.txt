@@ -1,0 +1,7 @@
+4946:-arch sm_120 -m 64 -l m,cudart,cublas,cuda,cudadevrt -L /usr/local/cuda/targets/sbsa-linux/lib,/usr/local/cuda/lib64,/usr/local/cuda/bin/../targets/sbsa-linux/lib/stubs,/usr/local/cuda/bin/../targets/sbsa-linux/lib -cpu-arch AARCH64 
+47945:.target sm_120
+47962:-lineinfo  -arch sm_120 -m 64 
+175689:.target sm_120
+181688:-lineinfo  -arch sm_120 -m 64 
+182916:.target sm_120
+185699:-lineinfo  -arch sm_120 -m 64 
