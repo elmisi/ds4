@@ -1,0 +1,17 @@
+Here's a Python function that merges overlapping intervals:
+
+```python
+def merge_intervals(intervals):
+    """
+    Merge overlapping intervals.
+    
+    Args:
+        intervals: List of intervals, where each interval is a list [start, end]
+    
+    Returns:
+        List of merged intervals sorted by start time
+Collecting data...
+Generating '/tmp/nsys-report-e4d9.qdstrm'
+[1/1] [0%                          ] exact_fast_graph_decode.nsys-rep[1/1] [0%                          ] exact_fast_graph_decode.nsys-rep[1/1] [=17%                        ] exact_fast_graph_decode.nsys-rep[1/1] [14%                         ] exact_fast_graph_decode.nsys-rep[1/1] [12%                         ] exact_fast_graph_decode.nsys-rep[1/1] [11%                         ] exact_fast_graph_decode.nsys-rep[1/1] [==21%                       ] exact_fast_graph_decode.nsys-rep[1/1] [==19%                       ] exact_fast_graph_decode.nsys-rep[1/1] [=17%                        ] exact_fast_graph_decode.nsys-rep[1/1] [=15%                        ] exact_fast_graph_decode.nsys-rep[1/1] [14%                         ] exact_fast_graph_decode.nsys-rep[1/1] [13%                         ] exact_fast_graph_decode.nsys-rep[1/1] [12%                         ] exact_fast_graph_decode.nsys-rep[1/1] [11%                         ] exact_fast_graph_decode.nsys-rep[1/1] [10%                         ] exact_fast_graph_decode.nsys-rep[1/1] [=15%                        ] exact_fast_graph_decode.nsys-rep[1/1] [==20%                       ] exact_fast_graph_decode.nsys-rep[1/1] [===24%                      ] exact_fast_graph_decode.nsys-rep[1/1] [=====29%                    ] exact_fast_graph_decode.nsys-rep[1/1] [======34%                   ] exact_fast_graph_decode.nsys-rep[1/1] [=======39%                  ] exact_fast_graph_decode.nsys-rep[1/1] [=========44%                ] exact_fast_graph_decode.nsys-rep[1/1] [==========49%               ] exact_fast_graph_decode.nsys-rep[1/1] [============54%             ] exact_fast_graph_decode.nsys-rep[1/1] [=============58%            ] exact_fast_graph_decode.nsys-rep[1/1] [==============63%           ] exact_fast_graph_decode.nsys-rep[1/1] [================68%         ] exact_fast_graph_decode.nsys-rep[1/1] [=================73%        ] exact_fast_graph_decode.nsys-rep[1/1] [==================78%       ] exact_fast_graph_decode.nsys-rep[1/1] [===================82%      ] exact_fast_graph_decode.nsys-rep[1/1] [========================100%] exact_fast_graph_decode.nsys-rep[1/1] [========================100%] exact_fast_graph_decode.nsys-rep
+Generated:
+	/home/alessandro/projects/ds4/tuning/gx10_matrix_results/profile_20260523_exact_fast/exact_fast_graph_decode.nsys-rep

@@ -1,0 +1,2122 @@
+ds4: context buffers 1896.58 MiB (ctx=100000, backend=cuda, prefill_chunk=2048, raw_kv_rows=2304, compressed_kv_rows=25002)
+ds4: CUDA backend initialized on NVIDIA GB10 (sm_121)
+ds4: CUDA using unordered one-token F16 matmul (Blackwell sm_121)
+ds4: CUDA host registration skipped: operation not supported
+ds4: CUDA loading model tensors into device cache
+ds4: CUDA loading model tensors 16.02 GiB cached
+ds4: CUDA loading model tensors 32.06 GiB cached
+ds4: CUDA loading model tensors 48.02 GiB cached
+ds4: CUDA loading model tensors 64.06 GiB cached
+ds4: CUDA loading model tensors 80.04 GiB cached
+ds4: CUDA startup model cache prepared 80.76 GiB of tensor spans in 19.111s
+ds4: cuda backend initialized for graph diagnostics
+ds4: using GPU graph generation with layer-major graph prefill
+ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.010 sort=0.075 gateup=4.687 midq=0.012 down=4.966 sum=0.028 total=9.779 ms
+ds4: gpu prefill layer 1/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.042 gateup=4.159 midq=0.012 down=4.276 sum=0.013 total=8.509 ms
+ds4: gpu prefill layer 2/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=4.646 midq=0.012 down=4.542 sum=0.014 total=9.264 ms
+ds4: gpu prefill layer 3/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.008 sort=0.043 gateup=3.042 midq=0.012 down=3.058 sum=0.012 total=6.176 ms
+ds4: gpu prefill layer 4/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.619 midq=0.012 down=2.662 sum=0.013 total=5.356 ms
+ds4: gpu prefill layer 5/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.136 midq=0.012 down=2.202 sum=0.010 total=4.409 ms
+ds4: gpu prefill layer 6/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.391 midq=0.012 down=2.477 sum=0.014 total=4.944 ms
+ds4: gpu prefill layer 7/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.585 midq=0.012 down=2.756 sum=0.012 total=5.414 ms
+ds4: gpu prefill layer 8/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.193 midq=0.012 down=2.350 sum=0.012 total=4.617 ms
+ds4: gpu prefill layer 9/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.785 midq=0.012 down=2.840 sum=0.012 total=5.698 ms
+ds4: gpu prefill layer 10/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.532 midq=0.012 down=2.640 sum=0.013 total=5.247 ms
+ds4: gpu prefill layer 11/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.736 midq=0.012 down=2.805 sum=0.012 total=5.614 ms
+ds4: gpu prefill layer 12/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.469 midq=0.012 down=2.538 sum=0.014 total=5.083 ms
+ds4: gpu prefill layer 13/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.352 midq=0.012 down=2.508 sum=0.012 total=4.933 ms
+ds4: gpu prefill layer 14/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.169 midq=0.012 down=2.329 sum=0.012 total=4.571 ms
+ds4: gpu prefill layer 15/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.112 midq=0.012 down=2.159 sum=0.014 total=4.347 ms
+ds4: gpu prefill layer 16/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.269 midq=0.012 down=2.425 sum=0.012 total=4.768 ms
+ds4: gpu prefill layer 17/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.171 midq=0.012 down=2.272 sum=0.012 total=4.517 ms
+ds4: gpu prefill layer 18/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.535 midq=0.012 down=2.599 sum=0.012 total=5.208 ms
+ds4: gpu prefill layer 19/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=3.144 midq=0.012 down=3.275 sum=0.015 total=6.495 ms
+ds4: gpu prefill layer 20/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.357 midq=0.012 down=2.442 sum=0.012 total=4.873 ms
+ds4: gpu prefill layer 21/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.560 midq=0.012 down=2.663 sum=0.013 total=5.298 ms
+ds4: gpu prefill layer 22/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.269 midq=0.012 down=2.395 sum=0.013 total=4.739 ms
+ds4: gpu prefill layer 23/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.433 midq=0.012 down=2.536 sum=0.012 total=5.043 ms
+ds4: gpu prefill layer 24/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.053 midq=0.012 down=2.173 sum=0.013 total=4.301 ms
+ds4: gpu prefill layer 25/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=1.973 midq=0.012 down=2.068 sum=0.012 total=4.115 ms
+ds4: gpu prefill layer 26/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.044 gateup=2.363 midq=0.012 down=2.505 sum=0.012 total=4.943 ms
+ds4: gpu prefill layer 27/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.230 midq=0.012 down=2.409 sum=0.012 total=4.713 ms
+ds4: gpu prefill layer 28/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.293 midq=0.012 down=2.481 sum=0.014 total=4.849 ms
+ds4: gpu prefill layer 29/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.223 midq=0.012 down=2.363 sum=0.010 total=4.658 ms
+ds4: gpu prefill layer 30/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.358 midq=0.012 down=2.531 sum=0.014 total=4.965 ms
+ds4: gpu prefill layer 31/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.730 midq=0.012 down=2.875 sum=0.012 total=5.679 ms
+ds4: gpu prefill layer 32/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.007 sort=0.041 gateup=2.607 midq=0.012 down=2.450 sum=0.012 total=5.130 ms
+ds4: gpu prefill layer 33/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.625 midq=0.012 down=2.776 sum=0.014 total=5.476 ms
+ds4: gpu prefill layer 34/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.431 midq=0.012 down=2.538 sum=0.013 total=5.044 ms
+ds4: gpu prefill layer 35/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.956 midq=0.012 down=3.074 sum=0.012 total=6.104 ms
+ds4: gpu prefill layer 36/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.473 midq=0.012 down=2.537 sum=0.012 total=5.084 ms
+ds4: gpu prefill layer 37/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.670 midq=0.012 down=2.766 sum=0.013 total=5.510 ms
+ds4: gpu prefill layer 38/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.884 midq=0.012 down=2.998 sum=0.014 total=5.957 ms
+ds4: gpu prefill layer 39/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.875 midq=0.012 down=3.042 sum=0.012 total=5.991 ms
+ds4: gpu prefill layer 40/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.044 gateup=2.524 midq=0.012 down=2.633 sum=0.012 total=5.231 ms
+ds4: gpu prefill layer 41/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=2.911 midq=0.012 down=3.028 sum=0.013 total=6.014 ms
+ds4: gpu prefill layer 42/43ds4: CUDA MoE profile tokens=26 pairs=156 xq=0.006 sort=0.043 gateup=3.285 midq=0.012 down=3.372 sum=0.014 total=6.733 ms
+ds4: gpu prefill layer 43/43
+ds4: metal layer stage part=decode layer=0 pos=26 tokens=1 attn_hc_pre=0.048 ms
+ds4: metal layer stage part=decode layer=0 pos=26 tokens=1 attn_norm=0.005 ms
+ds4: metal layer stage part=decode layer=0 pos=26 tokens=1 q_path=0.237 ms
+ds4: metal layer stage part=decode layer=0 pos=26 tokens=1 kv_path=0.022 ms
+ds4: metal layer stage part=decode layer=0 pos=26 tokens=1 compressor_indexer=0.002 ms
+ds4: metal layer stage part=decode layer=0 pos=26 tokens=1 attention=0.424 ms
+ds4: metal layer stage part=decode layer=0 pos=26 tokens=1 attn_output=0.350 ms
+ds4: metal layer stage part=decode layer=0 pos=26 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=0 pos=26 tokens=1 ffn_hc_pre=0.030 ms
+ds4: metal layer stage part=decode layer=0 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=0 pos=26 tokens=1 router=0.032 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.010 sort=0.001 gateup=0.245 midq=0.004 down=0.126 sum=0.001 total=0.386 ms
+ds4: metal layer stage part=decode layer=0 pos=26 tokens=1 routed_moe=0.409 ms
+ds4: metal layer stage part=decode layer=0 pos=26 tokens=1 shared_gate_up=0.107 ms
+ds4: metal layer stage part=decode layer=0 pos=26 tokens=1 shared_down=0.069 ms
+ds4: metal layer stage part=decode layer=0 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=1 pos=26 tokens=1 attn_hc_pre=0.030 ms
+ds4: metal layer stage part=decode layer=1 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=1 pos=26 tokens=1 q_path=0.216 ms
+ds4: metal layer stage part=decode layer=1 pos=26 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=1 pos=26 tokens=1 compressor_indexer=0.001 ms
+ds4: metal layer stage part=decode layer=1 pos=26 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=1 pos=26 tokens=1 attn_output=0.322 ms
+ds4: metal layer stage part=decode layer=1 pos=26 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=1 pos=26 tokens=1 ffn_hc_pre=0.026 ms
+ds4: metal layer stage part=decode layer=1 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=1 pos=26 tokens=1 router=0.030 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.006 sort=0.001 gateup=0.237 midq=0.004 down=0.118 sum=0.001 total=0.366 ms
+ds4: metal layer stage part=decode layer=1 pos=26 tokens=1 routed_moe=0.378 ms
+ds4: metal layer stage part=decode layer=1 pos=26 tokens=1 shared_gate_up=0.088 ms
+ds4: metal layer stage part=decode layer=1 pos=26 tokens=1 shared_down=0.053 ms
+ds4: metal layer stage part=decode layer=1 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=2 pos=26 tokens=1 attn_hc_pre=0.028 ms
+ds4: metal layer stage part=decode layer=2 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=2 pos=26 tokens=1 q_path=0.220 ms
+ds4: metal layer stage part=decode layer=2 pos=26 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=2 pos=26 tokens=1 compressor_indexer=0.130 ms
+ds4: metal layer stage part=decode layer=2 pos=26 tokens=1 attention=0.078 ms
+ds4: metal layer stage part=decode layer=2 pos=26 tokens=1 attn_output=0.312 ms
+ds4: metal layer stage part=decode layer=2 pos=26 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=2 pos=26 tokens=1 ffn_hc_pre=0.028 ms
+ds4: metal layer stage part=decode layer=2 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=2 pos=26 tokens=1 router=0.029 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.235 midq=0.004 down=0.115 sum=0.001 total=0.360 ms
+ds4: metal layer stage part=decode layer=2 pos=26 tokens=1 routed_moe=0.370 ms
+ds4: metal layer stage part=decode layer=2 pos=26 tokens=1 shared_gate_up=0.110 ms
+ds4: metal layer stage part=decode layer=2 pos=26 tokens=1 shared_down=0.053 ms
+ds4: metal layer stage part=decode layer=2 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=3 pos=26 tokens=1 attn_hc_pre=0.078 ms
+ds4: metal layer stage part=decode layer=3 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=3 pos=26 tokens=1 q_path=0.210 ms
+ds4: metal layer stage part=decode layer=3 pos=26 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=3 pos=26 tokens=1 compressor_indexer=0.046 ms
+ds4: metal layer stage part=decode layer=3 pos=26 tokens=1 attention=0.048 ms
+ds4: metal layer stage part=decode layer=3 pos=26 tokens=1 attn_output=0.327 ms
+ds4: metal layer stage part=decode layer=3 pos=26 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=3 pos=26 tokens=1 ffn_hc_pre=0.037 ms
+ds4: metal layer stage part=decode layer=3 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=3 pos=26 tokens=1 router=0.040 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.288 midq=0.004 down=0.112 sum=0.001 total=0.410 ms
+ds4: metal layer stage part=decode layer=3 pos=26 tokens=1 routed_moe=0.421 ms
+ds4: metal layer stage part=decode layer=3 pos=26 tokens=1 shared_gate_up=0.087 ms
+ds4: metal layer stage part=decode layer=3 pos=26 tokens=1 shared_down=0.054 ms
+ds4: metal layer stage part=decode layer=3 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=4 pos=26 tokens=1 attn_hc_pre=0.027 ms
+ds4: metal layer stage part=decode layer=4 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=4 pos=26 tokens=1 q_path=0.225 ms
+ds4: metal layer stage part=decode layer=4 pos=26 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=4 pos=26 tokens=1 compressor_indexer=0.111 ms
+ds4: metal layer stage part=decode layer=4 pos=26 tokens=1 attention=0.077 ms
+ds4: metal layer stage part=decode layer=4 pos=26 tokens=1 attn_output=0.318 ms
+ds4: metal layer stage part=decode layer=4 pos=26 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=4 pos=26 tokens=1 ffn_hc_pre=0.027 ms
+ds4: metal layer stage part=decode layer=4 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=4 pos=26 tokens=1 router=0.029 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.235 midq=0.004 down=0.112 sum=0.001 total=0.356 ms
+ds4: metal layer stage part=decode layer=4 pos=26 tokens=1 routed_moe=0.367 ms
+ds4: metal layer stage part=decode layer=4 pos=26 tokens=1 shared_gate_up=0.089 ms
+ds4: metal layer stage part=decode layer=4 pos=26 tokens=1 shared_down=0.052 ms
+ds4: metal layer stage part=decode layer=4 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=5 pos=26 tokens=1 attn_hc_pre=0.028 ms
+ds4: metal layer stage part=decode layer=5 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=5 pos=26 tokens=1 q_path=0.213 ms
+ds4: metal layer stage part=decode layer=5 pos=26 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=5 pos=26 tokens=1 compressor_indexer=0.054 ms
+ds4: metal layer stage part=decode layer=5 pos=26 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=5 pos=26 tokens=1 attn_output=0.314 ms
+ds4: metal layer stage part=decode layer=5 pos=26 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=5 pos=26 tokens=1 ffn_hc_pre=0.027 ms
+ds4: metal layer stage part=decode layer=5 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=5 pos=26 tokens=1 router=0.029 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.233 midq=0.004 down=0.107 sum=0.001 total=0.351 ms
+ds4: metal layer stage part=decode layer=5 pos=26 tokens=1 routed_moe=0.361 ms
+ds4: metal layer stage part=decode layer=5 pos=26 tokens=1 shared_gate_up=0.095 ms
+ds4: metal layer stage part=decode layer=5 pos=26 tokens=1 shared_down=0.053 ms
+ds4: metal layer stage part=decode layer=5 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=6 pos=26 tokens=1 attn_hc_pre=0.027 ms
+ds4: metal layer stage part=decode layer=6 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=6 pos=26 tokens=1 q_path=0.225 ms
+ds4: metal layer stage part=decode layer=6 pos=26 tokens=1 kv_path=0.013 ms
+ds4: metal layer stage part=decode layer=6 pos=26 tokens=1 compressor_indexer=0.105 ms
+ds4: metal layer stage part=decode layer=6 pos=26 tokens=1 attention=0.078 ms
+ds4: metal layer stage part=decode layer=6 pos=26 tokens=1 attn_output=0.312 ms
+ds4: metal layer stage part=decode layer=6 pos=26 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=6 pos=26 tokens=1 ffn_hc_pre=0.024 ms
+ds4: metal layer stage part=decode layer=6 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=6 pos=26 tokens=1 router=0.029 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.234 midq=0.004 down=0.113 sum=0.001 total=0.356 ms
+ds4: metal layer stage part=decode layer=6 pos=26 tokens=1 routed_moe=0.366 ms
+ds4: metal layer stage part=decode layer=6 pos=26 tokens=1 shared_gate_up=0.097 ms
+ds4: metal layer stage part=decode layer=6 pos=26 tokens=1 shared_down=0.056 ms
+ds4: metal layer stage part=decode layer=6 pos=26 tokens=1 ffn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=7 pos=26 tokens=1 attn_hc_pre=0.029 ms
+ds4: metal layer stage part=decode layer=7 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=7 pos=26 tokens=1 q_path=0.217 ms
+ds4: metal layer stage part=decode layer=7 pos=26 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=7 pos=26 tokens=1 compressor_indexer=0.049 ms
+ds4: metal layer stage part=decode layer=7 pos=26 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=7 pos=26 tokens=1 attn_output=0.322 ms
+ds4: metal layer stage part=decode layer=7 pos=26 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=7 pos=26 tokens=1 ffn_hc_pre=0.027 ms
+ds4: metal layer stage part=decode layer=7 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=7 pos=26 tokens=1 router=0.029 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.234 midq=0.004 down=0.114 sum=0.001 total=0.357 ms
+ds4: metal layer stage part=decode layer=7 pos=26 tokens=1 routed_moe=0.367 ms
+ds4: metal layer stage part=decode layer=7 pos=26 tokens=1 shared_gate_up=0.087 ms
+ds4: metal layer stage part=decode layer=7 pos=26 tokens=1 shared_down=0.050 ms
+ds4: metal layer stage part=decode layer=7 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=8 pos=26 tokens=1 attn_hc_pre=0.028 ms
+ds4: metal layer stage part=decode layer=8 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=8 pos=26 tokens=1 q_path=0.224 ms
+ds4: metal layer stage part=decode layer=8 pos=26 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=8 pos=26 tokens=1 compressor_indexer=0.107 ms
+ds4: metal layer stage part=decode layer=8 pos=26 tokens=1 attention=0.077 ms
+ds4: metal layer stage part=decode layer=8 pos=26 tokens=1 attn_output=0.324 ms
+ds4: metal layer stage part=decode layer=8 pos=26 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=8 pos=26 tokens=1 ffn_hc_pre=0.026 ms
+ds4: metal layer stage part=decode layer=8 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=8 pos=26 tokens=1 router=0.031 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.237 midq=0.004 down=0.114 sum=0.001 total=0.360 ms
+ds4: metal layer stage part=decode layer=8 pos=26 tokens=1 routed_moe=0.370 ms
+ds4: metal layer stage part=decode layer=8 pos=26 tokens=1 shared_gate_up=0.094 ms
+ds4: metal layer stage part=decode layer=8 pos=26 tokens=1 shared_down=0.056 ms
+ds4: metal layer stage part=decode layer=8 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=9 pos=26 tokens=1 attn_hc_pre=0.029 ms
+ds4: metal layer stage part=decode layer=9 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=9 pos=26 tokens=1 q_path=0.212 ms
+ds4: metal layer stage part=decode layer=9 pos=26 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=9 pos=26 tokens=1 compressor_indexer=0.050 ms
+ds4: metal layer stage part=decode layer=9 pos=26 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=9 pos=26 tokens=1 attn_output=0.316 ms
+ds4: metal layer stage part=decode layer=9 pos=26 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=9 pos=26 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=9 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=9 pos=26 tokens=1 router=0.029 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.238 midq=0.004 down=0.109 sum=0.001 total=0.357 ms
+ds4: metal layer stage part=decode layer=9 pos=26 tokens=1 routed_moe=0.366 ms
+ds4: metal layer stage part=decode layer=9 pos=26 tokens=1 shared_gate_up=0.094 ms
+ds4: metal layer stage part=decode layer=9 pos=26 tokens=1 shared_down=0.056 ms
+ds4: metal layer stage part=decode layer=9 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=10 pos=26 tokens=1 attn_hc_pre=0.028 ms
+ds4: metal layer stage part=decode layer=10 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=10 pos=26 tokens=1 q_path=0.215 ms
+ds4: metal layer stage part=decode layer=10 pos=26 tokens=1 kv_path=0.013 ms
+ds4: metal layer stage part=decode layer=10 pos=26 tokens=1 compressor_indexer=0.116 ms
+ds4: metal layer stage part=decode layer=10 pos=26 tokens=1 attention=0.077 ms
+ds4: metal layer stage part=decode layer=10 pos=26 tokens=1 attn_output=0.320 ms
+ds4: metal layer stage part=decode layer=10 pos=26 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=10 pos=26 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=10 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=10 pos=26 tokens=1 router=0.028 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.235 midq=0.004 down=0.114 sum=0.001 total=0.358 ms
+ds4: metal layer stage part=decode layer=10 pos=26 tokens=1 routed_moe=0.368 ms
+ds4: metal layer stage part=decode layer=10 pos=26 tokens=1 shared_gate_up=0.091 ms
+ds4: metal layer stage part=decode layer=10 pos=26 tokens=1 shared_down=0.057 ms
+ds4: metal layer stage part=decode layer=10 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=11 pos=26 tokens=1 attn_hc_pre=0.028 ms
+ds4: metal layer stage part=decode layer=11 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=11 pos=26 tokens=1 q_path=0.208 ms
+ds4: metal layer stage part=decode layer=11 pos=26 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=11 pos=26 tokens=1 compressor_indexer=0.050 ms
+ds4: metal layer stage part=decode layer=11 pos=26 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=11 pos=26 tokens=1 attn_output=0.317 ms
+ds4: metal layer stage part=decode layer=11 pos=26 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=11 pos=26 tokens=1 ffn_hc_pre=0.026 ms
+ds4: metal layer stage part=decode layer=11 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=11 pos=26 tokens=1 router=0.028 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.244 midq=0.004 down=0.112 sum=0.001 total=0.366 ms
+ds4: metal layer stage part=decode layer=11 pos=26 tokens=1 routed_moe=0.376 ms
+ds4: metal layer stage part=decode layer=11 pos=26 tokens=1 shared_gate_up=0.095 ms
+ds4: metal layer stage part=decode layer=11 pos=26 tokens=1 shared_down=0.054 ms
+ds4: metal layer stage part=decode layer=11 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=12 pos=26 tokens=1 attn_hc_pre=0.029 ms
+ds4: metal layer stage part=decode layer=12 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=12 pos=26 tokens=1 q_path=0.222 ms
+ds4: metal layer stage part=decode layer=12 pos=26 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=12 pos=26 tokens=1 compressor_indexer=0.111 ms
+ds4: metal layer stage part=decode layer=12 pos=26 tokens=1 attention=0.077 ms
+ds4: metal layer stage part=decode layer=12 pos=26 tokens=1 attn_output=0.329 ms
+ds4: metal layer stage part=decode layer=12 pos=26 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=12 pos=26 tokens=1 ffn_hc_pre=0.025 ms
+ds4: metal layer stage part=decode layer=12 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=12 pos=26 tokens=1 router=0.030 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.232 midq=0.004 down=0.108 sum=0.001 total=0.349 ms
+ds4: metal layer stage part=decode layer=12 pos=26 tokens=1 routed_moe=0.359 ms
+ds4: metal layer stage part=decode layer=12 pos=26 tokens=1 shared_gate_up=0.096 ms
+ds4: metal layer stage part=decode layer=12 pos=26 tokens=1 shared_down=0.053 ms
+ds4: metal layer stage part=decode layer=12 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=13 pos=26 tokens=1 attn_hc_pre=0.029 ms
+ds4: metal layer stage part=decode layer=13 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=13 pos=26 tokens=1 q_path=0.213 ms
+ds4: metal layer stage part=decode layer=13 pos=26 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=13 pos=26 tokens=1 compressor_indexer=0.053 ms
+ds4: metal layer stage part=decode layer=13 pos=26 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=13 pos=26 tokens=1 attn_output=0.314 ms
+ds4: metal layer stage part=decode layer=13 pos=26 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=13 pos=26 tokens=1 ffn_hc_pre=0.026 ms
+ds4: metal layer stage part=decode layer=13 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=13 pos=26 tokens=1 router=0.027 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.006 sort=0.001 gateup=0.231 midq=0.004 down=0.110 sum=0.001 total=0.351 ms
+ds4: metal layer stage part=decode layer=13 pos=26 tokens=1 routed_moe=0.361 ms
+ds4: metal layer stage part=decode layer=13 pos=26 tokens=1 shared_gate_up=0.089 ms
+ds4: metal layer stage part=decode layer=13 pos=26 tokens=1 shared_down=0.052 ms
+ds4: metal layer stage part=decode layer=13 pos=26 tokens=1 ffn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=14 pos=26 tokens=1 attn_hc_pre=0.027 ms
+ds4: metal layer stage part=decode layer=14 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=14 pos=26 tokens=1 q_path=0.219 ms
+ds4: metal layer stage part=decode layer=14 pos=26 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=14 pos=26 tokens=1 compressor_indexer=0.113 ms
+ds4: metal layer stage part=decode layer=14 pos=26 tokens=1 attention=0.077 ms
+ds4: metal layer stage part=decode layer=14 pos=26 tokens=1 attn_output=0.323 ms
+ds4: metal layer stage part=decode layer=14 pos=26 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=14 pos=26 tokens=1 ffn_hc_pre=0.026 ms
+ds4: metal layer stage part=decode layer=14 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=14 pos=26 tokens=1 router=0.027 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.233 midq=0.004 down=0.109 sum=0.001 total=0.351 ms
+ds4: metal layer stage part=decode layer=14 pos=26 tokens=1 routed_moe=0.362 ms
+ds4: metal layer stage part=decode layer=14 pos=26 tokens=1 shared_gate_up=0.095 ms
+ds4: metal layer stage part=decode layer=14 pos=26 tokens=1 shared_down=0.052 ms
+ds4: metal layer stage part=decode layer=14 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=15 pos=26 tokens=1 attn_hc_pre=0.029 ms
+ds4: metal layer stage part=decode layer=15 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=15 pos=26 tokens=1 q_path=0.221 ms
+ds4: metal layer stage part=decode layer=15 pos=26 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=15 pos=26 tokens=1 compressor_indexer=0.050 ms
+ds4: metal layer stage part=decode layer=15 pos=26 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=15 pos=26 tokens=1 attn_output=0.325 ms
+ds4: metal layer stage part=decode layer=15 pos=26 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=15 pos=26 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=15 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=15 pos=26 tokens=1 router=0.031 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.233 midq=0.004 down=0.113 sum=0.001 total=0.355 ms
+ds4: metal layer stage part=decode layer=15 pos=26 tokens=1 routed_moe=0.364 ms
+ds4: metal layer stage part=decode layer=15 pos=26 tokens=1 shared_gate_up=0.088 ms
+ds4: metal layer stage part=decode layer=15 pos=26 tokens=1 shared_down=0.053 ms
+ds4: metal layer stage part=decode layer=15 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=16 pos=26 tokens=1 attn_hc_pre=0.027 ms
+ds4: metal layer stage part=decode layer=16 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=16 pos=26 tokens=1 q_path=0.216 ms
+ds4: metal layer stage part=decode layer=16 pos=26 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=16 pos=26 tokens=1 compressor_indexer=0.109 ms
+ds4: metal layer stage part=decode layer=16 pos=26 tokens=1 attention=0.078 ms
+ds4: metal layer stage part=decode layer=16 pos=26 tokens=1 attn_output=0.326 ms
+ds4: metal layer stage part=decode layer=16 pos=26 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=16 pos=26 tokens=1 ffn_hc_pre=0.025 ms
+ds4: metal layer stage part=decode layer=16 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=16 pos=26 tokens=1 router=0.032 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.233 midq=0.004 down=0.111 sum=0.001 total=0.354 ms
+ds4: metal layer stage part=decode layer=16 pos=26 tokens=1 routed_moe=0.363 ms
+ds4: metal layer stage part=decode layer=16 pos=26 tokens=1 shared_gate_up=0.092 ms
+ds4: metal layer stage part=decode layer=16 pos=26 tokens=1 shared_down=0.053 ms
+ds4: metal layer stage part=decode layer=16 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=17 pos=26 tokens=1 attn_hc_pre=0.028 ms
+ds4: metal layer stage part=decode layer=17 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=17 pos=26 tokens=1 q_path=0.213 ms
+ds4: metal layer stage part=decode layer=17 pos=26 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=17 pos=26 tokens=1 compressor_indexer=0.049 ms
+ds4: metal layer stage part=decode layer=17 pos=26 tokens=1 attention=0.046 ms
+ds4: metal layer stage part=decode layer=17 pos=26 tokens=1 attn_output=0.307 ms
+ds4: metal layer stage part=decode layer=17 pos=26 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=17 pos=26 tokens=1 ffn_hc_pre=0.025 ms
+ds4: metal layer stage part=decode layer=17 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=17 pos=26 tokens=1 router=0.029 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.233 midq=0.004 down=0.114 sum=0.001 total=0.357 ms
+ds4: metal layer stage part=decode layer=17 pos=26 tokens=1 routed_moe=0.367 ms
+ds4: metal layer stage part=decode layer=17 pos=26 tokens=1 shared_gate_up=0.092 ms
+ds4: metal layer stage part=decode layer=17 pos=26 tokens=1 shared_down=0.050 ms
+ds4: metal layer stage part=decode layer=17 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=18 pos=26 tokens=1 attn_hc_pre=0.028 ms
+ds4: metal layer stage part=decode layer=18 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=18 pos=26 tokens=1 q_path=0.215 ms
+ds4: metal layer stage part=decode layer=18 pos=26 tokens=1 kv_path=0.011 ms
+ds4: metal layer stage part=decode layer=18 pos=26 tokens=1 compressor_indexer=0.112 ms
+ds4: metal layer stage part=decode layer=18 pos=26 tokens=1 attention=0.077 ms
+ds4: metal layer stage part=decode layer=18 pos=26 tokens=1 attn_output=0.317 ms
+ds4: metal layer stage part=decode layer=18 pos=26 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=18 pos=26 tokens=1 ffn_hc_pre=0.025 ms
+ds4: metal layer stage part=decode layer=18 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=18 pos=26 tokens=1 router=0.027 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.006 sort=0.001 gateup=0.235 midq=0.004 down=0.111 sum=0.001 total=0.357 ms
+ds4: metal layer stage part=decode layer=18 pos=26 tokens=1 routed_moe=0.367 ms
+ds4: metal layer stage part=decode layer=18 pos=26 tokens=1 shared_gate_up=0.093 ms
+ds4: metal layer stage part=decode layer=18 pos=26 tokens=1 shared_down=0.055 ms
+ds4: metal layer stage part=decode layer=18 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=19 pos=26 tokens=1 attn_hc_pre=0.029 ms
+ds4: metal layer stage part=decode layer=19 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=19 pos=26 tokens=1 q_path=0.214 ms
+ds4: metal layer stage part=decode layer=19 pos=26 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=19 pos=26 tokens=1 compressor_indexer=0.049 ms
+ds4: metal layer stage part=decode layer=19 pos=26 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=19 pos=26 tokens=1 attn_output=0.322 ms
+ds4: metal layer stage part=decode layer=19 pos=26 tokens=1 attn_hc_post=0.003 ms
+ds4: metal layer stage part=decode layer=19 pos=26 tokens=1 ffn_hc_pre=0.024 ms
+ds4: metal layer stage part=decode layer=19 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=19 pos=26 tokens=1 router=0.027 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.006 sort=0.001 gateup=0.235 midq=0.004 down=0.116 sum=0.001 total=0.362 ms
+ds4: metal layer stage part=decode layer=19 pos=26 tokens=1 routed_moe=0.370 ms
+ds4: metal layer stage part=decode layer=19 pos=26 tokens=1 shared_gate_up=0.094 ms
+ds4: metal layer stage part=decode layer=19 pos=26 tokens=1 shared_down=0.050 ms
+ds4: metal layer stage part=decode layer=19 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=20 pos=26 tokens=1 attn_hc_pre=0.027 ms
+ds4: metal layer stage part=decode layer=20 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=20 pos=26 tokens=1 q_path=0.220 ms
+ds4: metal layer stage part=decode layer=20 pos=26 tokens=1 kv_path=0.011 ms
+ds4: metal layer stage part=decode layer=20 pos=26 tokens=1 compressor_indexer=0.111 ms
+ds4: metal layer stage part=decode layer=20 pos=26 tokens=1 attention=0.076 ms
+ds4: metal layer stage part=decode layer=20 pos=26 tokens=1 attn_output=0.325 ms
+ds4: metal layer stage part=decode layer=20 pos=26 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=20 pos=26 tokens=1 ffn_hc_pre=0.024 ms
+ds4: metal layer stage part=decode layer=20 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=20 pos=26 tokens=1 router=0.027 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.236 midq=0.004 down=0.113 sum=0.001 total=0.359 ms
+ds4: metal layer stage part=decode layer=20 pos=26 tokens=1 routed_moe=0.368 ms
+ds4: metal layer stage part=decode layer=20 pos=26 tokens=1 shared_gate_up=0.089 ms
+ds4: metal layer stage part=decode layer=20 pos=26 tokens=1 shared_down=0.052 ms
+ds4: metal layer stage part=decode layer=20 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=21 pos=26 tokens=1 attn_hc_pre=0.029 ms
+ds4: metal layer stage part=decode layer=21 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=21 pos=26 tokens=1 q_path=0.217 ms
+ds4: metal layer stage part=decode layer=21 pos=26 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=21 pos=26 tokens=1 compressor_indexer=0.046 ms
+ds4: metal layer stage part=decode layer=21 pos=26 tokens=1 attention=0.046 ms
+ds4: metal layer stage part=decode layer=21 pos=26 tokens=1 attn_output=0.326 ms
+ds4: metal layer stage part=decode layer=21 pos=26 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=21 pos=26 tokens=1 ffn_hc_pre=0.027 ms
+ds4: metal layer stage part=decode layer=21 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=21 pos=26 tokens=1 router=0.030 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.234 midq=0.004 down=0.111 sum=0.001 total=0.355 ms
+ds4: metal layer stage part=decode layer=21 pos=26 tokens=1 routed_moe=0.365 ms
+ds4: metal layer stage part=decode layer=21 pos=26 tokens=1 shared_gate_up=0.094 ms
+ds4: metal layer stage part=decode layer=21 pos=26 tokens=1 shared_down=0.054 ms
+ds4: metal layer stage part=decode layer=21 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=22 pos=26 tokens=1 attn_hc_pre=0.028 ms
+ds4: metal layer stage part=decode layer=22 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=22 pos=26 tokens=1 q_path=0.210 ms
+ds4: metal layer stage part=decode layer=22 pos=26 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=22 pos=26 tokens=1 compressor_indexer=0.181 ms
+ds4: metal layer stage part=decode layer=22 pos=26 tokens=1 attention=0.079 ms
+ds4: metal layer stage part=decode layer=22 pos=26 tokens=1 attn_output=0.321 ms
+ds4: metal layer stage part=decode layer=22 pos=26 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=22 pos=26 tokens=1 ffn_hc_pre=0.028 ms
+ds4: metal layer stage part=decode layer=22 pos=26 tokens=1 ffn_norm=0.002 ms
+ds4: metal layer stage part=decode layer=22 pos=26 tokens=1 router=0.032 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.357 midq=0.017 down=0.163 sum=0.001 total=0.544 ms
+ds4: metal layer stage part=decode layer=22 pos=26 tokens=1 routed_moe=0.554 ms
+ds4: metal layer stage part=decode layer=22 pos=26 tokens=1 shared_gate_up=0.096 ms
+ds4: metal layer stage part=decode layer=22 pos=26 tokens=1 shared_down=0.060 ms
+ds4: metal layer stage part=decode layer=22 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=23 pos=26 tokens=1 attn_hc_pre=0.049 ms
+ds4: metal layer stage part=decode layer=23 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=23 pos=26 tokens=1 q_path=0.330 ms
+ds4: metal layer stage part=decode layer=23 pos=26 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=23 pos=26 tokens=1 compressor_indexer=0.049 ms
+ds4: metal layer stage part=decode layer=23 pos=26 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=23 pos=26 tokens=1 attn_output=0.317 ms
+ds4: metal layer stage part=decode layer=23 pos=26 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=23 pos=26 tokens=1 ffn_hc_pre=0.025 ms
+ds4: metal layer stage part=decode layer=23 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=23 pos=26 tokens=1 router=0.029 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.234 midq=0.004 down=0.117 sum=0.001 total=0.361 ms
+ds4: metal layer stage part=decode layer=23 pos=26 tokens=1 routed_moe=0.371 ms
+ds4: metal layer stage part=decode layer=23 pos=26 tokens=1 shared_gate_up=0.100 ms
+ds4: metal layer stage part=decode layer=23 pos=26 tokens=1 shared_down=0.056 ms
+ds4: metal layer stage part=decode layer=23 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=24 pos=26 tokens=1 attn_hc_pre=0.027 ms
+ds4: metal layer stage part=decode layer=24 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=24 pos=26 tokens=1 q_path=0.213 ms
+ds4: metal layer stage part=decode layer=24 pos=26 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=24 pos=26 tokens=1 compressor_indexer=0.123 ms
+ds4: metal layer stage part=decode layer=24 pos=26 tokens=1 attention=0.078 ms
+ds4: metal layer stage part=decode layer=24 pos=26 tokens=1 attn_output=0.323 ms
+ds4: metal layer stage part=decode layer=24 pos=26 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=24 pos=26 tokens=1 ffn_hc_pre=0.025 ms
+ds4: metal layer stage part=decode layer=24 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=24 pos=26 tokens=1 router=0.034 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.414 midq=0.004 down=0.116 sum=0.001 total=0.541 ms
+ds4: metal layer stage part=decode layer=24 pos=26 tokens=1 routed_moe=0.550 ms
+ds4: metal layer stage part=decode layer=24 pos=26 tokens=1 shared_gate_up=0.089 ms
+ds4: metal layer stage part=decode layer=24 pos=26 tokens=1 shared_down=0.053 ms
+ds4: metal layer stage part=decode layer=24 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=25 pos=26 tokens=1 attn_hc_pre=0.028 ms
+ds4: metal layer stage part=decode layer=25 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=25 pos=26 tokens=1 q_path=0.222 ms
+ds4: metal layer stage part=decode layer=25 pos=26 tokens=1 kv_path=0.016 ms
+ds4: metal layer stage part=decode layer=25 pos=26 tokens=1 compressor_indexer=0.050 ms
+ds4: metal layer stage part=decode layer=25 pos=26 tokens=1 attention=0.050 ms
+ds4: metal layer stage part=decode layer=25 pos=26 tokens=1 attn_output=0.320 ms
+ds4: metal layer stage part=decode layer=25 pos=26 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=25 pos=26 tokens=1 ffn_hc_pre=0.040 ms
+ds4: metal layer stage part=decode layer=25 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=25 pos=26 tokens=1 router=0.033 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.332 midq=0.004 down=0.114 sum=0.001 total=0.455 ms
+ds4: metal layer stage part=decode layer=25 pos=26 tokens=1 routed_moe=0.466 ms
+ds4: metal layer stage part=decode layer=25 pos=26 tokens=1 shared_gate_up=0.090 ms
+ds4: metal layer stage part=decode layer=25 pos=26 tokens=1 shared_down=0.053 ms
+ds4: metal layer stage part=decode layer=25 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=26 pos=26 tokens=1 attn_hc_pre=0.029 ms
+ds4: metal layer stage part=decode layer=26 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=26 pos=26 tokens=1 q_path=0.212 ms
+ds4: metal layer stage part=decode layer=26 pos=26 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=26 pos=26 tokens=1 compressor_indexer=0.121 ms
+ds4: metal layer stage part=decode layer=26 pos=26 tokens=1 attention=0.085 ms
+ds4: metal layer stage part=decode layer=26 pos=26 tokens=1 attn_output=0.311 ms
+ds4: metal layer stage part=decode layer=26 pos=26 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=26 pos=26 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=26 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=26 pos=26 tokens=1 router=0.031 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.230 midq=0.004 down=0.110 sum=0.001 total=0.350 ms
+ds4: metal layer stage part=decode layer=26 pos=26 tokens=1 routed_moe=0.359 ms
+ds4: metal layer stage part=decode layer=26 pos=26 tokens=1 shared_gate_up=0.094 ms
+ds4: metal layer stage part=decode layer=26 pos=26 tokens=1 shared_down=0.055 ms
+ds4: metal layer stage part=decode layer=26 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=27 pos=26 tokens=1 attn_hc_pre=0.027 ms
+ds4: metal layer stage part=decode layer=27 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=27 pos=26 tokens=1 q_path=0.216 ms
+ds4: metal layer stage part=decode layer=27 pos=26 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=27 pos=26 tokens=1 compressor_indexer=0.049 ms
+ds4: metal layer stage part=decode layer=27 pos=26 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=27 pos=26 tokens=1 attn_output=0.324 ms
+ds4: metal layer stage part=decode layer=27 pos=26 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=27 pos=26 tokens=1 ffn_hc_pre=0.026 ms
+ds4: metal layer stage part=decode layer=27 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=27 pos=26 tokens=1 router=0.031 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.233 midq=0.004 down=0.108 sum=0.001 total=0.350 ms
+ds4: metal layer stage part=decode layer=27 pos=26 tokens=1 routed_moe=0.360 ms
+ds4: metal layer stage part=decode layer=27 pos=26 tokens=1 shared_gate_up=0.092 ms
+ds4: metal layer stage part=decode layer=27 pos=26 tokens=1 shared_down=0.057 ms
+ds4: metal layer stage part=decode layer=27 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=28 pos=26 tokens=1 attn_hc_pre=0.028 ms
+ds4: metal layer stage part=decode layer=28 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=28 pos=26 tokens=1 q_path=0.211 ms
+ds4: metal layer stage part=decode layer=28 pos=26 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=28 pos=26 tokens=1 compressor_indexer=0.113 ms
+ds4: metal layer stage part=decode layer=28 pos=26 tokens=1 attention=0.078 ms
+ds4: metal layer stage part=decode layer=28 pos=26 tokens=1 attn_output=0.322 ms
+ds4: metal layer stage part=decode layer=28 pos=26 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=28 pos=26 tokens=1 ffn_hc_pre=0.026 ms
+ds4: metal layer stage part=decode layer=28 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=28 pos=26 tokens=1 router=0.029 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.232 midq=0.004 down=0.113 sum=0.001 total=0.355 ms
+ds4: metal layer stage part=decode layer=28 pos=26 tokens=1 routed_moe=0.367 ms
+ds4: metal layer stage part=decode layer=28 pos=26 tokens=1 shared_gate_up=0.106 ms
+ds4: metal layer stage part=decode layer=28 pos=26 tokens=1 shared_down=0.056 ms
+ds4: metal layer stage part=decode layer=28 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=29 pos=26 tokens=1 attn_hc_pre=0.028 ms
+ds4: metal layer stage part=decode layer=29 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=29 pos=26 tokens=1 q_path=0.219 ms
+ds4: metal layer stage part=decode layer=29 pos=26 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=29 pos=26 tokens=1 compressor_indexer=0.049 ms
+ds4: metal layer stage part=decode layer=29 pos=26 tokens=1 attention=0.048 ms
+ds4: metal layer stage part=decode layer=29 pos=26 tokens=1 attn_output=0.316 ms
+ds4: metal layer stage part=decode layer=29 pos=26 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=29 pos=26 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=29 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=29 pos=26 tokens=1 router=0.027 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.242 midq=0.004 down=0.115 sum=0.001 total=0.366 ms
+ds4: metal layer stage part=decode layer=29 pos=26 tokens=1 routed_moe=0.376 ms
+ds4: metal layer stage part=decode layer=29 pos=26 tokens=1 shared_gate_up=0.095 ms
+ds4: metal layer stage part=decode layer=29 pos=26 tokens=1 shared_down=0.053 ms
+ds4: metal layer stage part=decode layer=29 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=30 pos=26 tokens=1 attn_hc_pre=0.029 ms
+ds4: metal layer stage part=decode layer=30 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=30 pos=26 tokens=1 q_path=0.219 ms
+ds4: metal layer stage part=decode layer=30 pos=26 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=30 pos=26 tokens=1 compressor_indexer=0.111 ms
+ds4: metal layer stage part=decode layer=30 pos=26 tokens=1 attention=0.077 ms
+ds4: metal layer stage part=decode layer=30 pos=26 tokens=1 attn_output=0.324 ms
+ds4: metal layer stage part=decode layer=30 pos=26 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=30 pos=26 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=30 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=30 pos=26 tokens=1 router=0.029 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.237 midq=0.004 down=0.110 sum=0.001 total=0.357 ms
+ds4: metal layer stage part=decode layer=30 pos=26 tokens=1 routed_moe=0.366 ms
+ds4: metal layer stage part=decode layer=30 pos=26 tokens=1 shared_gate_up=0.089 ms
+ds4: metal layer stage part=decode layer=30 pos=26 tokens=1 shared_down=0.052 ms
+ds4: metal layer stage part=decode layer=30 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=31 pos=26 tokens=1 attn_hc_pre=0.028 ms
+ds4: metal layer stage part=decode layer=31 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=31 pos=26 tokens=1 q_path=0.206 ms
+ds4: metal layer stage part=decode layer=31 pos=26 tokens=1 kv_path=0.013 ms
+ds4: metal layer stage part=decode layer=31 pos=26 tokens=1 compressor_indexer=0.051 ms
+ds4: metal layer stage part=decode layer=31 pos=26 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=31 pos=26 tokens=1 attn_output=0.318 ms
+ds4: metal layer stage part=decode layer=31 pos=26 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=31 pos=26 tokens=1 ffn_hc_pre=0.026 ms
+ds4: metal layer stage part=decode layer=31 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=31 pos=26 tokens=1 router=0.027 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.232 midq=0.004 down=0.120 sum=0.001 total=0.362 ms
+ds4: metal layer stage part=decode layer=31 pos=26 tokens=1 routed_moe=0.371 ms
+ds4: metal layer stage part=decode layer=31 pos=26 tokens=1 shared_gate_up=0.089 ms
+ds4: metal layer stage part=decode layer=31 pos=26 tokens=1 shared_down=0.052 ms
+ds4: metal layer stage part=decode layer=31 pos=26 tokens=1 ffn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=32 pos=26 tokens=1 attn_hc_pre=0.030 ms
+ds4: metal layer stage part=decode layer=32 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=32 pos=26 tokens=1 q_path=0.225 ms
+ds4: metal layer stage part=decode layer=32 pos=26 tokens=1 kv_path=0.011 ms
+ds4: metal layer stage part=decode layer=32 pos=26 tokens=1 compressor_indexer=0.117 ms
+ds4: metal layer stage part=decode layer=32 pos=26 tokens=1 attention=0.076 ms
+ds4: metal layer stage part=decode layer=32 pos=26 tokens=1 attn_output=0.325 ms
+ds4: metal layer stage part=decode layer=32 pos=26 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=32 pos=26 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=32 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=32 pos=26 tokens=1 router=0.028 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.006 sort=0.001 gateup=0.234 midq=0.004 down=0.119 sum=0.001 total=0.364 ms
+ds4: metal layer stage part=decode layer=32 pos=26 tokens=1 routed_moe=0.373 ms
+ds4: metal layer stage part=decode layer=32 pos=26 tokens=1 shared_gate_up=0.091 ms
+ds4: metal layer stage part=decode layer=32 pos=26 tokens=1 shared_down=0.053 ms
+ds4: metal layer stage part=decode layer=32 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=33 pos=26 tokens=1 attn_hc_pre=0.027 ms
+ds4: metal layer stage part=decode layer=33 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=33 pos=26 tokens=1 q_path=0.218 ms
+ds4: metal layer stage part=decode layer=33 pos=26 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=33 pos=26 tokens=1 compressor_indexer=0.051 ms
+ds4: metal layer stage part=decode layer=33 pos=26 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=33 pos=26 tokens=1 attn_output=0.325 ms
+ds4: metal layer stage part=decode layer=33 pos=26 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=33 pos=26 tokens=1 ffn_hc_pre=0.025 ms
+ds4: metal layer stage part=decode layer=33 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=33 pos=26 tokens=1 router=0.027 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.006 sort=0.001 gateup=0.231 midq=0.004 down=0.110 sum=0.001 total=0.351 ms
+ds4: metal layer stage part=decode layer=33 pos=26 tokens=1 routed_moe=0.361 ms
+ds4: metal layer stage part=decode layer=33 pos=26 tokens=1 shared_gate_up=0.089 ms
+ds4: metal layer stage part=decode layer=33 pos=26 tokens=1 shared_down=0.053 ms
+ds4: metal layer stage part=decode layer=33 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=34 pos=26 tokens=1 attn_hc_pre=0.029 ms
+ds4: metal layer stage part=decode layer=34 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=34 pos=26 tokens=1 q_path=0.212 ms
+ds4: metal layer stage part=decode layer=34 pos=26 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=34 pos=26 tokens=1 compressor_indexer=0.109 ms
+ds4: metal layer stage part=decode layer=34 pos=26 tokens=1 attention=0.076 ms
+ds4: metal layer stage part=decode layer=34 pos=26 tokens=1 attn_output=0.327 ms
+ds4: metal layer stage part=decode layer=34 pos=26 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=34 pos=26 tokens=1 ffn_hc_pre=0.024 ms
+ds4: metal layer stage part=decode layer=34 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=34 pos=26 tokens=1 router=0.027 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.006 sort=0.001 gateup=0.235 midq=0.004 down=0.111 sum=0.001 total=0.357 ms
+ds4: metal layer stage part=decode layer=34 pos=26 tokens=1 routed_moe=0.366 ms
+ds4: metal layer stage part=decode layer=34 pos=26 tokens=1 shared_gate_up=0.089 ms
+ds4: metal layer stage part=decode layer=34 pos=26 tokens=1 shared_down=0.051 ms
+ds4: metal layer stage part=decode layer=34 pos=26 tokens=1 ffn_hc_post=0.003 ms
+ds4: metal layer stage part=decode layer=35 pos=26 tokens=1 attn_hc_pre=0.027 ms
+ds4: metal layer stage part=decode layer=35 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=35 pos=26 tokens=1 q_path=0.206 ms
+ds4: metal layer stage part=decode layer=35 pos=26 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=35 pos=26 tokens=1 compressor_indexer=0.048 ms
+ds4: metal layer stage part=decode layer=35 pos=26 tokens=1 attention=0.046 ms
+ds4: metal layer stage part=decode layer=35 pos=26 tokens=1 attn_output=0.318 ms
+ds4: metal layer stage part=decode layer=35 pos=26 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=35 pos=26 tokens=1 ffn_hc_pre=0.024 ms
+ds4: metal layer stage part=decode layer=35 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=35 pos=26 tokens=1 router=0.031 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.006 sort=0.001 gateup=0.245 midq=0.004 down=0.110 sum=0.001 total=0.366 ms
+ds4: metal layer stage part=decode layer=35 pos=26 tokens=1 routed_moe=0.376 ms
+ds4: metal layer stage part=decode layer=35 pos=26 tokens=1 shared_gate_up=0.089 ms
+ds4: metal layer stage part=decode layer=35 pos=26 tokens=1 shared_down=0.052 ms
+ds4: metal layer stage part=decode layer=35 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=36 pos=26 tokens=1 attn_hc_pre=0.027 ms
+ds4: metal layer stage part=decode layer=36 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=36 pos=26 tokens=1 q_path=0.215 ms
+ds4: metal layer stage part=decode layer=36 pos=26 tokens=1 kv_path=0.011 ms
+ds4: metal layer stage part=decode layer=36 pos=26 tokens=1 compressor_indexer=0.111 ms
+ds4: metal layer stage part=decode layer=36 pos=26 tokens=1 attention=0.077 ms
+ds4: metal layer stage part=decode layer=36 pos=26 tokens=1 attn_output=0.320 ms
+ds4: metal layer stage part=decode layer=36 pos=26 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=36 pos=26 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=36 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=36 pos=26 tokens=1 router=0.030 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.232 midq=0.004 down=0.111 sum=0.001 total=0.352 ms
+ds4: metal layer stage part=decode layer=36 pos=26 tokens=1 routed_moe=0.362 ms
+ds4: metal layer stage part=decode layer=36 pos=26 tokens=1 shared_gate_up=0.088 ms
+ds4: metal layer stage part=decode layer=36 pos=26 tokens=1 shared_down=0.052 ms
+ds4: metal layer stage part=decode layer=36 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=37 pos=26 tokens=1 attn_hc_pre=0.028 ms
+ds4: metal layer stage part=decode layer=37 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=37 pos=26 tokens=1 q_path=0.282 ms
+ds4: metal layer stage part=decode layer=37 pos=26 tokens=1 kv_path=0.013 ms
+ds4: metal layer stage part=decode layer=37 pos=26 tokens=1 compressor_indexer=0.048 ms
+ds4: metal layer stage part=decode layer=37 pos=26 tokens=1 attention=0.048 ms
+ds4: metal layer stage part=decode layer=37 pos=26 tokens=1 attn_output=0.320 ms
+ds4: metal layer stage part=decode layer=37 pos=26 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=37 pos=26 tokens=1 ffn_hc_pre=0.030 ms
+ds4: metal layer stage part=decode layer=37 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=37 pos=26 tokens=1 router=0.030 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.403 midq=0.008 down=0.116 sum=0.001 total=0.534 ms
+ds4: metal layer stage part=decode layer=37 pos=26 tokens=1 routed_moe=0.545 ms
+ds4: metal layer stage part=decode layer=37 pos=26 tokens=1 shared_gate_up=0.111 ms
+ds4: metal layer stage part=decode layer=37 pos=26 tokens=1 shared_down=0.063 ms
+ds4: metal layer stage part=decode layer=37 pos=26 tokens=1 ffn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=38 pos=26 tokens=1 attn_hc_pre=0.090 ms
+ds4: metal layer stage part=decode layer=38 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=38 pos=26 tokens=1 q_path=0.264 ms
+ds4: metal layer stage part=decode layer=38 pos=26 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=38 pos=26 tokens=1 compressor_indexer=0.113 ms
+ds4: metal layer stage part=decode layer=38 pos=26 tokens=1 attention=0.077 ms
+ds4: metal layer stage part=decode layer=38 pos=26 tokens=1 attn_output=0.318 ms
+ds4: metal layer stage part=decode layer=38 pos=26 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=38 pos=26 tokens=1 ffn_hc_pre=0.025 ms
+ds4: metal layer stage part=decode layer=38 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=38 pos=26 tokens=1 router=0.028 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.242 midq=0.004 down=0.108 sum=0.001 total=0.359 ms
+ds4: metal layer stage part=decode layer=38 pos=26 tokens=1 routed_moe=0.370 ms
+ds4: metal layer stage part=decode layer=38 pos=26 tokens=1 shared_gate_up=0.091 ms
+ds4: metal layer stage part=decode layer=38 pos=26 tokens=1 shared_down=0.052 ms
+ds4: metal layer stage part=decode layer=38 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=39 pos=26 tokens=1 attn_hc_pre=0.028 ms
+ds4: metal layer stage part=decode layer=39 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=39 pos=26 tokens=1 q_path=0.219 ms
+ds4: metal layer stage part=decode layer=39 pos=26 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=39 pos=26 tokens=1 compressor_indexer=0.050 ms
+ds4: metal layer stage part=decode layer=39 pos=26 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=39 pos=26 tokens=1 attn_output=0.318 ms
+ds4: metal layer stage part=decode layer=39 pos=26 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=39 pos=26 tokens=1 ffn_hc_pre=0.045 ms
+ds4: metal layer stage part=decode layer=39 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=39 pos=26 tokens=1 router=0.038 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.376 midq=0.009 down=0.114 sum=0.001 total=0.506 ms
+ds4: metal layer stage part=decode layer=39 pos=26 tokens=1 routed_moe=0.534 ms
+ds4: metal layer stage part=decode layer=39 pos=26 tokens=1 shared_gate_up=0.090 ms
+ds4: metal layer stage part=decode layer=39 pos=26 tokens=1 shared_down=0.053 ms
+ds4: metal layer stage part=decode layer=39 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=40 pos=26 tokens=1 attn_hc_pre=0.028 ms
+ds4: metal layer stage part=decode layer=40 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=40 pos=26 tokens=1 q_path=0.217 ms
+ds4: metal layer stage part=decode layer=40 pos=26 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=40 pos=26 tokens=1 compressor_indexer=0.112 ms
+ds4: metal layer stage part=decode layer=40 pos=26 tokens=1 attention=0.105 ms
+ds4: metal layer stage part=decode layer=40 pos=26 tokens=1 attn_output=0.352 ms
+ds4: metal layer stage part=decode layer=40 pos=26 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=40 pos=26 tokens=1 ffn_hc_pre=0.037 ms
+ds4: metal layer stage part=decode layer=40 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=40 pos=26 tokens=1 router=0.059 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.233 midq=0.004 down=0.112 sum=0.001 total=0.354 ms
+ds4: metal layer stage part=decode layer=40 pos=26 tokens=1 routed_moe=0.365 ms
+ds4: metal layer stage part=decode layer=40 pos=26 tokens=1 shared_gate_up=0.091 ms
+ds4: metal layer stage part=decode layer=40 pos=26 tokens=1 shared_down=0.052 ms
+ds4: metal layer stage part=decode layer=40 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=41 pos=26 tokens=1 attn_hc_pre=0.028 ms
+ds4: metal layer stage part=decode layer=41 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=41 pos=26 tokens=1 q_path=0.216 ms
+ds4: metal layer stage part=decode layer=41 pos=26 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=41 pos=26 tokens=1 compressor_indexer=0.057 ms
+ds4: metal layer stage part=decode layer=41 pos=26 tokens=1 attention=0.046 ms
+ds4: metal layer stage part=decode layer=41 pos=26 tokens=1 attn_output=0.325 ms
+ds4: metal layer stage part=decode layer=41 pos=26 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=41 pos=26 tokens=1 ffn_hc_pre=0.025 ms
+ds4: metal layer stage part=decode layer=41 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=41 pos=26 tokens=1 router=0.030 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.233 midq=0.004 down=0.109 sum=0.001 total=0.351 ms
+ds4: metal layer stage part=decode layer=41 pos=26 tokens=1 routed_moe=0.361 ms
+ds4: metal layer stage part=decode layer=41 pos=26 tokens=1 shared_gate_up=0.094 ms
+ds4: metal layer stage part=decode layer=41 pos=26 tokens=1 shared_down=0.050 ms
+ds4: metal layer stage part=decode layer=41 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=42 pos=26 tokens=1 attn_hc_pre=0.029 ms
+ds4: metal layer stage part=decode layer=42 pos=26 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=42 pos=26 tokens=1 q_path=0.214 ms
+ds4: metal layer stage part=decode layer=42 pos=26 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=42 pos=26 tokens=1 compressor_indexer=0.108 ms
+ds4: metal layer stage part=decode layer=42 pos=26 tokens=1 attention=0.077 ms
+ds4: metal layer stage part=decode layer=42 pos=26 tokens=1 attn_output=0.324 ms
+ds4: metal layer stage part=decode layer=42 pos=26 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=42 pos=26 tokens=1 ffn_hc_pre=0.025 ms
+ds4: metal layer stage part=decode layer=42 pos=26 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=42 pos=26 tokens=1 router=0.030 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.237 midq=0.004 down=0.114 sum=0.001 total=0.361 ms
+ds4: metal layer stage part=decode layer=42 pos=26 tokens=1 routed_moe=0.370 ms
+ds4: metal layer stage part=decode layer=42 pos=26 tokens=1 shared_gate_up=0.089 ms
+ds4: metal layer stage part=decode layer=42 pos=26 tokens=1 shared_down=0.054 ms
+ds4: metal layer stage part=decode layer=42 pos=26 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=0 pos=27 tokens=1 attn_hc_pre=0.025 ms
+ds4: metal layer stage part=decode layer=0 pos=27 tokens=1 attn_norm=0.002 ms
+ds4: metal layer stage part=decode layer=0 pos=27 tokens=1 q_path=0.211 ms
+ds4: metal layer stage part=decode layer=0 pos=27 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=0 pos=27 tokens=1 compressor_indexer=0.001 ms
+ds4: metal layer stage part=decode layer=0 pos=27 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=0 pos=27 tokens=1 attn_output=0.324 ms
+ds4: metal layer stage part=decode layer=0 pos=27 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=0 pos=27 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=0 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=0 pos=27 tokens=1 router=0.024 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.236 midq=0.004 down=0.120 sum=0.001 total=0.366 ms
+ds4: metal layer stage part=decode layer=0 pos=27 tokens=1 routed_moe=0.375 ms
+ds4: metal layer stage part=decode layer=0 pos=27 tokens=1 shared_gate_up=0.096 ms
+ds4: metal layer stage part=decode layer=0 pos=27 tokens=1 shared_down=0.049 ms
+ds4: metal layer stage part=decode layer=0 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=1 pos=27 tokens=1 attn_hc_pre=0.028 ms
+ds4: metal layer stage part=decode layer=1 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=1 pos=27 tokens=1 q_path=0.207 ms
+ds4: metal layer stage part=decode layer=1 pos=27 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=1 pos=27 tokens=1 compressor_indexer=0.002 ms
+ds4: metal layer stage part=decode layer=1 pos=27 tokens=1 attention=0.048 ms
+ds4: metal layer stage part=decode layer=1 pos=27 tokens=1 attn_output=0.323 ms
+ds4: metal layer stage part=decode layer=1 pos=27 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=1 pos=27 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=1 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=1 pos=27 tokens=1 router=0.023 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.236 midq=0.004 down=0.114 sum=0.001 total=0.359 ms
+ds4: metal layer stage part=decode layer=1 pos=27 tokens=1 routed_moe=0.369 ms
+ds4: metal layer stage part=decode layer=1 pos=27 tokens=1 shared_gate_up=0.088 ms
+ds4: metal layer stage part=decode layer=1 pos=27 tokens=1 shared_down=0.051 ms
+ds4: metal layer stage part=decode layer=1 pos=27 tokens=1 ffn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=2 pos=27 tokens=1 attn_hc_pre=0.028 ms
+ds4: metal layer stage part=decode layer=2 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=2 pos=27 tokens=1 q_path=0.207 ms
+ds4: metal layer stage part=decode layer=2 pos=27 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=2 pos=27 tokens=1 compressor_indexer=0.172 ms
+ds4: metal layer stage part=decode layer=2 pos=27 tokens=1 attention=0.077 ms
+ds4: metal layer stage part=decode layer=2 pos=27 tokens=1 attn_output=0.317 ms
+ds4: metal layer stage part=decode layer=2 pos=27 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=2 pos=27 tokens=1 ffn_hc_pre=0.025 ms
+ds4: metal layer stage part=decode layer=2 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=2 pos=27 tokens=1 router=0.027 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.232 midq=0.004 down=0.114 sum=0.001 total=0.355 ms
+ds4: metal layer stage part=decode layer=2 pos=27 tokens=1 routed_moe=0.365 ms
+ds4: metal layer stage part=decode layer=2 pos=27 tokens=1 shared_gate_up=0.093 ms
+ds4: metal layer stage part=decode layer=2 pos=27 tokens=1 shared_down=0.050 ms
+ds4: metal layer stage part=decode layer=2 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=3 pos=27 tokens=1 attn_hc_pre=0.022 ms
+ds4: metal layer stage part=decode layer=3 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=3 pos=27 tokens=1 q_path=0.207 ms
+ds4: metal layer stage part=decode layer=3 pos=27 tokens=1 kv_path=0.013 ms
+ds4: metal layer stage part=decode layer=3 pos=27 tokens=1 compressor_indexer=0.045 ms
+ds4: metal layer stage part=decode layer=3 pos=27 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=3 pos=27 tokens=1 attn_output=0.322 ms
+ds4: metal layer stage part=decode layer=3 pos=27 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=3 pos=27 tokens=1 ffn_hc_pre=0.024 ms
+ds4: metal layer stage part=decode layer=3 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=3 pos=27 tokens=1 router=0.026 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.231 midq=0.004 down=0.114 sum=0.001 total=0.355 ms
+ds4: metal layer stage part=decode layer=3 pos=27 tokens=1 routed_moe=0.364 ms
+ds4: metal layer stage part=decode layer=3 pos=27 tokens=1 shared_gate_up=0.085 ms
+ds4: metal layer stage part=decode layer=3 pos=27 tokens=1 shared_down=0.049 ms
+ds4: metal layer stage part=decode layer=3 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=4 pos=27 tokens=1 attn_hc_pre=0.022 ms
+ds4: metal layer stage part=decode layer=4 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=4 pos=27 tokens=1 q_path=0.202 ms
+ds4: metal layer stage part=decode layer=4 pos=27 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=4 pos=27 tokens=1 compressor_indexer=0.149 ms
+ds4: metal layer stage part=decode layer=4 pos=27 tokens=1 attention=0.075 ms
+ds4: metal layer stage part=decode layer=4 pos=27 tokens=1 attn_output=0.324 ms
+ds4: metal layer stage part=decode layer=4 pos=27 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=4 pos=27 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=4 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=4 pos=27 tokens=1 router=0.024 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.231 midq=0.004 down=0.114 sum=0.001 total=0.355 ms
+ds4: metal layer stage part=decode layer=4 pos=27 tokens=1 routed_moe=0.364 ms
+ds4: metal layer stage part=decode layer=4 pos=27 tokens=1 shared_gate_up=0.086 ms
+ds4: metal layer stage part=decode layer=4 pos=27 tokens=1 shared_down=0.049 ms
+ds4: metal layer stage part=decode layer=4 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=5 pos=27 tokens=1 attn_hc_pre=0.028 ms
+ds4: metal layer stage part=decode layer=5 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=5 pos=27 tokens=1 q_path=0.219 ms
+ds4: metal layer stage part=decode layer=5 pos=27 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=5 pos=27 tokens=1 compressor_indexer=0.050 ms
+ds4: metal layer stage part=decode layer=5 pos=27 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=5 pos=27 tokens=1 attn_output=0.314 ms
+ds4: metal layer stage part=decode layer=5 pos=27 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=5 pos=27 tokens=1 ffn_hc_pre=0.025 ms
+ds4: metal layer stage part=decode layer=5 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=5 pos=27 tokens=1 router=0.027 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.235 midq=0.004 down=0.104 sum=0.001 total=0.350 ms
+ds4: metal layer stage part=decode layer=5 pos=27 tokens=1 routed_moe=0.359 ms
+ds4: metal layer stage part=decode layer=5 pos=27 tokens=1 shared_gate_up=0.095 ms
+ds4: metal layer stage part=decode layer=5 pos=27 tokens=1 shared_down=0.053 ms
+ds4: metal layer stage part=decode layer=5 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=6 pos=27 tokens=1 attn_hc_pre=0.024 ms
+ds4: metal layer stage part=decode layer=6 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=6 pos=27 tokens=1 q_path=0.205 ms
+ds4: metal layer stage part=decode layer=6 pos=27 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=6 pos=27 tokens=1 compressor_indexer=0.149 ms
+ds4: metal layer stage part=decode layer=6 pos=27 tokens=1 attention=0.075 ms
+ds4: metal layer stage part=decode layer=6 pos=27 tokens=1 attn_output=0.310 ms
+ds4: metal layer stage part=decode layer=6 pos=27 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=6 pos=27 tokens=1 ffn_hc_pre=0.024 ms
+ds4: metal layer stage part=decode layer=6 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=6 pos=27 tokens=1 router=0.026 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.234 midq=0.004 down=0.111 sum=0.001 total=0.354 ms
+ds4: metal layer stage part=decode layer=6 pos=27 tokens=1 routed_moe=0.364 ms
+ds4: metal layer stage part=decode layer=6 pos=27 tokens=1 shared_gate_up=0.092 ms
+ds4: metal layer stage part=decode layer=6 pos=27 tokens=1 shared_down=0.050 ms
+ds4: metal layer stage part=decode layer=6 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=7 pos=27 tokens=1 attn_hc_pre=0.026 ms
+ds4: metal layer stage part=decode layer=7 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=7 pos=27 tokens=1 q_path=0.205 ms
+ds4: metal layer stage part=decode layer=7 pos=27 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=7 pos=27 tokens=1 compressor_indexer=0.049 ms
+ds4: metal layer stage part=decode layer=7 pos=27 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=7 pos=27 tokens=1 attn_output=0.319 ms
+ds4: metal layer stage part=decode layer=7 pos=27 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=7 pos=27 tokens=1 ffn_hc_pre=0.024 ms
+ds4: metal layer stage part=decode layer=7 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=7 pos=27 tokens=1 router=0.024 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.231 midq=0.004 down=0.111 sum=0.001 total=0.351 ms
+ds4: metal layer stage part=decode layer=7 pos=27 tokens=1 routed_moe=0.361 ms
+ds4: metal layer stage part=decode layer=7 pos=27 tokens=1 shared_gate_up=0.085 ms
+ds4: metal layer stage part=decode layer=7 pos=27 tokens=1 shared_down=0.049 ms
+ds4: metal layer stage part=decode layer=7 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=8 pos=27 tokens=1 attn_hc_pre=0.022 ms
+ds4: metal layer stage part=decode layer=8 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=8 pos=27 tokens=1 q_path=0.205 ms
+ds4: metal layer stage part=decode layer=8 pos=27 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=8 pos=27 tokens=1 compressor_indexer=0.146 ms
+ds4: metal layer stage part=decode layer=8 pos=27 tokens=1 attention=0.075 ms
+ds4: metal layer stage part=decode layer=8 pos=27 tokens=1 attn_output=0.323 ms
+ds4: metal layer stage part=decode layer=8 pos=27 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=8 pos=27 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=8 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=8 pos=27 tokens=1 router=0.026 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.234 midq=0.004 down=0.112 sum=0.001 total=0.356 ms
+ds4: metal layer stage part=decode layer=8 pos=27 tokens=1 routed_moe=0.365 ms
+ds4: metal layer stage part=decode layer=8 pos=27 tokens=1 shared_gate_up=0.096 ms
+ds4: metal layer stage part=decode layer=8 pos=27 tokens=1 shared_down=0.050 ms
+ds4: metal layer stage part=decode layer=8 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=9 pos=27 tokens=1 attn_hc_pre=0.022 ms
+ds4: metal layer stage part=decode layer=9 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=9 pos=27 tokens=1 q_path=0.204 ms
+ds4: metal layer stage part=decode layer=9 pos=27 tokens=1 kv_path=0.013 ms
+ds4: metal layer stage part=decode layer=9 pos=27 tokens=1 compressor_indexer=0.050 ms
+ds4: metal layer stage part=decode layer=9 pos=27 tokens=1 attention=0.048 ms
+ds4: metal layer stage part=decode layer=9 pos=27 tokens=1 attn_output=0.310 ms
+ds4: metal layer stage part=decode layer=9 pos=27 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=9 pos=27 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=9 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=9 pos=27 tokens=1 router=0.028 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.234 midq=0.004 down=0.108 sum=0.001 total=0.351 ms
+ds4: metal layer stage part=decode layer=9 pos=27 tokens=1 routed_moe=0.361 ms
+ds4: metal layer stage part=decode layer=9 pos=27 tokens=1 shared_gate_up=0.092 ms
+ds4: metal layer stage part=decode layer=9 pos=27 tokens=1 shared_down=0.049 ms
+ds4: metal layer stage part=decode layer=9 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=10 pos=27 tokens=1 attn_hc_pre=0.026 ms
+ds4: metal layer stage part=decode layer=10 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=10 pos=27 tokens=1 q_path=0.199 ms
+ds4: metal layer stage part=decode layer=10 pos=27 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=10 pos=27 tokens=1 compressor_indexer=0.145 ms
+ds4: metal layer stage part=decode layer=10 pos=27 tokens=1 attention=0.075 ms
+ds4: metal layer stage part=decode layer=10 pos=27 tokens=1 attn_output=0.321 ms
+ds4: metal layer stage part=decode layer=10 pos=27 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=10 pos=27 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=10 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=10 pos=27 tokens=1 router=0.026 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.237 midq=0.004 down=0.108 sum=0.001 total=0.354 ms
+ds4: metal layer stage part=decode layer=10 pos=27 tokens=1 routed_moe=0.363 ms
+ds4: metal layer stage part=decode layer=10 pos=27 tokens=1 shared_gate_up=0.086 ms
+ds4: metal layer stage part=decode layer=10 pos=27 tokens=1 shared_down=0.048 ms
+ds4: metal layer stage part=decode layer=10 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=11 pos=27 tokens=1 attn_hc_pre=0.029 ms
+ds4: metal layer stage part=decode layer=11 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=11 pos=27 tokens=1 q_path=0.208 ms
+ds4: metal layer stage part=decode layer=11 pos=27 tokens=1 kv_path=0.013 ms
+ds4: metal layer stage part=decode layer=11 pos=27 tokens=1 compressor_indexer=0.045 ms
+ds4: metal layer stage part=decode layer=11 pos=27 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=11 pos=27 tokens=1 attn_output=0.319 ms
+ds4: metal layer stage part=decode layer=11 pos=27 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=11 pos=27 tokens=1 ffn_hc_pre=0.026 ms
+ds4: metal layer stage part=decode layer=11 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=11 pos=27 tokens=1 router=0.027 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.241 midq=0.004 down=0.122 sum=0.001 total=0.372 ms
+ds4: metal layer stage part=decode layer=11 pos=27 tokens=1 routed_moe=0.381 ms
+ds4: metal layer stage part=decode layer=11 pos=27 tokens=1 shared_gate_up=0.095 ms
+ds4: metal layer stage part=decode layer=11 pos=27 tokens=1 shared_down=0.056 ms
+ds4: metal layer stage part=decode layer=11 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=12 pos=27 tokens=1 attn_hc_pre=0.028 ms
+ds4: metal layer stage part=decode layer=12 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=12 pos=27 tokens=1 q_path=0.220 ms
+ds4: metal layer stage part=decode layer=12 pos=27 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=12 pos=27 tokens=1 compressor_indexer=0.152 ms
+ds4: metal layer stage part=decode layer=12 pos=27 tokens=1 attention=0.075 ms
+ds4: metal layer stage part=decode layer=12 pos=27 tokens=1 attn_output=0.326 ms
+ds4: metal layer stage part=decode layer=12 pos=27 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=12 pos=27 tokens=1 ffn_hc_pre=0.025 ms
+ds4: metal layer stage part=decode layer=12 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=12 pos=27 tokens=1 router=0.029 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.229 midq=0.004 down=0.112 sum=0.001 total=0.350 ms
+ds4: metal layer stage part=decode layer=12 pos=27 tokens=1 routed_moe=0.360 ms
+ds4: metal layer stage part=decode layer=12 pos=27 tokens=1 shared_gate_up=0.093 ms
+ds4: metal layer stage part=decode layer=12 pos=27 tokens=1 shared_down=0.053 ms
+ds4: metal layer stage part=decode layer=12 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=13 pos=27 tokens=1 attn_hc_pre=0.028 ms
+ds4: metal layer stage part=decode layer=13 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=13 pos=27 tokens=1 q_path=0.215 ms
+ds4: metal layer stage part=decode layer=13 pos=27 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=13 pos=27 tokens=1 compressor_indexer=0.046 ms
+ds4: metal layer stage part=decode layer=13 pos=27 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=13 pos=27 tokens=1 attn_output=0.319 ms
+ds4: metal layer stage part=decode layer=13 pos=27 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=13 pos=27 tokens=1 ffn_hc_pre=0.022 ms
+ds4: metal layer stage part=decode layer=13 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=13 pos=27 tokens=1 router=0.028 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.235 midq=0.004 down=0.112 sum=0.001 total=0.357 ms
+ds4: metal layer stage part=decode layer=13 pos=27 tokens=1 routed_moe=0.368 ms
+ds4: metal layer stage part=decode layer=13 pos=27 tokens=1 shared_gate_up=0.086 ms
+ds4: metal layer stage part=decode layer=13 pos=27 tokens=1 shared_down=0.050 ms
+ds4: metal layer stage part=decode layer=13 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=14 pos=27 tokens=1 attn_hc_pre=0.022 ms
+ds4: metal layer stage part=decode layer=14 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=14 pos=27 tokens=1 q_path=0.211 ms
+ds4: metal layer stage part=decode layer=14 pos=27 tokens=1 kv_path=0.013 ms
+ds4: metal layer stage part=decode layer=14 pos=27 tokens=1 compressor_indexer=0.154 ms
+ds4: metal layer stage part=decode layer=14 pos=27 tokens=1 attention=0.076 ms
+ds4: metal layer stage part=decode layer=14 pos=27 tokens=1 attn_output=0.324 ms
+ds4: metal layer stage part=decode layer=14 pos=27 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=14 pos=27 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=14 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=14 pos=27 tokens=1 router=0.024 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.235 midq=0.004 down=0.113 sum=0.001 total=0.358 ms
+ds4: metal layer stage part=decode layer=14 pos=27 tokens=1 routed_moe=0.367 ms
+ds4: metal layer stage part=decode layer=14 pos=27 tokens=1 shared_gate_up=0.095 ms
+ds4: metal layer stage part=decode layer=14 pos=27 tokens=1 shared_down=0.049 ms
+ds4: metal layer stage part=decode layer=14 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=15 pos=27 tokens=1 attn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=15 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=15 pos=27 tokens=1 q_path=0.213 ms
+ds4: metal layer stage part=decode layer=15 pos=27 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=15 pos=27 tokens=1 compressor_indexer=0.050 ms
+ds4: metal layer stage part=decode layer=15 pos=27 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=15 pos=27 tokens=1 attn_output=0.323 ms
+ds4: metal layer stage part=decode layer=15 pos=27 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=15 pos=27 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=15 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=15 pos=27 tokens=1 router=0.031 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.230 midq=0.004 down=0.116 sum=0.001 total=0.356 ms
+ds4: metal layer stage part=decode layer=15 pos=27 tokens=1 routed_moe=0.365 ms
+ds4: metal layer stage part=decode layer=15 pos=27 tokens=1 shared_gate_up=0.086 ms
+ds4: metal layer stage part=decode layer=15 pos=27 tokens=1 shared_down=0.049 ms
+ds4: metal layer stage part=decode layer=15 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=16 pos=27 tokens=1 attn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=16 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=16 pos=27 tokens=1 q_path=0.206 ms
+ds4: metal layer stage part=decode layer=16 pos=27 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=16 pos=27 tokens=1 compressor_indexer=0.151 ms
+ds4: metal layer stage part=decode layer=16 pos=27 tokens=1 attention=0.076 ms
+ds4: metal layer stage part=decode layer=16 pos=27 tokens=1 attn_output=0.324 ms
+ds4: metal layer stage part=decode layer=16 pos=27 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=16 pos=27 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=16 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=16 pos=27 tokens=1 router=0.024 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.235 midq=0.004 down=0.118 sum=0.001 total=0.363 ms
+ds4: metal layer stage part=decode layer=16 pos=27 tokens=1 routed_moe=0.373 ms
+ds4: metal layer stage part=decode layer=16 pos=27 tokens=1 shared_gate_up=0.089 ms
+ds4: metal layer stage part=decode layer=16 pos=27 tokens=1 shared_down=0.048 ms
+ds4: metal layer stage part=decode layer=16 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=17 pos=27 tokens=1 attn_hc_pre=0.027 ms
+ds4: metal layer stage part=decode layer=17 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=17 pos=27 tokens=1 q_path=0.199 ms
+ds4: metal layer stage part=decode layer=17 pos=27 tokens=1 kv_path=0.011 ms
+ds4: metal layer stage part=decode layer=17 pos=27 tokens=1 compressor_indexer=0.046 ms
+ds4: metal layer stage part=decode layer=17 pos=27 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=17 pos=27 tokens=1 attn_output=0.310 ms
+ds4: metal layer stage part=decode layer=17 pos=27 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=17 pos=27 tokens=1 ffn_hc_pre=0.025 ms
+ds4: metal layer stage part=decode layer=17 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=17 pos=27 tokens=1 router=0.024 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.241 midq=0.004 down=0.110 sum=0.001 total=0.361 ms
+ds4: metal layer stage part=decode layer=17 pos=27 tokens=1 routed_moe=0.370 ms
+ds4: metal layer stage part=decode layer=17 pos=27 tokens=1 shared_gate_up=0.093 ms
+ds4: metal layer stage part=decode layer=17 pos=27 tokens=1 shared_down=0.054 ms
+ds4: metal layer stage part=decode layer=17 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=18 pos=27 tokens=1 attn_hc_pre=0.027 ms
+ds4: metal layer stage part=decode layer=18 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=18 pos=27 tokens=1 q_path=0.212 ms
+ds4: metal layer stage part=decode layer=18 pos=27 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=18 pos=27 tokens=1 compressor_indexer=0.152 ms
+ds4: metal layer stage part=decode layer=18 pos=27 tokens=1 attention=0.076 ms
+ds4: metal layer stage part=decode layer=18 pos=27 tokens=1 attn_output=0.318 ms
+ds4: metal layer stage part=decode layer=18 pos=27 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=18 pos=27 tokens=1 ffn_hc_pre=0.024 ms
+ds4: metal layer stage part=decode layer=18 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=18 pos=27 tokens=1 router=0.029 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.238 midq=0.004 down=0.109 sum=0.001 total=0.355 ms
+ds4: metal layer stage part=decode layer=18 pos=27 tokens=1 routed_moe=0.365 ms
+ds4: metal layer stage part=decode layer=18 pos=27 tokens=1 shared_gate_up=0.093 ms
+ds4: metal layer stage part=decode layer=18 pos=27 tokens=1 shared_down=0.054 ms
+ds4: metal layer stage part=decode layer=18 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=19 pos=27 tokens=1 attn_hc_pre=0.028 ms
+ds4: metal layer stage part=decode layer=19 pos=27 tokens=1 attn_norm=0.002 ms
+ds4: metal layer stage part=decode layer=19 pos=27 tokens=1 q_path=0.208 ms
+ds4: metal layer stage part=decode layer=19 pos=27 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=19 pos=27 tokens=1 compressor_indexer=0.049 ms
+ds4: metal layer stage part=decode layer=19 pos=27 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=19 pos=27 tokens=1 attn_output=0.319 ms
+ds4: metal layer stage part=decode layer=19 pos=27 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=19 pos=27 tokens=1 ffn_hc_pre=0.024 ms
+ds4: metal layer stage part=decode layer=19 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=19 pos=27 tokens=1 router=0.027 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.232 midq=0.004 down=0.113 sum=0.001 total=0.354 ms
+ds4: metal layer stage part=decode layer=19 pos=27 tokens=1 routed_moe=0.364 ms
+ds4: metal layer stage part=decode layer=19 pos=27 tokens=1 shared_gate_up=0.094 ms
+ds4: metal layer stage part=decode layer=19 pos=27 tokens=1 shared_down=0.048 ms
+ds4: metal layer stage part=decode layer=19 pos=27 tokens=1 ffn_hc_post=0.003 ms
+ds4: metal layer stage part=decode layer=20 pos=27 tokens=1 attn_hc_pre=0.024 ms
+ds4: metal layer stage part=decode layer=20 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=20 pos=27 tokens=1 q_path=0.208 ms
+ds4: metal layer stage part=decode layer=20 pos=27 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=20 pos=27 tokens=1 compressor_indexer=0.151 ms
+ds4: metal layer stage part=decode layer=20 pos=27 tokens=1 attention=0.076 ms
+ds4: metal layer stage part=decode layer=20 pos=27 tokens=1 attn_output=0.325 ms
+ds4: metal layer stage part=decode layer=20 pos=27 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=20 pos=27 tokens=1 ffn_hc_pre=0.024 ms
+ds4: metal layer stage part=decode layer=20 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=20 pos=27 tokens=1 router=0.025 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.231 midq=0.004 down=0.107 sum=0.001 total=0.348 ms
+ds4: metal layer stage part=decode layer=20 pos=27 tokens=1 routed_moe=0.357 ms
+ds4: metal layer stage part=decode layer=20 pos=27 tokens=1 shared_gate_up=0.089 ms
+ds4: metal layer stage part=decode layer=20 pos=27 tokens=1 shared_down=0.052 ms
+ds4: metal layer stage part=decode layer=20 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=21 pos=27 tokens=1 attn_hc_pre=0.022 ms
+ds4: metal layer stage part=decode layer=21 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=21 pos=27 tokens=1 q_path=0.205 ms
+ds4: metal layer stage part=decode layer=21 pos=27 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=21 pos=27 tokens=1 compressor_indexer=0.044 ms
+ds4: metal layer stage part=decode layer=21 pos=27 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=21 pos=27 tokens=1 attn_output=0.320 ms
+ds4: metal layer stage part=decode layer=21 pos=27 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=21 pos=27 tokens=1 ffn_hc_pre=0.024 ms
+ds4: metal layer stage part=decode layer=21 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=21 pos=27 tokens=1 router=0.031 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.232 midq=0.004 down=0.111 sum=0.001 total=0.353 ms
+ds4: metal layer stage part=decode layer=21 pos=27 tokens=1 routed_moe=0.362 ms
+ds4: metal layer stage part=decode layer=21 pos=27 tokens=1 shared_gate_up=0.092 ms
+ds4: metal layer stage part=decode layer=21 pos=27 tokens=1 shared_down=0.048 ms
+ds4: metal layer stage part=decode layer=21 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=22 pos=27 tokens=1 attn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=22 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=22 pos=27 tokens=1 q_path=0.198 ms
+ds4: metal layer stage part=decode layer=22 pos=27 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=22 pos=27 tokens=1 compressor_indexer=0.159 ms
+ds4: metal layer stage part=decode layer=22 pos=27 tokens=1 attention=0.075 ms
+ds4: metal layer stage part=decode layer=22 pos=27 tokens=1 attn_output=0.327 ms
+ds4: metal layer stage part=decode layer=22 pos=27 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=22 pos=27 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=22 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=22 pos=27 tokens=1 router=0.023 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.231 midq=0.004 down=0.114 sum=0.001 total=0.355 ms
+ds4: metal layer stage part=decode layer=22 pos=27 tokens=1 routed_moe=0.364 ms
+ds4: metal layer stage part=decode layer=22 pos=27 tokens=1 shared_gate_up=0.090 ms
+ds4: metal layer stage part=decode layer=22 pos=27 tokens=1 shared_down=0.050 ms
+ds4: metal layer stage part=decode layer=22 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=23 pos=27 tokens=1 attn_hc_pre=0.025 ms
+ds4: metal layer stage part=decode layer=23 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=23 pos=27 tokens=1 q_path=0.198 ms
+ds4: metal layer stage part=decode layer=23 pos=27 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=23 pos=27 tokens=1 compressor_indexer=0.049 ms
+ds4: metal layer stage part=decode layer=23 pos=27 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=23 pos=27 tokens=1 attn_output=0.315 ms
+ds4: metal layer stage part=decode layer=23 pos=27 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=23 pos=27 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=23 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=23 pos=27 tokens=1 router=0.025 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.237 midq=0.004 down=0.114 sum=0.001 total=0.361 ms
+ds4: metal layer stage part=decode layer=23 pos=27 tokens=1 routed_moe=0.371 ms
+ds4: metal layer stage part=decode layer=23 pos=27 tokens=1 shared_gate_up=0.093 ms
+ds4: metal layer stage part=decode layer=23 pos=27 tokens=1 shared_down=0.049 ms
+ds4: metal layer stage part=decode layer=23 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=24 pos=27 tokens=1 attn_hc_pre=0.028 ms
+ds4: metal layer stage part=decode layer=24 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=24 pos=27 tokens=1 q_path=0.213 ms
+ds4: metal layer stage part=decode layer=24 pos=27 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=24 pos=27 tokens=1 compressor_indexer=0.150 ms
+ds4: metal layer stage part=decode layer=24 pos=27 tokens=1 attention=0.075 ms
+ds4: metal layer stage part=decode layer=24 pos=27 tokens=1 attn_output=0.324 ms
+ds4: metal layer stage part=decode layer=24 pos=27 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=24 pos=27 tokens=1 ffn_hc_pre=0.024 ms
+ds4: metal layer stage part=decode layer=24 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=24 pos=27 tokens=1 router=0.028 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.006 sort=0.001 gateup=0.233 midq=0.004 down=0.113 sum=0.001 total=0.357 ms
+ds4: metal layer stage part=decode layer=24 pos=27 tokens=1 routed_moe=0.366 ms
+ds4: metal layer stage part=decode layer=24 pos=27 tokens=1 shared_gate_up=0.090 ms
+ds4: metal layer stage part=decode layer=24 pos=27 tokens=1 shared_down=0.052 ms
+ds4: metal layer stage part=decode layer=24 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=25 pos=27 tokens=1 attn_hc_pre=0.026 ms
+ds4: metal layer stage part=decode layer=25 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=25 pos=27 tokens=1 q_path=0.202 ms
+ds4: metal layer stage part=decode layer=25 pos=27 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=25 pos=27 tokens=1 compressor_indexer=0.048 ms
+ds4: metal layer stage part=decode layer=25 pos=27 tokens=1 attention=0.048 ms
+ds4: metal layer stage part=decode layer=25 pos=27 tokens=1 attn_output=0.320 ms
+ds4: metal layer stage part=decode layer=25 pos=27 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=25 pos=27 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=25 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=25 pos=27 tokens=1 router=0.029 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.235 midq=0.004 down=0.109 sum=0.001 total=0.354 ms
+ds4: metal layer stage part=decode layer=25 pos=27 tokens=1 routed_moe=0.363 ms
+ds4: metal layer stage part=decode layer=25 pos=27 tokens=1 shared_gate_up=0.087 ms
+ds4: metal layer stage part=decode layer=25 pos=27 tokens=1 shared_down=0.050 ms
+ds4: metal layer stage part=decode layer=25 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=26 pos=27 tokens=1 attn_hc_pre=0.028 ms
+ds4: metal layer stage part=decode layer=26 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=26 pos=27 tokens=1 q_path=0.206 ms
+ds4: metal layer stage part=decode layer=26 pos=27 tokens=1 kv_path=0.013 ms
+ds4: metal layer stage part=decode layer=26 pos=27 tokens=1 compressor_indexer=0.154 ms
+ds4: metal layer stage part=decode layer=26 pos=27 tokens=1 attention=0.075 ms
+ds4: metal layer stage part=decode layer=26 pos=27 tokens=1 attn_output=0.306 ms
+ds4: metal layer stage part=decode layer=26 pos=27 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=26 pos=27 tokens=1 ffn_hc_pre=0.024 ms
+ds4: metal layer stage part=decode layer=26 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=26 pos=27 tokens=1 router=0.031 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.234 midq=0.004 down=0.108 sum=0.001 total=0.351 ms
+ds4: metal layer stage part=decode layer=26 pos=27 tokens=1 routed_moe=0.362 ms
+ds4: metal layer stage part=decode layer=26 pos=27 tokens=1 shared_gate_up=0.093 ms
+ds4: metal layer stage part=decode layer=26 pos=27 tokens=1 shared_down=0.051 ms
+ds4: metal layer stage part=decode layer=26 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=27 pos=27 tokens=1 attn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=27 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=27 pos=27 tokens=1 q_path=0.204 ms
+ds4: metal layer stage part=decode layer=27 pos=27 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=27 pos=27 tokens=1 compressor_indexer=0.049 ms
+ds4: metal layer stage part=decode layer=27 pos=27 tokens=1 attention=0.056 ms
+ds4: metal layer stage part=decode layer=27 pos=27 tokens=1 attn_output=0.332 ms
+ds4: metal layer stage part=decode layer=27 pos=27 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=27 pos=27 tokens=1 ffn_hc_pre=0.026 ms
+ds4: metal layer stage part=decode layer=27 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=27 pos=27 tokens=1 router=0.025 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.233 midq=0.004 down=0.108 sum=0.001 total=0.351 ms
+ds4: metal layer stage part=decode layer=27 pos=27 tokens=1 routed_moe=0.361 ms
+ds4: metal layer stage part=decode layer=27 pos=27 tokens=1 shared_gate_up=0.091 ms
+ds4: metal layer stage part=decode layer=27 pos=27 tokens=1 shared_down=0.051 ms
+ds4: metal layer stage part=decode layer=27 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=28 pos=27 tokens=1 attn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=28 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=28 pos=27 tokens=1 q_path=0.207 ms
+ds4: metal layer stage part=decode layer=28 pos=27 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=28 pos=27 tokens=1 compressor_indexer=0.145 ms
+ds4: metal layer stage part=decode layer=28 pos=27 tokens=1 attention=0.075 ms
+ds4: metal layer stage part=decode layer=28 pos=27 tokens=1 attn_output=0.323 ms
+ds4: metal layer stage part=decode layer=28 pos=27 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=28 pos=27 tokens=1 ffn_hc_pre=0.024 ms
+ds4: metal layer stage part=decode layer=28 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=28 pos=27 tokens=1 router=0.025 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.238 midq=0.006 down=0.116 sum=0.001 total=0.366 ms
+ds4: metal layer stage part=decode layer=28 pos=27 tokens=1 routed_moe=0.375 ms
+ds4: metal layer stage part=decode layer=28 pos=27 tokens=1 shared_gate_up=0.091 ms
+ds4: metal layer stage part=decode layer=28 pos=27 tokens=1 shared_down=0.048 ms
+ds4: metal layer stage part=decode layer=28 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=29 pos=27 tokens=1 attn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=29 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=29 pos=27 tokens=1 q_path=0.197 ms
+ds4: metal layer stage part=decode layer=29 pos=27 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=29 pos=27 tokens=1 compressor_indexer=0.049 ms
+ds4: metal layer stage part=decode layer=29 pos=27 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=29 pos=27 tokens=1 attn_output=0.319 ms
+ds4: metal layer stage part=decode layer=29 pos=27 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=29 pos=27 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=29 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=29 pos=27 tokens=1 router=0.025 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.234 midq=0.004 down=0.109 sum=0.001 total=0.352 ms
+ds4: metal layer stage part=decode layer=29 pos=27 tokens=1 routed_moe=0.362 ms
+ds4: metal layer stage part=decode layer=29 pos=27 tokens=1 shared_gate_up=0.090 ms
+ds4: metal layer stage part=decode layer=29 pos=27 tokens=1 shared_down=0.050 ms
+ds4: metal layer stage part=decode layer=29 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=30 pos=27 tokens=1 attn_hc_pre=0.029 ms
+ds4: metal layer stage part=decode layer=30 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=30 pos=27 tokens=1 q_path=0.215 ms
+ds4: metal layer stage part=decode layer=30 pos=27 tokens=1 kv_path=0.013 ms
+ds4: metal layer stage part=decode layer=30 pos=27 tokens=1 compressor_indexer=0.145 ms
+ds4: metal layer stage part=decode layer=30 pos=27 tokens=1 attention=0.075 ms
+ds4: metal layer stage part=decode layer=30 pos=27 tokens=1 attn_output=0.320 ms
+ds4: metal layer stage part=decode layer=30 pos=27 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=30 pos=27 tokens=1 ffn_hc_pre=0.024 ms
+ds4: metal layer stage part=decode layer=30 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=30 pos=27 tokens=1 router=0.027 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.002 gateup=0.227 midq=0.004 down=0.111 sum=0.001 total=0.349 ms
+ds4: metal layer stage part=decode layer=30 pos=27 tokens=1 routed_moe=0.360 ms
+ds4: metal layer stage part=decode layer=30 pos=27 tokens=1 shared_gate_up=0.089 ms
+ds4: metal layer stage part=decode layer=30 pos=27 tokens=1 shared_down=0.051 ms
+ds4: metal layer stage part=decode layer=30 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=31 pos=27 tokens=1 attn_hc_pre=0.027 ms
+ds4: metal layer stage part=decode layer=31 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=31 pos=27 tokens=1 q_path=0.204 ms
+ds4: metal layer stage part=decode layer=31 pos=27 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=31 pos=27 tokens=1 compressor_indexer=0.050 ms
+ds4: metal layer stage part=decode layer=31 pos=27 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=31 pos=27 tokens=1 attn_output=0.322 ms
+ds4: metal layer stage part=decode layer=31 pos=27 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=31 pos=27 tokens=1 ffn_hc_pre=0.026 ms
+ds4: metal layer stage part=decode layer=31 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=31 pos=27 tokens=1 router=0.028 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.233 midq=0.004 down=0.110 sum=0.001 total=0.352 ms
+ds4: metal layer stage part=decode layer=31 pos=27 tokens=1 routed_moe=0.362 ms
+ds4: metal layer stage part=decode layer=31 pos=27 tokens=1 shared_gate_up=0.087 ms
+ds4: metal layer stage part=decode layer=31 pos=27 tokens=1 shared_down=0.054 ms
+ds4: metal layer stage part=decode layer=31 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=32 pos=27 tokens=1 attn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=32 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=32 pos=27 tokens=1 q_path=0.212 ms
+ds4: metal layer stage part=decode layer=32 pos=27 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=32 pos=27 tokens=1 compressor_indexer=0.155 ms
+ds4: metal layer stage part=decode layer=32 pos=27 tokens=1 attention=0.078 ms
+ds4: metal layer stage part=decode layer=32 pos=27 tokens=1 attn_output=0.322 ms
+ds4: metal layer stage part=decode layer=32 pos=27 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=32 pos=27 tokens=1 ffn_hc_pre=0.024 ms
+ds4: metal layer stage part=decode layer=32 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=32 pos=27 tokens=1 router=0.026 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.230 midq=0.004 down=0.112 sum=0.001 total=0.352 ms
+ds4: metal layer stage part=decode layer=32 pos=27 tokens=1 routed_moe=0.361 ms
+ds4: metal layer stage part=decode layer=32 pos=27 tokens=1 shared_gate_up=0.088 ms
+ds4: metal layer stage part=decode layer=32 pos=27 tokens=1 shared_down=0.049 ms
+ds4: metal layer stage part=decode layer=32 pos=27 tokens=1 ffn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=33 pos=27 tokens=1 attn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=33 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=33 pos=27 tokens=1 q_path=0.208 ms
+ds4: metal layer stage part=decode layer=33 pos=27 tokens=1 kv_path=0.013 ms
+ds4: metal layer stage part=decode layer=33 pos=27 tokens=1 compressor_indexer=0.048 ms
+ds4: metal layer stage part=decode layer=33 pos=27 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=33 pos=27 tokens=1 attn_output=0.323 ms
+ds4: metal layer stage part=decode layer=33 pos=27 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=33 pos=27 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=33 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=33 pos=27 tokens=1 router=0.025 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.230 midq=0.004 down=0.114 sum=0.001 total=0.354 ms
+ds4: metal layer stage part=decode layer=33 pos=27 tokens=1 routed_moe=0.363 ms
+ds4: metal layer stage part=decode layer=33 pos=27 tokens=1 shared_gate_up=0.088 ms
+ds4: metal layer stage part=decode layer=33 pos=27 tokens=1 shared_down=0.050 ms
+ds4: metal layer stage part=decode layer=33 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=34 pos=27 tokens=1 attn_hc_pre=0.022 ms
+ds4: metal layer stage part=decode layer=34 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=34 pos=27 tokens=1 q_path=0.205 ms
+ds4: metal layer stage part=decode layer=34 pos=27 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=34 pos=27 tokens=1 compressor_indexer=0.146 ms
+ds4: metal layer stage part=decode layer=34 pos=27 tokens=1 attention=0.076 ms
+ds4: metal layer stage part=decode layer=34 pos=27 tokens=1 attn_output=0.317 ms
+ds4: metal layer stage part=decode layer=34 pos=27 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=34 pos=27 tokens=1 ffn_hc_pre=0.024 ms
+ds4: metal layer stage part=decode layer=34 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=34 pos=27 tokens=1 router=0.026 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.236 midq=0.004 down=0.115 sum=0.001 total=0.360 ms
+ds4: metal layer stage part=decode layer=34 pos=27 tokens=1 routed_moe=0.370 ms
+ds4: metal layer stage part=decode layer=34 pos=27 tokens=1 shared_gate_up=0.086 ms
+ds4: metal layer stage part=decode layer=34 pos=27 tokens=1 shared_down=0.050 ms
+ds4: metal layer stage part=decode layer=34 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=35 pos=27 tokens=1 attn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=35 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=35 pos=27 tokens=1 q_path=0.213 ms
+ds4: metal layer stage part=decode layer=35 pos=27 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=35 pos=27 tokens=1 compressor_indexer=0.049 ms
+ds4: metal layer stage part=decode layer=35 pos=27 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=35 pos=27 tokens=1 attn_output=0.320 ms
+ds4: metal layer stage part=decode layer=35 pos=27 tokens=1 attn_hc_post=0.003 ms
+ds4: metal layer stage part=decode layer=35 pos=27 tokens=1 ffn_hc_pre=0.024 ms
+ds4: metal layer stage part=decode layer=35 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=35 pos=27 tokens=1 router=0.025 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.235 midq=0.004 down=0.113 sum=0.001 total=0.357 ms
+ds4: metal layer stage part=decode layer=35 pos=27 tokens=1 routed_moe=0.367 ms
+ds4: metal layer stage part=decode layer=35 pos=27 tokens=1 shared_gate_up=0.087 ms
+ds4: metal layer stage part=decode layer=35 pos=27 tokens=1 shared_down=0.047 ms
+ds4: metal layer stage part=decode layer=35 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=36 pos=27 tokens=1 attn_hc_pre=0.029 ms
+ds4: metal layer stage part=decode layer=36 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=36 pos=27 tokens=1 q_path=0.212 ms
+ds4: metal layer stage part=decode layer=36 pos=27 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=36 pos=27 tokens=1 compressor_indexer=0.143 ms
+ds4: metal layer stage part=decode layer=36 pos=27 tokens=1 attention=0.076 ms
+ds4: metal layer stage part=decode layer=36 pos=27 tokens=1 attn_output=0.328 ms
+ds4: metal layer stage part=decode layer=36 pos=27 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=36 pos=27 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=36 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=36 pos=27 tokens=1 router=0.031 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.230 midq=0.004 down=0.108 sum=0.001 total=0.348 ms
+ds4: metal layer stage part=decode layer=36 pos=27 tokens=1 routed_moe=0.357 ms
+ds4: metal layer stage part=decode layer=36 pos=27 tokens=1 shared_gate_up=0.090 ms
+ds4: metal layer stage part=decode layer=36 pos=27 tokens=1 shared_down=0.051 ms
+ds4: metal layer stage part=decode layer=36 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=37 pos=27 tokens=1 attn_hc_pre=0.028 ms
+ds4: metal layer stage part=decode layer=37 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=37 pos=27 tokens=1 q_path=0.212 ms
+ds4: metal layer stage part=decode layer=37 pos=27 tokens=1 kv_path=0.013 ms
+ds4: metal layer stage part=decode layer=37 pos=27 tokens=1 compressor_indexer=0.050 ms
+ds4: metal layer stage part=decode layer=37 pos=27 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=37 pos=27 tokens=1 attn_output=0.315 ms
+ds4: metal layer stage part=decode layer=37 pos=27 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=37 pos=27 tokens=1 ffn_hc_pre=0.026 ms
+ds4: metal layer stage part=decode layer=37 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=37 pos=27 tokens=1 router=0.028 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.006 sort=0.001 gateup=0.227 midq=0.005 down=0.114 sum=0.001 total=0.353 ms
+ds4: metal layer stage part=decode layer=37 pos=27 tokens=1 routed_moe=0.362 ms
+ds4: metal layer stage part=decode layer=37 pos=27 tokens=1 shared_gate_up=0.094 ms
+ds4: metal layer stage part=decode layer=37 pos=27 tokens=1 shared_down=0.053 ms
+ds4: metal layer stage part=decode layer=37 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=38 pos=27 tokens=1 attn_hc_pre=0.029 ms
+ds4: metal layer stage part=decode layer=38 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=38 pos=27 tokens=1 q_path=0.210 ms
+ds4: metal layer stage part=decode layer=38 pos=27 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=38 pos=27 tokens=1 compressor_indexer=0.153 ms
+ds4: metal layer stage part=decode layer=38 pos=27 tokens=1 attention=0.075 ms
+ds4: metal layer stage part=decode layer=38 pos=27 tokens=1 attn_output=0.315 ms
+ds4: metal layer stage part=decode layer=38 pos=27 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=38 pos=27 tokens=1 ffn_hc_pre=0.025 ms
+ds4: metal layer stage part=decode layer=38 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=38 pos=27 tokens=1 router=0.025 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.006 sort=0.001 gateup=0.233 midq=0.004 down=0.108 sum=0.001 total=0.351 ms
+ds4: metal layer stage part=decode layer=38 pos=27 tokens=1 routed_moe=0.361 ms
+ds4: metal layer stage part=decode layer=38 pos=27 tokens=1 shared_gate_up=0.090 ms
+ds4: metal layer stage part=decode layer=38 pos=27 tokens=1 shared_down=0.049 ms
+ds4: metal layer stage part=decode layer=38 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=39 pos=27 tokens=1 attn_hc_pre=0.022 ms
+ds4: metal layer stage part=decode layer=39 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=39 pos=27 tokens=1 q_path=0.208 ms
+ds4: metal layer stage part=decode layer=39 pos=27 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=39 pos=27 tokens=1 compressor_indexer=0.048 ms
+ds4: metal layer stage part=decode layer=39 pos=27 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=39 pos=27 tokens=1 attn_output=0.314 ms
+ds4: metal layer stage part=decode layer=39 pos=27 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=39 pos=27 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=39 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=39 pos=27 tokens=1 router=0.031 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.236 midq=0.004 down=0.111 sum=0.001 total=0.356 ms
+ds4: metal layer stage part=decode layer=39 pos=27 tokens=1 routed_moe=0.365 ms
+ds4: metal layer stage part=decode layer=39 pos=27 tokens=1 shared_gate_up=0.093 ms
+ds4: metal layer stage part=decode layer=39 pos=27 tokens=1 shared_down=0.052 ms
+ds4: metal layer stage part=decode layer=39 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=40 pos=27 tokens=1 attn_hc_pre=0.026 ms
+ds4: metal layer stage part=decode layer=40 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=40 pos=27 tokens=1 q_path=0.209 ms
+ds4: metal layer stage part=decode layer=40 pos=27 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=40 pos=27 tokens=1 compressor_indexer=0.150 ms
+ds4: metal layer stage part=decode layer=40 pos=27 tokens=1 attention=0.076 ms
+ds4: metal layer stage part=decode layer=40 pos=27 tokens=1 attn_output=0.328 ms
+ds4: metal layer stage part=decode layer=40 pos=27 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=40 pos=27 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=40 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=40 pos=27 tokens=1 router=0.025 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.238 midq=0.004 down=0.113 sum=0.001 total=0.360 ms
+ds4: metal layer stage part=decode layer=40 pos=27 tokens=1 routed_moe=0.370 ms
+ds4: metal layer stage part=decode layer=40 pos=27 tokens=1 shared_gate_up=0.092 ms
+ds4: metal layer stage part=decode layer=40 pos=27 tokens=1 shared_down=0.049 ms
+ds4: metal layer stage part=decode layer=40 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=41 pos=27 tokens=1 attn_hc_pre=0.025 ms
+ds4: metal layer stage part=decode layer=41 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=41 pos=27 tokens=1 q_path=0.201 ms
+ds4: metal layer stage part=decode layer=41 pos=27 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=41 pos=27 tokens=1 compressor_indexer=0.047 ms
+ds4: metal layer stage part=decode layer=41 pos=27 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=41 pos=27 tokens=1 attn_output=0.317 ms
+ds4: metal layer stage part=decode layer=41 pos=27 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=41 pos=27 tokens=1 ffn_hc_pre=0.026 ms
+ds4: metal layer stage part=decode layer=41 pos=27 tokens=1 ffn_norm=0.002 ms
+ds4: metal layer stage part=decode layer=41 pos=27 tokens=1 router=0.031 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.228 midq=0.004 down=0.118 sum=0.001 total=0.356 ms
+ds4: metal layer stage part=decode layer=41 pos=27 tokens=1 routed_moe=0.365 ms
+ds4: metal layer stage part=decode layer=41 pos=27 tokens=1 shared_gate_up=0.090 ms
+ds4: metal layer stage part=decode layer=41 pos=27 tokens=1 shared_down=0.048 ms
+ds4: metal layer stage part=decode layer=41 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=42 pos=27 tokens=1 attn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=42 pos=27 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=42 pos=27 tokens=1 q_path=0.198 ms
+ds4: metal layer stage part=decode layer=42 pos=27 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=42 pos=27 tokens=1 compressor_indexer=0.144 ms
+ds4: metal layer stage part=decode layer=42 pos=27 tokens=1 attention=0.076 ms
+ds4: metal layer stage part=decode layer=42 pos=27 tokens=1 attn_output=0.331 ms
+ds4: metal layer stage part=decode layer=42 pos=27 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=42 pos=27 tokens=1 ffn_hc_pre=0.024 ms
+ds4: metal layer stage part=decode layer=42 pos=27 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=42 pos=27 tokens=1 router=0.025 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.006 sort=0.001 gateup=0.239 midq=0.004 down=0.111 sum=0.001 total=0.361 ms
+ds4: metal layer stage part=decode layer=42 pos=27 tokens=1 routed_moe=0.370 ms
+ds4: metal layer stage part=decode layer=42 pos=27 tokens=1 shared_gate_up=0.091 ms
+ds4: metal layer stage part=decode layer=42 pos=27 tokens=1 shared_down=0.050 ms
+ds4: metal layer stage part=decode layer=42 pos=27 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=0 pos=28 tokens=1 attn_hc_pre=0.031 ms
+ds4: metal layer stage part=decode layer=0 pos=28 tokens=1 attn_norm=0.002 ms
+ds4: metal layer stage part=decode layer=0 pos=28 tokens=1 q_path=0.204 ms
+ds4: metal layer stage part=decode layer=0 pos=28 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=0 pos=28 tokens=1 compressor_indexer=0.001 ms
+ds4: metal layer stage part=decode layer=0 pos=28 tokens=1 attention=0.049 ms
+ds4: metal layer stage part=decode layer=0 pos=28 tokens=1 attn_output=0.316 ms
+ds4: metal layer stage part=decode layer=0 pos=28 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=0 pos=28 tokens=1 ffn_hc_pre=0.024 ms
+ds4: metal layer stage part=decode layer=0 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=0 pos=28 tokens=1 router=0.027 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.236 midq=0.004 down=0.118 sum=0.001 total=0.364 ms
+ds4: metal layer stage part=decode layer=0 pos=28 tokens=1 routed_moe=0.374 ms
+ds4: metal layer stage part=decode layer=0 pos=28 tokens=1 shared_gate_up=0.094 ms
+ds4: metal layer stage part=decode layer=0 pos=28 tokens=1 shared_down=0.052 ms
+ds4: metal layer stage part=decode layer=0 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=1 pos=28 tokens=1 attn_hc_pre=0.024 ms
+ds4: metal layer stage part=decode layer=1 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=1 pos=28 tokens=1 q_path=0.207 ms
+ds4: metal layer stage part=decode layer=1 pos=28 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=1 pos=28 tokens=1 compressor_indexer=0.001 ms
+ds4: metal layer stage part=decode layer=1 pos=28 tokens=1 attention=0.049 ms
+ds4: metal layer stage part=decode layer=1 pos=28 tokens=1 attn_output=0.319 ms
+ds4: metal layer stage part=decode layer=1 pos=28 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=1 pos=28 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=1 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=1 pos=28 tokens=1 router=0.025 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.232 midq=0.004 down=0.114 sum=0.001 total=0.355 ms
+ds4: metal layer stage part=decode layer=1 pos=28 tokens=1 routed_moe=0.366 ms
+ds4: metal layer stage part=decode layer=1 pos=28 tokens=1 shared_gate_up=0.089 ms
+ds4: metal layer stage part=decode layer=1 pos=28 tokens=1 shared_down=0.050 ms
+ds4: metal layer stage part=decode layer=1 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=2 pos=28 tokens=1 attn_hc_pre=0.028 ms
+ds4: metal layer stage part=decode layer=2 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=2 pos=28 tokens=1 q_path=0.208 ms
+ds4: metal layer stage part=decode layer=2 pos=28 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=2 pos=28 tokens=1 compressor_indexer=0.108 ms
+ds4: metal layer stage part=decode layer=2 pos=28 tokens=1 attention=0.080 ms
+ds4: metal layer stage part=decode layer=2 pos=28 tokens=1 attn_output=0.314 ms
+ds4: metal layer stage part=decode layer=2 pos=28 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=2 pos=28 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=2 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=2 pos=28 tokens=1 router=0.027 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.232 midq=0.004 down=0.116 sum=0.001 total=0.357 ms
+ds4: metal layer stage part=decode layer=2 pos=28 tokens=1 routed_moe=0.367 ms
+ds4: metal layer stage part=decode layer=2 pos=28 tokens=1 shared_gate_up=0.093 ms
+ds4: metal layer stage part=decode layer=2 pos=28 tokens=1 shared_down=0.051 ms
+ds4: metal layer stage part=decode layer=2 pos=28 tokens=1 ffn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=3 pos=28 tokens=1 attn_hc_pre=0.022 ms
+ds4: metal layer stage part=decode layer=3 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=3 pos=28 tokens=1 q_path=0.203 ms
+ds4: metal layer stage part=decode layer=3 pos=28 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=3 pos=28 tokens=1 compressor_indexer=0.046 ms
+ds4: metal layer stage part=decode layer=3 pos=28 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=3 pos=28 tokens=1 attn_output=0.331 ms
+ds4: metal layer stage part=decode layer=3 pos=28 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=3 pos=28 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=3 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=3 pos=28 tokens=1 router=0.024 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.229 midq=0.004 down=0.113 sum=0.001 total=0.351 ms
+ds4: metal layer stage part=decode layer=3 pos=28 tokens=1 routed_moe=0.361 ms
+ds4: metal layer stage part=decode layer=3 pos=28 tokens=1 shared_gate_up=0.086 ms
+ds4: metal layer stage part=decode layer=3 pos=28 tokens=1 shared_down=0.049 ms
+ds4: metal layer stage part=decode layer=3 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=4 pos=28 tokens=1 attn_hc_pre=0.026 ms
+ds4: metal layer stage part=decode layer=4 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=4 pos=28 tokens=1 q_path=0.198 ms
+ds4: metal layer stage part=decode layer=4 pos=28 tokens=1 kv_path=0.011 ms
+ds4: metal layer stage part=decode layer=4 pos=28 tokens=1 compressor_indexer=0.102 ms
+ds4: metal layer stage part=decode layer=4 pos=28 tokens=1 attention=0.077 ms
+ds4: metal layer stage part=decode layer=4 pos=28 tokens=1 attn_output=0.317 ms
+ds4: metal layer stage part=decode layer=4 pos=28 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=4 pos=28 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=4 pos=28 tokens=1 ffn_norm=0.002 ms
+ds4: metal layer stage part=decode layer=4 pos=28 tokens=1 router=0.028 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.235 midq=0.004 down=0.113 sum=0.001 total=0.358 ms
+ds4: metal layer stage part=decode layer=4 pos=28 tokens=1 routed_moe=0.367 ms
+ds4: metal layer stage part=decode layer=4 pos=28 tokens=1 shared_gate_up=0.087 ms
+ds4: metal layer stage part=decode layer=4 pos=28 tokens=1 shared_down=0.051 ms
+ds4: metal layer stage part=decode layer=4 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=5 pos=28 tokens=1 attn_hc_pre=0.029 ms
+ds4: metal layer stage part=decode layer=5 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=5 pos=28 tokens=1 q_path=0.212 ms
+ds4: metal layer stage part=decode layer=5 pos=28 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=5 pos=28 tokens=1 compressor_indexer=0.050 ms
+ds4: metal layer stage part=decode layer=5 pos=28 tokens=1 attention=0.048 ms
+ds4: metal layer stage part=decode layer=5 pos=28 tokens=1 attn_output=0.309 ms
+ds4: metal layer stage part=decode layer=5 pos=28 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=5 pos=28 tokens=1 ffn_hc_pre=0.025 ms
+ds4: metal layer stage part=decode layer=5 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=5 pos=28 tokens=1 router=0.028 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.233 midq=0.004 down=0.106 sum=0.001 total=0.349 ms
+ds4: metal layer stage part=decode layer=5 pos=28 tokens=1 routed_moe=0.359 ms
+ds4: metal layer stage part=decode layer=5 pos=28 tokens=1 shared_gate_up=0.094 ms
+ds4: metal layer stage part=decode layer=5 pos=28 tokens=1 shared_down=0.055 ms
+ds4: metal layer stage part=decode layer=5 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=6 pos=28 tokens=1 attn_hc_pre=0.025 ms
+ds4: metal layer stage part=decode layer=6 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=6 pos=28 tokens=1 q_path=0.205 ms
+ds4: metal layer stage part=decode layer=6 pos=28 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=6 pos=28 tokens=1 compressor_indexer=0.104 ms
+ds4: metal layer stage part=decode layer=6 pos=28 tokens=1 attention=0.077 ms
+ds4: metal layer stage part=decode layer=6 pos=28 tokens=1 attn_output=0.313 ms
+ds4: metal layer stage part=decode layer=6 pos=28 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=6 pos=28 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=6 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=6 pos=28 tokens=1 router=0.024 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.234 midq=0.004 down=0.113 sum=0.001 total=0.356 ms
+ds4: metal layer stage part=decode layer=6 pos=28 tokens=1 routed_moe=0.366 ms
+ds4: metal layer stage part=decode layer=6 pos=28 tokens=1 shared_gate_up=0.093 ms
+ds4: metal layer stage part=decode layer=6 pos=28 tokens=1 shared_down=0.049 ms
+ds4: metal layer stage part=decode layer=6 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=7 pos=28 tokens=1 attn_hc_pre=0.029 ms
+ds4: metal layer stage part=decode layer=7 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=7 pos=28 tokens=1 q_path=0.205 ms
+ds4: metal layer stage part=decode layer=7 pos=28 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=7 pos=28 tokens=1 compressor_indexer=0.049 ms
+ds4: metal layer stage part=decode layer=7 pos=28 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=7 pos=28 tokens=1 attn_output=0.321 ms
+ds4: metal layer stage part=decode layer=7 pos=28 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=7 pos=28 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=7 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=7 pos=28 tokens=1 router=0.024 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.229 midq=0.004 down=0.115 sum=0.001 total=0.353 ms
+ds4: metal layer stage part=decode layer=7 pos=28 tokens=1 routed_moe=0.363 ms
+ds4: metal layer stage part=decode layer=7 pos=28 tokens=1 shared_gate_up=0.084 ms
+ds4: metal layer stage part=decode layer=7 pos=28 tokens=1 shared_down=0.049 ms
+ds4: metal layer stage part=decode layer=7 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=8 pos=28 tokens=1 attn_hc_pre=0.026 ms
+ds4: metal layer stage part=decode layer=8 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=8 pos=28 tokens=1 q_path=0.204 ms
+ds4: metal layer stage part=decode layer=8 pos=28 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=8 pos=28 tokens=1 compressor_indexer=0.101 ms
+ds4: metal layer stage part=decode layer=8 pos=28 tokens=1 attention=0.077 ms
+ds4: metal layer stage part=decode layer=8 pos=28 tokens=1 attn_output=0.330 ms
+ds4: metal layer stage part=decode layer=8 pos=28 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=8 pos=28 tokens=1 ffn_hc_pre=0.025 ms
+ds4: metal layer stage part=decode layer=8 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=8 pos=28 tokens=1 router=0.026 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.237 midq=0.004 down=0.113 sum=0.001 total=0.359 ms
+ds4: metal layer stage part=decode layer=8 pos=28 tokens=1 routed_moe=0.369 ms
+ds4: metal layer stage part=decode layer=8 pos=28 tokens=1 shared_gate_up=0.094 ms
+ds4: metal layer stage part=decode layer=8 pos=28 tokens=1 shared_down=0.056 ms
+ds4: metal layer stage part=decode layer=8 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=9 pos=28 tokens=1 attn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=9 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=9 pos=28 tokens=1 q_path=0.204 ms
+ds4: metal layer stage part=decode layer=9 pos=28 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=9 pos=28 tokens=1 compressor_indexer=0.049 ms
+ds4: metal layer stage part=decode layer=9 pos=28 tokens=1 attention=0.048 ms
+ds4: metal layer stage part=decode layer=9 pos=28 tokens=1 attn_output=0.315 ms
+ds4: metal layer stage part=decode layer=9 pos=28 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=9 pos=28 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=9 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=9 pos=28 tokens=1 router=0.028 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.229 midq=0.004 down=0.113 sum=0.001 total=0.351 ms
+ds4: metal layer stage part=decode layer=9 pos=28 tokens=1 routed_moe=0.361 ms
+ds4: metal layer stage part=decode layer=9 pos=28 tokens=1 shared_gate_up=0.092 ms
+ds4: metal layer stage part=decode layer=9 pos=28 tokens=1 shared_down=0.048 ms
+ds4: metal layer stage part=decode layer=9 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=10 pos=28 tokens=1 attn_hc_pre=0.022 ms
+ds4: metal layer stage part=decode layer=10 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=10 pos=28 tokens=1 q_path=0.198 ms
+ds4: metal layer stage part=decode layer=10 pos=28 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=10 pos=28 tokens=1 compressor_indexer=0.108 ms
+ds4: metal layer stage part=decode layer=10 pos=28 tokens=1 attention=0.077 ms
+ds4: metal layer stage part=decode layer=10 pos=28 tokens=1 attn_output=0.321 ms
+ds4: metal layer stage part=decode layer=10 pos=28 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=10 pos=28 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=10 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=10 pos=28 tokens=1 router=0.024 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.235 midq=0.004 down=0.113 sum=0.001 total=0.358 ms
+ds4: metal layer stage part=decode layer=10 pos=28 tokens=1 routed_moe=0.367 ms
+ds4: metal layer stage part=decode layer=10 pos=28 tokens=1 shared_gate_up=0.085 ms
+ds4: metal layer stage part=decode layer=10 pos=28 tokens=1 shared_down=0.049 ms
+ds4: metal layer stage part=decode layer=10 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=11 pos=28 tokens=1 attn_hc_pre=0.029 ms
+ds4: metal layer stage part=decode layer=11 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=11 pos=28 tokens=1 q_path=0.210 ms
+ds4: metal layer stage part=decode layer=11 pos=28 tokens=1 kv_path=0.013 ms
+ds4: metal layer stage part=decode layer=11 pos=28 tokens=1 compressor_indexer=0.046 ms
+ds4: metal layer stage part=decode layer=11 pos=28 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=11 pos=28 tokens=1 attn_output=0.306 ms
+ds4: metal layer stage part=decode layer=11 pos=28 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=11 pos=28 tokens=1 ffn_hc_pre=0.026 ms
+ds4: metal layer stage part=decode layer=11 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=11 pos=28 tokens=1 router=0.029 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.231 midq=0.004 down=0.116 sum=0.001 total=0.357 ms
+ds4: metal layer stage part=decode layer=11 pos=28 tokens=1 routed_moe=0.366 ms
+ds4: metal layer stage part=decode layer=11 pos=28 tokens=1 shared_gate_up=0.094 ms
+ds4: metal layer stage part=decode layer=11 pos=28 tokens=1 shared_down=0.055 ms
+ds4: metal layer stage part=decode layer=11 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=12 pos=28 tokens=1 attn_hc_pre=0.028 ms
+ds4: metal layer stage part=decode layer=12 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=12 pos=28 tokens=1 q_path=0.216 ms
+ds4: metal layer stage part=decode layer=12 pos=28 tokens=1 kv_path=0.013 ms
+ds4: metal layer stage part=decode layer=12 pos=28 tokens=1 compressor_indexer=0.110 ms
+ds4: metal layer stage part=decode layer=12 pos=28 tokens=1 attention=0.078 ms
+ds4: metal layer stage part=decode layer=12 pos=28 tokens=1 attn_output=0.325 ms
+ds4: metal layer stage part=decode layer=12 pos=28 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=12 pos=28 tokens=1 ffn_hc_pre=0.025 ms
+ds4: metal layer stage part=decode layer=12 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=12 pos=28 tokens=1 router=0.030 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.225 midq=0.004 down=0.110 sum=0.001 total=0.344 ms
+ds4: metal layer stage part=decode layer=12 pos=28 tokens=1 routed_moe=0.354 ms
+ds4: metal layer stage part=decode layer=12 pos=28 tokens=1 shared_gate_up=0.095 ms
+ds4: metal layer stage part=decode layer=12 pos=28 tokens=1 shared_down=0.052 ms
+ds4: metal layer stage part=decode layer=12 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=13 pos=28 tokens=1 attn_hc_pre=0.022 ms
+ds4: metal layer stage part=decode layer=13 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=13 pos=28 tokens=1 q_path=0.209 ms
+ds4: metal layer stage part=decode layer=13 pos=28 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=13 pos=28 tokens=1 compressor_indexer=0.046 ms
+ds4: metal layer stage part=decode layer=13 pos=28 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=13 pos=28 tokens=1 attn_output=0.317 ms
+ds4: metal layer stage part=decode layer=13 pos=28 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=13 pos=28 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=13 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=13 pos=28 tokens=1 router=0.028 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.239 midq=0.004 down=0.108 sum=0.001 total=0.357 ms
+ds4: metal layer stage part=decode layer=13 pos=28 tokens=1 routed_moe=0.366 ms
+ds4: metal layer stage part=decode layer=13 pos=28 tokens=1 shared_gate_up=0.086 ms
+ds4: metal layer stage part=decode layer=13 pos=28 tokens=1 shared_down=0.050 ms
+ds4: metal layer stage part=decode layer=13 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=14 pos=28 tokens=1 attn_hc_pre=0.022 ms
+ds4: metal layer stage part=decode layer=14 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=14 pos=28 tokens=1 q_path=0.204 ms
+ds4: metal layer stage part=decode layer=14 pos=28 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=14 pos=28 tokens=1 compressor_indexer=0.110 ms
+ds4: metal layer stage part=decode layer=14 pos=28 tokens=1 attention=0.078 ms
+ds4: metal layer stage part=decode layer=14 pos=28 tokens=1 attn_output=0.327 ms
+ds4: metal layer stage part=decode layer=14 pos=28 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=14 pos=28 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=14 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=14 pos=28 tokens=1 router=0.024 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.231 midq=0.004 down=0.116 sum=0.001 total=0.357 ms
+ds4: metal layer stage part=decode layer=14 pos=28 tokens=1 routed_moe=0.367 ms
+ds4: metal layer stage part=decode layer=14 pos=28 tokens=1 shared_gate_up=0.092 ms
+ds4: metal layer stage part=decode layer=14 pos=28 tokens=1 shared_down=0.048 ms
+ds4: metal layer stage part=decode layer=14 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=15 pos=28 tokens=1 attn_hc_pre=0.026 ms
+ds4: metal layer stage part=decode layer=15 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=15 pos=28 tokens=1 q_path=0.210 ms
+ds4: metal layer stage part=decode layer=15 pos=28 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=15 pos=28 tokens=1 compressor_indexer=0.050 ms
+ds4: metal layer stage part=decode layer=15 pos=28 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=15 pos=28 tokens=1 attn_output=0.324 ms
+ds4: metal layer stage part=decode layer=15 pos=28 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=15 pos=28 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=15 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=15 pos=28 tokens=1 router=0.032 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.227 midq=0.004 down=0.115 sum=0.001 total=0.351 ms
+ds4: metal layer stage part=decode layer=15 pos=28 tokens=1 routed_moe=0.361 ms
+ds4: metal layer stage part=decode layer=15 pos=28 tokens=1 shared_gate_up=0.084 ms
+ds4: metal layer stage part=decode layer=15 pos=28 tokens=1 shared_down=0.050 ms
+ds4: metal layer stage part=decode layer=15 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=16 pos=28 tokens=1 attn_hc_pre=0.022 ms
+ds4: metal layer stage part=decode layer=16 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=16 pos=28 tokens=1 q_path=0.204 ms
+ds4: metal layer stage part=decode layer=16 pos=28 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=16 pos=28 tokens=1 compressor_indexer=0.107 ms
+ds4: metal layer stage part=decode layer=16 pos=28 tokens=1 attention=0.077 ms
+ds4: metal layer stage part=decode layer=16 pos=28 tokens=1 attn_output=0.332 ms
+ds4: metal layer stage part=decode layer=16 pos=28 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=16 pos=28 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=16 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=16 pos=28 tokens=1 router=0.024 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.231 midq=0.004 down=0.110 sum=0.001 total=0.351 ms
+ds4: metal layer stage part=decode layer=16 pos=28 tokens=1 routed_moe=0.360 ms
+ds4: metal layer stage part=decode layer=16 pos=28 tokens=1 shared_gate_up=0.091 ms
+ds4: metal layer stage part=decode layer=16 pos=28 tokens=1 shared_down=0.048 ms
+ds4: metal layer stage part=decode layer=16 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=17 pos=28 tokens=1 attn_hc_pre=0.027 ms
+ds4: metal layer stage part=decode layer=17 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=17 pos=28 tokens=1 q_path=0.200 ms
+ds4: metal layer stage part=decode layer=17 pos=28 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=17 pos=28 tokens=1 compressor_indexer=0.047 ms
+ds4: metal layer stage part=decode layer=17 pos=28 tokens=1 attention=0.049 ms
+ds4: metal layer stage part=decode layer=17 pos=28 tokens=1 attn_output=0.307 ms
+ds4: metal layer stage part=decode layer=17 pos=28 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=17 pos=28 tokens=1 ffn_hc_pre=0.026 ms
+ds4: metal layer stage part=decode layer=17 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=17 pos=28 tokens=1 router=0.024 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.229 midq=0.004 down=0.113 sum=0.001 total=0.352 ms
+ds4: metal layer stage part=decode layer=17 pos=28 tokens=1 routed_moe=0.361 ms
+ds4: metal layer stage part=decode layer=17 pos=28 tokens=1 shared_gate_up=0.094 ms
+ds4: metal layer stage part=decode layer=17 pos=28 tokens=1 shared_down=0.052 ms
+ds4: metal layer stage part=decode layer=17 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=18 pos=28 tokens=1 attn_hc_pre=0.027 ms
+ds4: metal layer stage part=decode layer=18 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=18 pos=28 tokens=1 q_path=0.212 ms
+ds4: metal layer stage part=decode layer=18 pos=28 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=18 pos=28 tokens=1 compressor_indexer=0.110 ms
+ds4: metal layer stage part=decode layer=18 pos=28 tokens=1 attention=0.077 ms
+ds4: metal layer stage part=decode layer=18 pos=28 tokens=1 attn_output=0.319 ms
+ds4: metal layer stage part=decode layer=18 pos=28 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=18 pos=28 tokens=1 ffn_hc_pre=0.025 ms
+ds4: metal layer stage part=decode layer=18 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=18 pos=28 tokens=1 router=0.028 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.239 midq=0.004 down=0.105 sum=0.001 total=0.354 ms
+ds4: metal layer stage part=decode layer=18 pos=28 tokens=1 routed_moe=0.363 ms
+ds4: metal layer stage part=decode layer=18 pos=28 tokens=1 shared_gate_up=0.092 ms
+ds4: metal layer stage part=decode layer=18 pos=28 tokens=1 shared_down=0.055 ms
+ds4: metal layer stage part=decode layer=18 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=19 pos=28 tokens=1 attn_hc_pre=0.025 ms
+ds4: metal layer stage part=decode layer=19 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=19 pos=28 tokens=1 q_path=0.209 ms
+ds4: metal layer stage part=decode layer=19 pos=28 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=19 pos=28 tokens=1 compressor_indexer=0.048 ms
+ds4: metal layer stage part=decode layer=19 pos=28 tokens=1 attention=0.046 ms
+ds4: metal layer stage part=decode layer=19 pos=28 tokens=1 attn_output=0.321 ms
+ds4: metal layer stage part=decode layer=19 pos=28 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=19 pos=28 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=19 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=19 pos=28 tokens=1 router=0.026 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.006 sort=0.001 gateup=0.233 midq=0.004 down=0.113 sum=0.001 total=0.356 ms
+ds4: metal layer stage part=decode layer=19 pos=28 tokens=1 routed_moe=0.365 ms
+ds4: metal layer stage part=decode layer=19 pos=28 tokens=1 shared_gate_up=0.093 ms
+ds4: metal layer stage part=decode layer=19 pos=28 tokens=1 shared_down=0.049 ms
+ds4: metal layer stage part=decode layer=19 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=20 pos=28 tokens=1 attn_hc_pre=0.025 ms
+ds4: metal layer stage part=decode layer=20 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=20 pos=28 tokens=1 q_path=0.207 ms
+ds4: metal layer stage part=decode layer=20 pos=28 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=20 pos=28 tokens=1 compressor_indexer=0.114 ms
+ds4: metal layer stage part=decode layer=20 pos=28 tokens=1 attention=0.078 ms
+ds4: metal layer stage part=decode layer=20 pos=28 tokens=1 attn_output=0.330 ms
+ds4: metal layer stage part=decode layer=20 pos=28 tokens=1 attn_hc_post=0.003 ms
+ds4: metal layer stage part=decode layer=20 pos=28 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=20 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=20 pos=28 tokens=1 router=0.026 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.233 midq=0.004 down=0.112 sum=0.001 total=0.355 ms
+ds4: metal layer stage part=decode layer=20 pos=28 tokens=1 routed_moe=0.364 ms
+ds4: metal layer stage part=decode layer=20 pos=28 tokens=1 shared_gate_up=0.085 ms
+ds4: metal layer stage part=decode layer=20 pos=28 tokens=1 shared_down=0.049 ms
+ds4: metal layer stage part=decode layer=20 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=21 pos=28 tokens=1 attn_hc_pre=0.024 ms
+ds4: metal layer stage part=decode layer=21 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=21 pos=28 tokens=1 q_path=0.207 ms
+ds4: metal layer stage part=decode layer=21 pos=28 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=21 pos=28 tokens=1 compressor_indexer=0.048 ms
+ds4: metal layer stage part=decode layer=21 pos=28 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=21 pos=28 tokens=1 attn_output=0.322 ms
+ds4: metal layer stage part=decode layer=21 pos=28 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=21 pos=28 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=21 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=21 pos=28 tokens=1 router=0.030 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.233 midq=0.004 down=0.113 sum=0.001 total=0.356 ms
+ds4: metal layer stage part=decode layer=21 pos=28 tokens=1 routed_moe=0.365 ms
+ds4: metal layer stage part=decode layer=21 pos=28 tokens=1 shared_gate_up=0.092 ms
+ds4: metal layer stage part=decode layer=21 pos=28 tokens=1 shared_down=0.052 ms
+ds4: metal layer stage part=decode layer=21 pos=28 tokens=1 ffn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=22 pos=28 tokens=1 attn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=22 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=22 pos=28 tokens=1 q_path=0.201 ms
+ds4: metal layer stage part=decode layer=22 pos=28 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=22 pos=28 tokens=1 compressor_indexer=0.112 ms
+ds4: metal layer stage part=decode layer=22 pos=28 tokens=1 attention=0.076 ms
+ds4: metal layer stage part=decode layer=22 pos=28 tokens=1 attn_output=0.324 ms
+ds4: metal layer stage part=decode layer=22 pos=28 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=22 pos=28 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=22 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=22 pos=28 tokens=1 router=0.024 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.233 midq=0.004 down=0.113 sum=0.001 total=0.356 ms
+ds4: metal layer stage part=decode layer=22 pos=28 tokens=1 routed_moe=0.366 ms
+ds4: metal layer stage part=decode layer=22 pos=28 tokens=1 shared_gate_up=0.090 ms
+ds4: metal layer stage part=decode layer=22 pos=28 tokens=1 shared_down=0.051 ms
+ds4: metal layer stage part=decode layer=22 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=23 pos=28 tokens=1 attn_hc_pre=0.024 ms
+ds4: metal layer stage part=decode layer=23 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=23 pos=28 tokens=1 q_path=0.199 ms
+ds4: metal layer stage part=decode layer=23 pos=28 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=23 pos=28 tokens=1 compressor_indexer=0.050 ms
+ds4: metal layer stage part=decode layer=23 pos=28 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=23 pos=28 tokens=1 attn_output=0.313 ms
+ds4: metal layer stage part=decode layer=23 pos=28 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=23 pos=28 tokens=1 ffn_hc_pre=0.025 ms
+ds4: metal layer stage part=decode layer=23 pos=28 tokens=1 ffn_norm=0.002 ms
+ds4: metal layer stage part=decode layer=23 pos=28 tokens=1 router=0.025 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.237 midq=0.004 down=0.110 sum=0.001 total=0.356 ms
+ds4: metal layer stage part=decode layer=23 pos=28 tokens=1 routed_moe=0.366 ms
+ds4: metal layer stage part=decode layer=23 pos=28 tokens=1 shared_gate_up=0.091 ms
+ds4: metal layer stage part=decode layer=23 pos=28 tokens=1 shared_down=0.051 ms
+ds4: metal layer stage part=decode layer=23 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=24 pos=28 tokens=1 attn_hc_pre=0.027 ms
+ds4: metal layer stage part=decode layer=24 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=24 pos=28 tokens=1 q_path=0.213 ms
+ds4: metal layer stage part=decode layer=24 pos=28 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=24 pos=28 tokens=1 compressor_indexer=0.110 ms
+ds4: metal layer stage part=decode layer=24 pos=28 tokens=1 attention=0.078 ms
+ds4: metal layer stage part=decode layer=24 pos=28 tokens=1 attn_output=0.325 ms
+ds4: metal layer stage part=decode layer=24 pos=28 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=24 pos=28 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=24 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=24 pos=28 tokens=1 router=0.028 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.229 midq=0.004 down=0.111 sum=0.001 total=0.350 ms
+ds4: metal layer stage part=decode layer=24 pos=28 tokens=1 routed_moe=0.359 ms
+ds4: metal layer stage part=decode layer=24 pos=28 tokens=1 shared_gate_up=0.088 ms
+ds4: metal layer stage part=decode layer=24 pos=28 tokens=1 shared_down=0.051 ms
+ds4: metal layer stage part=decode layer=24 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=25 pos=28 tokens=1 attn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=25 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=25 pos=28 tokens=1 q_path=0.205 ms
+ds4: metal layer stage part=decode layer=25 pos=28 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=25 pos=28 tokens=1 compressor_indexer=0.048 ms
+ds4: metal layer stage part=decode layer=25 pos=28 tokens=1 attention=0.048 ms
+ds4: metal layer stage part=decode layer=25 pos=28 tokens=1 attn_output=0.321 ms
+ds4: metal layer stage part=decode layer=25 pos=28 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=25 pos=28 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=25 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=25 pos=28 tokens=1 router=0.026 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.229 midq=0.004 down=0.109 sum=0.001 total=0.348 ms
+ds4: metal layer stage part=decode layer=25 pos=28 tokens=1 routed_moe=0.357 ms
+ds4: metal layer stage part=decode layer=25 pos=28 tokens=1 shared_gate_up=0.085 ms
+ds4: metal layer stage part=decode layer=25 pos=28 tokens=1 shared_down=0.052 ms
+ds4: metal layer stage part=decode layer=25 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=26 pos=28 tokens=1 attn_hc_pre=0.027 ms
+ds4: metal layer stage part=decode layer=26 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=26 pos=28 tokens=1 q_path=0.204 ms
+ds4: metal layer stage part=decode layer=26 pos=28 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=26 pos=28 tokens=1 compressor_indexer=0.108 ms
+ds4: metal layer stage part=decode layer=26 pos=28 tokens=1 attention=0.078 ms
+ds4: metal layer stage part=decode layer=26 pos=28 tokens=1 attn_output=0.310 ms
+ds4: metal layer stage part=decode layer=26 pos=28 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=26 pos=28 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=26 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=26 pos=28 tokens=1 router=0.034 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.235 midq=0.004 down=0.106 sum=0.001 total=0.352 ms
+ds4: metal layer stage part=decode layer=26 pos=28 tokens=1 routed_moe=0.361 ms
+ds4: metal layer stage part=decode layer=26 pos=28 tokens=1 shared_gate_up=0.093 ms
+ds4: metal layer stage part=decode layer=26 pos=28 tokens=1 shared_down=0.050 ms
+ds4: metal layer stage part=decode layer=26 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=27 pos=28 tokens=1 attn_hc_pre=0.022 ms
+ds4: metal layer stage part=decode layer=27 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=27 pos=28 tokens=1 q_path=0.200 ms
+ds4: metal layer stage part=decode layer=27 pos=28 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=27 pos=28 tokens=1 compressor_indexer=0.050 ms
+ds4: metal layer stage part=decode layer=27 pos=28 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=27 pos=28 tokens=1 attn_output=0.330 ms
+ds4: metal layer stage part=decode layer=27 pos=28 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=27 pos=28 tokens=1 ffn_hc_pre=0.022 ms
+ds4: metal layer stage part=decode layer=27 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=27 pos=28 tokens=1 router=0.030 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.229 midq=0.004 down=0.114 sum=0.001 total=0.352 ms
+ds4: metal layer stage part=decode layer=27 pos=28 tokens=1 routed_moe=0.362 ms
+ds4: metal layer stage part=decode layer=27 pos=28 tokens=1 shared_gate_up=0.092 ms
+ds4: metal layer stage part=decode layer=27 pos=28 tokens=1 shared_down=0.053 ms
+ds4: metal layer stage part=decode layer=27 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=28 pos=28 tokens=1 attn_hc_pre=0.022 ms
+ds4: metal layer stage part=decode layer=28 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=28 pos=28 tokens=1 q_path=0.202 ms
+ds4: metal layer stage part=decode layer=28 pos=28 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=28 pos=28 tokens=1 compressor_indexer=0.111 ms
+ds4: metal layer stage part=decode layer=28 pos=28 tokens=1 attention=0.078 ms
+ds4: metal layer stage part=decode layer=28 pos=28 tokens=1 attn_output=0.322 ms
+ds4: metal layer stage part=decode layer=28 pos=28 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=28 pos=28 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=28 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=28 pos=28 tokens=1 router=0.025 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.240 midq=0.004 down=0.103 sum=0.001 total=0.353 ms
+ds4: metal layer stage part=decode layer=28 pos=28 tokens=1 routed_moe=0.363 ms
+ds4: metal layer stage part=decode layer=28 pos=28 tokens=1 shared_gate_up=0.094 ms
+ds4: metal layer stage part=decode layer=28 pos=28 tokens=1 shared_down=0.049 ms
+ds4: metal layer stage part=decode layer=28 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=29 pos=28 tokens=1 attn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=29 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=29 pos=28 tokens=1 q_path=0.197 ms
+ds4: metal layer stage part=decode layer=29 pos=28 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=29 pos=28 tokens=1 compressor_indexer=0.048 ms
+ds4: metal layer stage part=decode layer=29 pos=28 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=29 pos=28 tokens=1 attn_output=0.320 ms
+ds4: metal layer stage part=decode layer=29 pos=28 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=29 pos=28 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=29 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=29 pos=28 tokens=1 router=0.026 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.007 sort=0.001 gateup=0.250 midq=0.004 down=0.106 sum=0.001 total=0.369 ms
+ds4: metal layer stage part=decode layer=29 pos=28 tokens=1 routed_moe=0.387 ms
+ds4: metal layer stage part=decode layer=29 pos=28 tokens=1 shared_gate_up=0.091 ms
+ds4: metal layer stage part=decode layer=29 pos=28 tokens=1 shared_down=0.049 ms
+ds4: metal layer stage part=decode layer=29 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=30 pos=28 tokens=1 attn_hc_pre=0.028 ms
+ds4: metal layer stage part=decode layer=30 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=30 pos=28 tokens=1 q_path=0.214 ms
+ds4: metal layer stage part=decode layer=30 pos=28 tokens=1 kv_path=0.013 ms
+ds4: metal layer stage part=decode layer=30 pos=28 tokens=1 compressor_indexer=0.102 ms
+ds4: metal layer stage part=decode layer=30 pos=28 tokens=1 attention=0.077 ms
+ds4: metal layer stage part=decode layer=30 pos=28 tokens=1 attn_output=0.318 ms
+ds4: metal layer stage part=decode layer=30 pos=28 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=30 pos=28 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=30 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=30 pos=28 tokens=1 router=0.028 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.237 midq=0.004 down=0.115 sum=0.001 total=0.362 ms
+ds4: metal layer stage part=decode layer=30 pos=28 tokens=1 routed_moe=0.372 ms
+ds4: metal layer stage part=decode layer=30 pos=28 tokens=1 shared_gate_up=0.088 ms
+ds4: metal layer stage part=decode layer=30 pos=28 tokens=1 shared_down=0.053 ms
+ds4: metal layer stage part=decode layer=30 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=31 pos=28 tokens=1 attn_hc_pre=0.028 ms
+ds4: metal layer stage part=decode layer=31 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=31 pos=28 tokens=1 q_path=0.205 ms
+ds4: metal layer stage part=decode layer=31 pos=28 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=31 pos=28 tokens=1 compressor_indexer=0.048 ms
+ds4: metal layer stage part=decode layer=31 pos=28 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=31 pos=28 tokens=1 attn_output=0.320 ms
+ds4: metal layer stage part=decode layer=31 pos=28 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=31 pos=28 tokens=1 ffn_hc_pre=0.026 ms
+ds4: metal layer stage part=decode layer=31 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=31 pos=28 tokens=1 router=0.028 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.230 midq=0.004 down=0.105 sum=0.001 total=0.345 ms
+ds4: metal layer stage part=decode layer=31 pos=28 tokens=1 routed_moe=0.355 ms
+ds4: metal layer stage part=decode layer=31 pos=28 tokens=1 shared_gate_up=0.086 ms
+ds4: metal layer stage part=decode layer=31 pos=28 tokens=1 shared_down=0.052 ms
+ds4: metal layer stage part=decode layer=31 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=32 pos=28 tokens=1 attn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=32 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=32 pos=28 tokens=1 q_path=0.206 ms
+ds4: metal layer stage part=decode layer=32 pos=28 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=32 pos=28 tokens=1 compressor_indexer=0.114 ms
+ds4: metal layer stage part=decode layer=32 pos=28 tokens=1 attention=0.078 ms
+ds4: metal layer stage part=decode layer=32 pos=28 tokens=1 attn_output=0.324 ms
+ds4: metal layer stage part=decode layer=32 pos=28 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=32 pos=28 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=32 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=32 pos=28 tokens=1 router=0.024 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.229 midq=0.004 down=0.115 sum=0.001 total=0.353 ms
+ds4: metal layer stage part=decode layer=32 pos=28 tokens=1 routed_moe=0.362 ms
+ds4: metal layer stage part=decode layer=32 pos=28 tokens=1 shared_gate_up=0.090 ms
+ds4: metal layer stage part=decode layer=32 pos=28 tokens=1 shared_down=0.052 ms
+ds4: metal layer stage part=decode layer=32 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=33 pos=28 tokens=1 attn_hc_pre=0.022 ms
+ds4: metal layer stage part=decode layer=33 pos=28 tokens=1 attn_norm=0.002 ms
+ds4: metal layer stage part=decode layer=33 pos=28 tokens=1 q_path=0.210 ms
+ds4: metal layer stage part=decode layer=33 pos=28 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=33 pos=28 tokens=1 compressor_indexer=0.047 ms
+ds4: metal layer stage part=decode layer=33 pos=28 tokens=1 attention=0.048 ms
+ds4: metal layer stage part=decode layer=33 pos=28 tokens=1 attn_output=0.324 ms
+ds4: metal layer stage part=decode layer=33 pos=28 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=33 pos=28 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=33 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=33 pos=28 tokens=1 router=0.024 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.231 midq=0.004 down=0.110 sum=0.001 total=0.351 ms
+ds4: metal layer stage part=decode layer=33 pos=28 tokens=1 routed_moe=0.361 ms
+ds4: metal layer stage part=decode layer=33 pos=28 tokens=1 shared_gate_up=0.086 ms
+ds4: metal layer stage part=decode layer=33 pos=28 tokens=1 shared_down=0.049 ms
+ds4: metal layer stage part=decode layer=33 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=34 pos=28 tokens=1 attn_hc_pre=0.022 ms
+ds4: metal layer stage part=decode layer=34 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=34 pos=28 tokens=1 q_path=0.204 ms
+ds4: metal layer stage part=decode layer=34 pos=28 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=34 pos=28 tokens=1 compressor_indexer=0.107 ms
+ds4: metal layer stage part=decode layer=34 pos=28 tokens=1 attention=0.078 ms
+ds4: metal layer stage part=decode layer=34 pos=28 tokens=1 attn_output=0.322 ms
+ds4: metal layer stage part=decode layer=34 pos=28 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=34 pos=28 tokens=1 ffn_hc_pre=0.024 ms
+ds4: metal layer stage part=decode layer=34 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=34 pos=28 tokens=1 router=0.025 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.007 sort=0.001 gateup=0.233 midq=0.004 down=0.117 sum=0.001 total=0.362 ms
+ds4: metal layer stage part=decode layer=34 pos=28 tokens=1 routed_moe=0.372 ms
+ds4: metal layer stage part=decode layer=34 pos=28 tokens=1 shared_gate_up=0.087 ms
+ds4: metal layer stage part=decode layer=34 pos=28 tokens=1 shared_down=0.049 ms
+ds4: metal layer stage part=decode layer=34 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=35 pos=28 tokens=1 attn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=35 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=35 pos=28 tokens=1 q_path=0.205 ms
+ds4: metal layer stage part=decode layer=35 pos=28 tokens=1 kv_path=0.013 ms
+ds4: metal layer stage part=decode layer=35 pos=28 tokens=1 compressor_indexer=0.046 ms
+ds4: metal layer stage part=decode layer=35 pos=28 tokens=1 attention=0.048 ms
+ds4: metal layer stage part=decode layer=35 pos=28 tokens=1 attn_output=0.320 ms
+ds4: metal layer stage part=decode layer=35 pos=28 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=35 pos=28 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=35 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=35 pos=28 tokens=1 router=0.024 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.232 midq=0.004 down=0.109 sum=0.001 total=0.350 ms
+ds4: metal layer stage part=decode layer=35 pos=28 tokens=1 routed_moe=0.360 ms
+ds4: metal layer stage part=decode layer=35 pos=28 tokens=1 shared_gate_up=0.086 ms
+ds4: metal layer stage part=decode layer=35 pos=28 tokens=1 shared_down=0.052 ms
+ds4: metal layer stage part=decode layer=35 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=36 pos=28 tokens=1 attn_hc_pre=0.027 ms
+ds4: metal layer stage part=decode layer=36 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=36 pos=28 tokens=1 q_path=0.210 ms
+ds4: metal layer stage part=decode layer=36 pos=28 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=36 pos=28 tokens=1 compressor_indexer=0.101 ms
+ds4: metal layer stage part=decode layer=36 pos=28 tokens=1 attention=0.079 ms
+ds4: metal layer stage part=decode layer=36 pos=28 tokens=1 attn_output=0.320 ms
+ds4: metal layer stage part=decode layer=36 pos=28 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=36 pos=28 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=36 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=36 pos=28 tokens=1 router=0.030 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.233 midq=0.004 down=0.113 sum=0.001 total=0.356 ms
+ds4: metal layer stage part=decode layer=36 pos=28 tokens=1 routed_moe=0.365 ms
+ds4: metal layer stage part=decode layer=36 pos=28 tokens=1 shared_gate_up=0.089 ms
+ds4: metal layer stage part=decode layer=36 pos=28 tokens=1 shared_down=0.052 ms
+ds4: metal layer stage part=decode layer=36 pos=28 tokens=1 ffn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=37 pos=28 tokens=1 attn_hc_pre=0.027 ms
+ds4: metal layer stage part=decode layer=37 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=37 pos=28 tokens=1 q_path=0.214 ms
+ds4: metal layer stage part=decode layer=37 pos=28 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=37 pos=28 tokens=1 compressor_indexer=0.048 ms
+ds4: metal layer stage part=decode layer=37 pos=28 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=37 pos=28 tokens=1 attn_output=0.316 ms
+ds4: metal layer stage part=decode layer=37 pos=28 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=37 pos=28 tokens=1 ffn_hc_pre=0.025 ms
+ds4: metal layer stage part=decode layer=37 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=37 pos=28 tokens=1 router=0.028 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.231 midq=0.004 down=0.109 sum=0.001 total=0.349 ms
+ds4: metal layer stage part=decode layer=37 pos=28 tokens=1 routed_moe=0.359 ms
+ds4: metal layer stage part=decode layer=37 pos=28 tokens=1 shared_gate_up=0.095 ms
+ds4: metal layer stage part=decode layer=37 pos=28 tokens=1 shared_down=0.052 ms
+ds4: metal layer stage part=decode layer=37 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=38 pos=28 tokens=1 attn_hc_pre=0.029 ms
+ds4: metal layer stage part=decode layer=38 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=38 pos=28 tokens=1 q_path=0.207 ms
+ds4: metal layer stage part=decode layer=38 pos=28 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=38 pos=28 tokens=1 compressor_indexer=0.109 ms
+ds4: metal layer stage part=decode layer=38 pos=28 tokens=1 attention=0.078 ms
+ds4: metal layer stage part=decode layer=38 pos=28 tokens=1 attn_output=0.312 ms
+ds4: metal layer stage part=decode layer=38 pos=28 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=38 pos=28 tokens=1 ffn_hc_pre=0.025 ms
+ds4: metal layer stage part=decode layer=38 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=38 pos=28 tokens=1 router=0.026 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.235 midq=0.004 down=0.108 sum=0.001 total=0.352 ms
+ds4: metal layer stage part=decode layer=38 pos=28 tokens=1 routed_moe=0.362 ms
+ds4: metal layer stage part=decode layer=38 pos=28 tokens=1 shared_gate_up=0.091 ms
+ds4: metal layer stage part=decode layer=38 pos=28 tokens=1 shared_down=0.050 ms
+ds4: metal layer stage part=decode layer=38 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=39 pos=28 tokens=1 attn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=39 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=39 pos=28 tokens=1 q_path=0.203 ms
+ds4: metal layer stage part=decode layer=39 pos=28 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=39 pos=28 tokens=1 compressor_indexer=0.046 ms
+ds4: metal layer stage part=decode layer=39 pos=28 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=39 pos=28 tokens=1 attn_output=0.310 ms
+ds4: metal layer stage part=decode layer=39 pos=28 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=39 pos=28 tokens=1 ffn_hc_pre=0.024 ms
+ds4: metal layer stage part=decode layer=39 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=39 pos=28 tokens=1 router=0.032 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.235 midq=0.004 down=0.106 sum=0.001 total=0.352 ms
+ds4: metal layer stage part=decode layer=39 pos=28 tokens=1 routed_moe=0.361 ms
+ds4: metal layer stage part=decode layer=39 pos=28 tokens=1 shared_gate_up=0.089 ms
+ds4: metal layer stage part=decode layer=39 pos=28 tokens=1 shared_down=0.053 ms
+ds4: metal layer stage part=decode layer=39 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=40 pos=28 tokens=1 attn_hc_pre=0.022 ms
+ds4: metal layer stage part=decode layer=40 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=40 pos=28 tokens=1 q_path=0.206 ms
+ds4: metal layer stage part=decode layer=40 pos=28 tokens=1 kv_path=0.015 ms
+ds4: metal layer stage part=decode layer=40 pos=28 tokens=1 compressor_indexer=0.112 ms
+ds4: metal layer stage part=decode layer=40 pos=28 tokens=1 attention=0.078 ms
+ds4: metal layer stage part=decode layer=40 pos=28 tokens=1 attn_output=0.323 ms
+ds4: metal layer stage part=decode layer=40 pos=28 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=40 pos=28 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=40 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=40 pos=28 tokens=1 router=0.030 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.236 midq=0.004 down=0.114 sum=0.001 total=0.360 ms
+ds4: metal layer stage part=decode layer=40 pos=28 tokens=1 routed_moe=0.369 ms
+ds4: metal layer stage part=decode layer=40 pos=28 tokens=1 shared_gate_up=0.089 ms
+ds4: metal layer stage part=decode layer=40 pos=28 tokens=1 shared_down=0.049 ms
+ds4: metal layer stage part=decode layer=40 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=41 pos=28 tokens=1 attn_hc_pre=0.022 ms
+ds4: metal layer stage part=decode layer=41 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=41 pos=28 tokens=1 q_path=0.201 ms
+ds4: metal layer stage part=decode layer=41 pos=28 tokens=1 kv_path=0.014 ms
+ds4: metal layer stage part=decode layer=41 pos=28 tokens=1 compressor_indexer=0.047 ms
+ds4: metal layer stage part=decode layer=41 pos=28 tokens=1 attention=0.047 ms
+ds4: metal layer stage part=decode layer=41 pos=28 tokens=1 attn_output=0.319 ms
+ds4: metal layer stage part=decode layer=41 pos=28 tokens=1 attn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=41 pos=28 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=41 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=41 pos=28 tokens=1 router=0.024 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.004 sort=0.001 gateup=0.231 midq=0.004 down=0.117 sum=0.001 total=0.358 ms
+ds4: metal layer stage part=decode layer=41 pos=28 tokens=1 routed_moe=0.368 ms
+ds4: metal layer stage part=decode layer=41 pos=28 tokens=1 shared_gate_up=0.091 ms
+ds4: metal layer stage part=decode layer=41 pos=28 tokens=1 shared_down=0.049 ms
+ds4: metal layer stage part=decode layer=41 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: metal layer stage part=decode layer=42 pos=28 tokens=1 attn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=42 pos=28 tokens=1 attn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=42 pos=28 tokens=1 q_path=0.202 ms
+ds4: metal layer stage part=decode layer=42 pos=28 tokens=1 kv_path=0.012 ms
+ds4: metal layer stage part=decode layer=42 pos=28 tokens=1 compressor_indexer=0.104 ms
+ds4: metal layer stage part=decode layer=42 pos=28 tokens=1 attention=0.078 ms
+ds4: metal layer stage part=decode layer=42 pos=28 tokens=1 attn_output=0.322 ms
+ds4: metal layer stage part=decode layer=42 pos=28 tokens=1 attn_hc_post=0.002 ms
+ds4: metal layer stage part=decode layer=42 pos=28 tokens=1 ffn_hc_pre=0.023 ms
+ds4: metal layer stage part=decode layer=42 pos=28 tokens=1 ffn_norm=0.001 ms
+ds4: metal layer stage part=decode layer=42 pos=28 tokens=1 router=0.025 ms
+ds4: CUDA MoE profile tokens=1 pairs=6 xq=0.005 sort=0.001 gateup=0.229 midq=0.004 down=0.122 sum=0.001 total=0.361 ms
+ds4: metal layer stage part=decode layer=42 pos=28 tokens=1 routed_moe=0.370 ms
+ds4: metal layer stage part=decode layer=42 pos=28 tokens=1 shared_gate_up=0.089 ms
+ds4: metal layer stage part=decode layer=42 pos=28 tokens=1 shared_down=0.053 ms
+ds4: metal layer stage part=decode layer=42 pos=28 tokens=1 ffn_hc_post=0.001 ms
+ds4: prefill: 25.35 t/s, generation: 22.90 t/s

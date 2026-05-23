@@ -1,0 +1,44 @@
+[
+  {
+    "row": "exact_fast",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 16.16,
+    "gen_8192": 16.16,
+    "gen_last": 16.16,
+    "gen_mean": 16.16,
+    "gen_max": 16.16,
+    "gen_ss_mean": 16.16,
+    "prefill_mean": 393.61,
+    "prefill_max": 393.61
+  },
+  {
+    "row": "moe_global_lut",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 13.89,
+    "gen_8192": 13.89,
+    "gen_last": 13.89,
+    "gen_mean": 13.89,
+    "gen_max": 13.89,
+    "gen_ss_mean": 13.89,
+    "prefill_mean": 389.23,
+    "prefill_max": 389.23
+  },
+  {
+    "row": "moe_span128_template",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 16.0,
+    "gen_8192": 16.0,
+    "gen_last": 16.0,
+    "gen_mean": 16.0,
+    "gen_max": 16.0,
+    "gen_ss_mean": 16.0,
+    "prefill_mean": 391.18,
+    "prefill_max": 391.18
+  }
+]

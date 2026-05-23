@@ -11868,6 +11868,57 @@ static bool metal_graph_encode_decode_layer(
     if (ok) {
         metal_graph_debug_dump_tensor("ffn_norm", g->ffn_norm, DS4_N_EMBD, il, pos);
     }
+    const bool fuse_shared_gate_up =
+        !g->quality &&
+        getenv("DS4_METAL_DISABLE_SHARED_GATE_UP_SWIGLU_FUSION") == NULL;
+    const bool parallel_shared_gate_up =
+        ok &&
+        fuse_shared_gate_up &&
+        getenv("DS4_CUDA_FFN_PARALLEL_SHARED") != NULL &&
+        !metal_graph_debug_wants("ffn_shared_gate", il, pos) &&
+        !metal_graph_debug_wants("ffn_shared_up", il, pos) &&
+        !metal_graph_debug_wants("ffn_shared_mid", il, pos);
+    const bool shared_gate_up_first =
+        ok &&
+        fuse_shared_gate_up &&
+        !parallel_shared_gate_up &&
+        getenv("DS4_CUDA_FFN_SHARED_FIRST") != NULL;
+    bool shared_gate_up_launched = false;
+    if (parallel_shared_gate_up) {
+        ok = ds4_gpu_ffn_parallel_shared_begin() != 0;
+        if (ok) {
+            ok = ds4_gpu_shared_gate_up_swiglu_q8_0_tensor(g->shared_gate,
+                                                           g->shared_up,
+                                                           g->shared_mid,
+                                                           model->map,
+                                                           model->size,
+                                                           layer->ffn_gate_shexp->abs_offset,
+                                                           layer->ffn_up_shexp->abs_offset,
+                                                           DS4_N_EMBD,
+                                                           shared_dim,
+                                                           g->ffn_norm,
+                                                           DS4_SWIGLU_CLAMP_EXP) != 0;
+        }
+        if (ok) {
+            ok = ds4_gpu_ffn_parallel_shared_end() != 0;
+            shared_gate_up_launched = ok;
+        } else {
+            ds4_gpu_ffn_parallel_shared_abort();
+        }
+    } else if (shared_gate_up_first) {
+        ok = ds4_gpu_shared_gate_up_swiglu_q8_0_tensor(g->shared_gate,
+                                                       g->shared_up,
+                                                       g->shared_mid,
+                                                       model->map,
+                                                       model->size,
+                                                       layer->ffn_gate_shexp->abs_offset,
+                                                       layer->ffn_up_shexp->abs_offset,
+                                                       DS4_N_EMBD,
+                                                       shared_dim,
+                                                       g->ffn_norm,
+                                                       DS4_SWIGLU_CLAMP_EXP) != 0;
+        shared_gate_up_launched = ok;
+    }
     const uint64_t gate_row_bytes = routed_expert_row_bytes(layer->ffn_gate_exps);
     const uint64_t gate_expert_bytes = expert_mid_dim * gate_row_bytes;
     const uint64_t down_row_bytes = routed_expert_row_bytes(layer->ffn_down_exps);
@@ -11935,10 +11986,9 @@ static bool metal_graph_encode_decode_layer(
     if (ok) {
         metal_graph_debug_dump_tensor("ffn_moe_out", g->routed_out, DS4_N_EMBD, il, pos);
     }
-    const bool fuse_shared_gate_up =
-        !g->quality &&
-        getenv("DS4_METAL_DISABLE_SHARED_GATE_UP_SWIGLU_FUSION") == NULL;
-    if (ok && fuse_shared_gate_up) {
+    if (ok && shared_gate_up_launched) {
+        ok = ds4_gpu_ffn_parallel_shared_wait() != 0;
+    } else if (ok && fuse_shared_gate_up) {
         ok = ds4_gpu_shared_gate_up_swiglu_q8_0_tensor(g->shared_gate,
                                                          g->shared_up,
                                                          g->shared_mid,
@@ -15307,6 +15357,12 @@ static int cuda_graph_decode_mode(void) {
     return cached;
 }
 
+static int cuda_graph_decode_no_pre_sync(void) {
+    static int cached = -1;
+    if (cached < 0) cached = getenv("DS4_CUDA_GRAPH_DECODE_NO_SYNC") != NULL ? 1 : 0;
+    return cached;
+}
+
 static bool metal_graph_eval_token_raw_swa(
         ds4_gpu_graph *g,
         const ds4_model       *model,
@@ -15354,7 +15410,11 @@ static bool metal_graph_eval_token_raw_swa(
         const uint32_t n_raw = metal_graph_raw_span_for_batch(g, pos, 1);
         ds4_gpu_use_decode_state(1);
         ok = ds4_gpu_decode_state_set((uint32_t)token, pos, raw_row, n_raw) != 0;
-        if (ok) ok = ds4_gpu_graph_capture_begin() != 0;
+        if (ok) {
+            ok = cuda_graph_decode_no_pre_sync()
+                ? ds4_gpu_graph_capture_begin_no_sync() != 0
+                : ds4_gpu_graph_capture_begin() != 0;
+        }
         if (ok) ok = metal_graph_encode_token_raw_swa(g, model, weights, token, pos, logits != NULL, false);
         t_encoded = profile ? now_sec() : 0.0;
         if (ok) {
@@ -15426,7 +15486,11 @@ static bool metal_graph_eval_token_raw_swa_top(
         const uint32_t n_raw = metal_graph_raw_span_for_batch(g, pos, 1);
         ds4_gpu_use_decode_state(1);
         ok = ds4_gpu_decode_state_set((uint32_t)token, pos, raw_row, n_raw) != 0;
-        if (ok) ok = ds4_gpu_graph_capture_begin() != 0;
+        if (ok) {
+            ok = cuda_graph_decode_no_pre_sync()
+                ? ds4_gpu_graph_capture_begin_no_sync() != 0
+                : ds4_gpu_graph_capture_begin() != 0;
+        }
         if (ok) ok = metal_graph_encode_token_raw_swa(g, model, weights,
                                                       token, pos, false, false);
         if (ok) ok = metal_graph_encode_output_head_top(g, model, weights,
@@ -17920,6 +17984,22 @@ static int sample_candidate_cmp_desc(const void *a, const void *b) {
     return (cb->logit > ca->logit) - (cb->logit < ca->logit);
 }
 
+static int sample_cache_probs_enabled(void) {
+    static int cached = -1;
+    if (cached < 0) cached = getenv("DS4_SAMPLE_CACHE_PROBS") != NULL ? 1 : 0;
+    return cached;
+}
+
+static float *sample_prob_cache(uint32_t n_vocab) {
+    static __thread float *probs;
+    static __thread uint32_t cap;
+    if (cap < n_vocab) {
+        probs = xrealloc(probs, (size_t)n_vocab * sizeof(probs[0]));
+        cap = n_vocab;
+    }
+    return probs;
+}
+
 static int sample_full_vocab(
         const float *logits,
         uint32_t     n_vocab,
@@ -17944,22 +18024,46 @@ static int sample_full_vocab(
     if (top_p >= 1.0f) {
         float sum = 0.0f;
         const float min_rel = min_p > 0.0f ? min_p : 0.0f;
-        for (uint32_t i = 0; i < n_vocab; i++) {
-            const float v = logits[i];
-            if (!isfinite(v)) continue;
-            const float p = expf((v - max_logit) / temperature);
-            if (p < min_rel) continue;
-            sum += p;
-        }
-        if (sum <= 0.0f || !isfinite(sum)) return best;
-        float r = sample_rng_f32(rng) * sum;
-        for (uint32_t i = 0; i < n_vocab; i++) {
-            const float v = logits[i];
-            if (!isfinite(v)) continue;
-            const float p = expf((v - max_logit) / temperature);
-            if (p < min_rel) continue;
-            r -= p;
-            if (r <= 0.0f) return (int)i;
+        if (sample_cache_probs_enabled()) {
+            float *probs = sample_prob_cache(n_vocab);
+            for (uint32_t i = 0; i < n_vocab; i++) {
+                const float v = logits[i];
+                if (!isfinite(v)) {
+                    probs[i] = 0.0f;
+                    continue;
+                }
+                const float p = expf((v - max_logit) / temperature);
+                if (p < min_rel) {
+                    probs[i] = 0.0f;
+                    continue;
+                }
+                probs[i] = p;
+                sum += p;
+            }
+            if (sum <= 0.0f || !isfinite(sum)) return best;
+            float r = sample_rng_f32(rng) * sum;
+            for (uint32_t i = 0; i < n_vocab; i++) {
+                r -= probs[i];
+                if (r <= 0.0f) return (int)i;
+            }
+        } else {
+            for (uint32_t i = 0; i < n_vocab; i++) {
+                const float v = logits[i];
+                if (!isfinite(v)) continue;
+                const float p = expf((v - max_logit) / temperature);
+                if (p < min_rel) continue;
+                sum += p;
+            }
+            if (sum <= 0.0f || !isfinite(sum)) return best;
+            float r = sample_rng_f32(rng) * sum;
+            for (uint32_t i = 0; i < n_vocab; i++) {
+                const float v = logits[i];
+                if (!isfinite(v)) continue;
+                const float p = expf((v - max_logit) / temperature);
+                if (p < min_rel) continue;
+                r -= p;
+                if (r <= 0.0f) return (int)i;
+            }
         }
         return best;
     }

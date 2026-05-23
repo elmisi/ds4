@@ -1,0 +1,44 @@
+[
+  {
+    "row": "attn_qb_hwarp16",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 15.92,
+    "gen_8192": 15.92,
+    "gen_last": 15.92,
+    "gen_mean": 15.92,
+    "gen_max": 15.92,
+    "gen_ss_mean": 15.92,
+    "prefill_mean": 390.95,
+    "prefill_max": 390.95
+  },
+  {
+    "row": "attn_qb_soa_hwarp16",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 16.03,
+    "gen_8192": 16.03,
+    "gen_last": 16.03,
+    "gen_mean": 16.03,
+    "gen_max": 16.03,
+    "gen_ss_mean": 16.03,
+    "prefill_mean": 390.13,
+    "prefill_max": 390.13
+  },
+  {
+    "row": "exact_fast",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 16.13,
+    "gen_8192": 16.13,
+    "gen_last": 16.13,
+    "gen_mean": 16.13,
+    "gen_max": 16.13,
+    "gen_ss_mean": 16.13,
+    "prefill_mean": 393.46,
+    "prefill_max": 393.46
+  }
+]

@@ -1,0 +1,628 @@
+ds4: context buffers 23.39 MiB (ctx=128, backend=cuda, prefill_chunk=128, raw_kv_rows=256, compressed_kv_rows=34)
+ds4: CUDA backend initialized on NVIDIA GB10 (sm_121)
+ds4: CUDA using unordered one-token F16 matmul (Blackwell sm_121)
+ds4: CUDA model direct I/O enabled (align=4096)
+ds4: CUDA host registration skipped: operation not supported
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 1.75 GiB)
+ds4: CUDA fd-cached tensor-span:0 536.88 MiB (total 0.52 GiB)
+ds4: CUDA fd-cached tensor-span:1 672.00 MiB (total 1.18 GiB)
+ds4: CUDA fd-cached tensor-span:2 528.00 MiB (total 1.70 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 3.50 GiB)
+ds4: CUDA fd-cached tensor-span:3 528.00 MiB (total 2.21 GiB)
+ds4: CUDA fd-cached tensor-span:4 672.00 MiB (total 2.87 GiB)
+ds4: CUDA fd-cached tensor-span:5 528.00 MiB (total 3.38 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 5.25 GiB)
+ds4: CUDA fd-cached tensor-span:6 528.00 MiB (total 3.90 GiB)
+ds4: CUDA fd-cached tensor-span:7 672.00 MiB (total 4.56 GiB)
+ds4: CUDA fd-cached tensor-span:8 528.00 MiB (total 5.07 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 7.00 GiB)
+ds4: CUDA fd-cached tensor-span:9 528.00 MiB (total 5.59 GiB)
+ds4: CUDA fd-cached tensor-span:10 672.00 MiB (total 6.24 GiB)
+ds4: CUDA fd-cached tensor-span:11 528.00 MiB (total 6.76 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 8.75 GiB)
+ds4: CUDA fd-cached tensor-span:12 528.00 MiB (total 7.27 GiB)
+ds4: CUDA fd-cached tensor-span:13 672.00 MiB (total 7.93 GiB)
+ds4: CUDA fd-cached tensor-span:14 528.00 MiB (total 8.45 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 10.50 GiB)
+ds4: CUDA fd-cached tensor-span:15 528.00 MiB (total 8.96 GiB)
+ds4: CUDA fd-cached tensor-span:16 672.00 MiB (total 9.62 GiB)
+ds4: CUDA fd-cached tensor-span:17 528.00 MiB (total 10.13 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 12.25 GiB)
+ds4: CUDA fd-cached tensor-span:18 528.00 MiB (total 10.65 GiB)
+ds4: CUDA fd-cached tensor-span:19 672.00 MiB (total 11.31 GiB)
+ds4: CUDA fd-cached tensor-span:20 528.00 MiB (total 11.82 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 14.00 GiB)
+ds4: CUDA fd-cached tensor-span:21 528.00 MiB (total 12.34 GiB)
+ds4: CUDA fd-cached tensor-span:22 672.00 MiB (total 12.99 GiB)
+ds4: CUDA fd-cached tensor-span:23 528.00 MiB (total 13.51 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 15.75 GiB)
+ds4: CUDA fd-cached tensor-span:24 528.00 MiB (total 14.02 GiB)
+ds4: CUDA fd-cached tensor-span:25 672.00 MiB (total 14.68 GiB)
+ds4: CUDA fd-cached tensor-span:26 528.00 MiB (total 15.20 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 17.50 GiB)
+ds4: CUDA fd-cached tensor-span:27 528.00 MiB (total 15.71 GiB)
+ds4: CUDA fd-cached tensor-span:28 672.00 MiB (total 16.37 GiB)
+ds4: CUDA fd-cached tensor-span:29 528.00 MiB (total 16.88 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 19.25 GiB)
+ds4: CUDA fd-cached tensor-span:30 528.00 MiB (total 17.40 GiB)
+ds4: CUDA fd-cached tensor-span:31 672.00 MiB (total 18.06 GiB)
+ds4: CUDA fd-cached tensor-span:32 528.00 MiB (total 18.57 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 21.00 GiB)
+ds4: CUDA fd-cached tensor-span:33 528.00 MiB (total 19.09 GiB)
+ds4: CUDA fd-cached tensor-span:34 672.00 MiB (total 19.74 GiB)
+ds4: CUDA fd-cached tensor-span:35 528.00 MiB (total 20.26 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 22.75 GiB)
+ds4: CUDA fd-cached tensor-span:36 528.00 MiB (total 20.77 GiB)
+ds4: CUDA fd-cached tensor-span:37 672.00 MiB (total 21.43 GiB)
+ds4: CUDA fd-cached tensor-span:38 528.00 MiB (total 21.95 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 24.50 GiB)
+ds4: CUDA fd-cached tensor-span:39 528.00 MiB (total 22.46 GiB)
+ds4: CUDA fd-cached tensor-span:40 672.00 MiB (total 23.12 GiB)
+ds4: CUDA fd-cached tensor-span:41 528.00 MiB (total 23.63 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 26.25 GiB)
+ds4: CUDA fd-cached tensor-span:42 528.00 MiB (total 24.15 GiB)
+ds4: CUDA fd-cached tensor-span:43 672.00 MiB (total 24.81 GiB)
+ds4: CUDA fd-cached tensor-span:44 528.00 MiB (total 25.32 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 28.00 GiB)
+ds4: CUDA fd-cached tensor-span:45 528.00 MiB (total 25.84 GiB)
+ds4: CUDA fd-cached tensor-span:46 672.00 MiB (total 26.49 GiB)
+ds4: CUDA fd-cached tensor-span:47 528.00 MiB (total 27.01 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 29.75 GiB)
+ds4: CUDA fd-cached tensor-span:48 528.00 MiB (total 27.52 GiB)
+ds4: CUDA fd-cached tensor-span:49 672.00 MiB (total 28.18 GiB)
+ds4: CUDA fd-cached tensor-span:50 528.00 MiB (total 28.70 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 31.50 GiB)
+ds4: CUDA fd-cached tensor-span:51 528.00 MiB (total 29.21 GiB)
+ds4: CUDA fd-cached tensor-span:52 672.00 MiB (total 29.87 GiB)
+ds4: CUDA fd-cached tensor-span:53 528.00 MiB (total 30.38 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 33.25 GiB)
+ds4: CUDA fd-cached tensor-span:54 528.00 MiB (total 30.90 GiB)
+ds4: CUDA fd-cached tensor-span:55 672.00 MiB (total 31.56 GiB)
+ds4: CUDA fd-cached tensor-span:56 528.00 MiB (total 32.07 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 35.00 GiB)
+ds4: CUDA fd-cached tensor-span:57 528.00 MiB (total 32.59 GiB)
+ds4: CUDA fd-cached tensor-span:58 672.00 MiB (total 33.24 GiB)
+ds4: CUDA fd-cached tensor-span:59 528.00 MiB (total 33.76 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 36.75 GiB)
+ds4: CUDA fd-cached tensor-span:60 528.00 MiB (total 34.27 GiB)
+ds4: CUDA fd-cached tensor-span:61 672.00 MiB (total 34.93 GiB)
+ds4: CUDA fd-cached tensor-span:62 528.00 MiB (total 35.45 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 38.50 GiB)
+ds4: CUDA fd-cached tensor-span:63 528.00 MiB (total 35.96 GiB)
+ds4: CUDA fd-cached tensor-span:64 672.00 MiB (total 36.62 GiB)
+ds4: CUDA fd-cached tensor-span:65 528.00 MiB (total 37.13 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 40.25 GiB)
+ds4: CUDA fd-cached tensor-span:66 528.00 MiB (total 37.65 GiB)
+ds4: CUDA fd-cached tensor-span:67 672.00 MiB (total 38.31 GiB)
+ds4: CUDA fd-cached tensor-span:68 528.00 MiB (total 38.82 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 42.00 GiB)
+ds4: CUDA fd-cached tensor-span:69 528.00 MiB (total 39.34 GiB)
+ds4: CUDA fd-cached tensor-span:70 672.00 MiB (total 39.99 GiB)
+ds4: CUDA fd-cached tensor-span:71 528.00 MiB (total 40.51 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 43.75 GiB)
+ds4: CUDA fd-cached tensor-span:72 528.00 MiB (total 41.02 GiB)
+ds4: CUDA fd-cached tensor-span:73 672.00 MiB (total 41.68 GiB)
+ds4: CUDA fd-cached tensor-span:74 528.00 MiB (total 42.20 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 45.50 GiB)
+ds4: CUDA fd-cached tensor-span:75 528.00 MiB (total 42.71 GiB)
+ds4: CUDA fd-cached tensor-span:76 672.00 MiB (total 43.37 GiB)
+ds4: CUDA fd-cached tensor-span:77 528.00 MiB (total 43.88 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 47.25 GiB)
+ds4: CUDA fd-cached tensor-span:78 528.00 MiB (total 44.40 GiB)
+ds4: CUDA fd-cached tensor-span:79 672.00 MiB (total 45.06 GiB)
+ds4: CUDA fd-cached tensor-span:80 528.00 MiB (total 45.57 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 49.00 GiB)
+ds4: CUDA fd-cached tensor-span:81 528.00 MiB (total 46.09 GiB)
+ds4: CUDA fd-cached tensor-span:82 672.00 MiB (total 46.74 GiB)
+ds4: CUDA fd-cached tensor-span:83 528.00 MiB (total 47.26 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 50.75 GiB)
+ds4: CUDA fd-cached tensor-span:84 528.00 MiB (total 47.77 GiB)
+ds4: CUDA fd-cached tensor-span:85 672.00 MiB (total 48.43 GiB)
+ds4: CUDA fd-cached tensor-span:86 528.00 MiB (total 48.95 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 52.50 GiB)
+ds4: CUDA fd-cached tensor-span:87 528.00 MiB (total 49.46 GiB)
+ds4: CUDA fd-cached tensor-span:88 672.00 MiB (total 50.12 GiB)
+ds4: CUDA fd-cached tensor-span:89 528.00 MiB (total 50.63 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 54.25 GiB)
+ds4: CUDA fd-cached tensor-span:90 528.00 MiB (total 51.15 GiB)
+ds4: CUDA fd-cached tensor-span:91 672.00 MiB (total 51.81 GiB)
+ds4: CUDA fd-cached tensor-span:92 528.00 MiB (total 52.32 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 56.00 GiB)
+ds4: CUDA fd-cached tensor-span:93 528.00 MiB (total 52.84 GiB)
+ds4: CUDA fd-cached tensor-span:94 672.00 MiB (total 53.49 GiB)
+ds4: CUDA fd-cached tensor-span:95 528.00 MiB (total 54.01 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 57.75 GiB)
+ds4: CUDA fd-cached tensor-span:96 528.00 MiB (total 54.52 GiB)
+ds4: CUDA fd-cached tensor-span:97 672.00 MiB (total 55.18 GiB)
+ds4: CUDA fd-cached tensor-span:98 528.00 MiB (total 55.70 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 59.50 GiB)
+ds4: CUDA fd-cached tensor-span:99 528.00 MiB (total 56.21 GiB)
+ds4: CUDA fd-cached tensor-span:100 672.00 MiB (total 56.87 GiB)
+ds4: CUDA fd-cached tensor-span:101 528.00 MiB (total 57.38 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 61.25 GiB)
+ds4: CUDA fd-cached tensor-span:102 528.00 MiB (total 57.90 GiB)
+ds4: CUDA fd-cached tensor-span:103 672.00 MiB (total 58.56 GiB)
+ds4: CUDA fd-cached tensor-span:104 528.00 MiB (total 59.07 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 63.00 GiB)
+ds4: CUDA fd-cached tensor-span:105 528.00 MiB (total 59.59 GiB)
+ds4: CUDA fd-cached tensor-span:106 672.00 MiB (total 60.24 GiB)
+ds4: CUDA fd-cached tensor-span:107 528.00 MiB (total 60.76 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 64.75 GiB)
+ds4: CUDA fd-cached tensor-span:108 528.00 MiB (total 61.27 GiB)
+ds4: CUDA fd-cached tensor-span:109 672.00 MiB (total 61.93 GiB)
+ds4: CUDA fd-cached tensor-span:110 528.00 MiB (total 62.45 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 66.50 GiB)
+ds4: CUDA fd-cached tensor-span:111 528.00 MiB (total 62.96 GiB)
+ds4: CUDA fd-cached tensor-span:112 672.00 MiB (total 63.62 GiB)
+ds4: CUDA fd-cached tensor-span:113 528.00 MiB (total 64.13 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 68.25 GiB)
+ds4: CUDA fd-cached tensor-span:114 528.00 MiB (total 64.65 GiB)
+ds4: CUDA fd-cached tensor-span:115 672.00 MiB (total 65.31 GiB)
+ds4: CUDA fd-cached tensor-span:116 528.00 MiB (total 65.82 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 70.00 GiB)
+ds4: CUDA fd-cached tensor-span:117 528.00 MiB (total 66.34 GiB)
+ds4: CUDA fd-cached tensor-span:118 672.00 MiB (total 66.99 GiB)
+ds4: CUDA fd-cached tensor-span:119 528.00 MiB (total 67.51 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 71.75 GiB)
+ds4: CUDA fd-cached tensor-span:120 528.00 MiB (total 68.02 GiB)
+ds4: CUDA fd-cached tensor-span:121 672.00 MiB (total 68.68 GiB)
+ds4: CUDA fd-cached tensor-span:122 528.00 MiB (total 69.20 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 73.50 GiB)
+ds4: CUDA fd-cached tensor-span:123 528.00 MiB (total 69.71 GiB)
+ds4: CUDA fd-cached tensor-span:124 672.00 MiB (total 70.37 GiB)
+ds4: CUDA fd-cached tensor-span:125 528.00 MiB (total 70.88 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 75.25 GiB)
+ds4: CUDA fd-cached tensor-span:126 528.00 MiB (total 71.40 GiB)
+ds4: CUDA fd-cached tensor-span:127 672.00 MiB (total 72.06 GiB)
+ds4: CUDA fd-cached tensor-span:128 528.00 MiB (total 72.57 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 77.00 GiB)
+ds4: CUDA fd-cached tensor-span:129 1012.13 MiB (total 73.56 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 78.75 GiB)
+ds4: CUDA fd-cached tensor-span:130 1022.52 MiB (total 74.56 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 80.50 GiB)
+ds4: CUDA fd-cached tensor-span:131 1021.56 MiB (total 75.56 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 82.25 GiB)
+ds4: CUDA fd-cached tensor-span:132 1002.53 MiB (total 76.53 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 84.00 GiB)
+ds4: CUDA fd-cached tensor-span:133 996.65 MiB (total 77.51 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 85.75 GiB)
+ds4: CUDA fd-cached tensor-span:134 1021.44 MiB (total 78.51 GiB)
+ds4: CUDA model arena allocated 1792.00 MiB (arenas 87.50 GiB)
+ds4: CUDA fd-cached tensor-span:135 997.03 MiB (total 79.48 GiB)
+ds4: CUDA fd-cached tensor-span:136 774.34 MiB (total 80.24 GiB)
+ds4: CUDA fd-cached tensor-span:137 536.58 MiB (total 80.76 GiB)
+ds4: CUDA cached q8 soa 34.00 MiB (total 0.03 GiB) for tensor:blk.0.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 0.07 GiB) for tensor:blk.0.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 0.10 GiB) for tensor:blk.1.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 0.13 GiB) for tensor:blk.1.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 0.17 GiB) for tensor:blk.2.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 0.20 GiB) for tensor:blk.2.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 0.23 GiB) for tensor:blk.3.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 0.27 GiB) for tensor:blk.3.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 0.30 GiB) for tensor:blk.4.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 0.33 GiB) for tensor:blk.4.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 0.37 GiB) for tensor:blk.5.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 0.40 GiB) for tensor:blk.5.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 0.43 GiB) for tensor:blk.6.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 0.46 GiB) for tensor:blk.6.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 0.50 GiB) for tensor:blk.7.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 0.53 GiB) for tensor:blk.7.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 0.56 GiB) for tensor:blk.8.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 0.60 GiB) for tensor:blk.8.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 0.63 GiB) for tensor:blk.9.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 0.66 GiB) for tensor:blk.9.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 0.70 GiB) for tensor:blk.10.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 0.73 GiB) for tensor:blk.10.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 0.76 GiB) for tensor:blk.11.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 0.80 GiB) for tensor:blk.11.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 0.83 GiB) for tensor:blk.12.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 0.86 GiB) for tensor:blk.12.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 0.90 GiB) for tensor:blk.13.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 0.93 GiB) for tensor:blk.13.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 0.96 GiB) for tensor:blk.14.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 1.00 GiB) for tensor:blk.14.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 1.03 GiB) for tensor:blk.15.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 1.06 GiB) for tensor:blk.15.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 1.10 GiB) for tensor:blk.16.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 1.13 GiB) for tensor:blk.16.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 1.16 GiB) for tensor:blk.17.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 1.20 GiB) for tensor:blk.17.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 1.23 GiB) for tensor:blk.18.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 1.26 GiB) for tensor:blk.18.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 1.29 GiB) for tensor:blk.19.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 1.33 GiB) for tensor:blk.19.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 1.36 GiB) for tensor:blk.20.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 1.39 GiB) for tensor:blk.20.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 1.43 GiB) for tensor:blk.21.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 1.46 GiB) for tensor:blk.21.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 1.49 GiB) for tensor:blk.22.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 1.53 GiB) for tensor:blk.22.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 1.56 GiB) for tensor:blk.23.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 1.59 GiB) for tensor:blk.23.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 1.63 GiB) for tensor:blk.24.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 1.66 GiB) for tensor:blk.24.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 1.69 GiB) for tensor:blk.25.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 1.73 GiB) for tensor:blk.25.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 1.76 GiB) for tensor:blk.26.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 1.79 GiB) for tensor:blk.26.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 1.83 GiB) for tensor:blk.27.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 1.86 GiB) for tensor:blk.27.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 1.89 GiB) for tensor:blk.28.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 1.93 GiB) for tensor:blk.28.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 1.96 GiB) for tensor:blk.29.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 1.99 GiB) for tensor:blk.29.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 2.03 GiB) for tensor:blk.30.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 2.06 GiB) for tensor:blk.30.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 2.09 GiB) for tensor:blk.31.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 2.12 GiB) for tensor:blk.31.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 2.16 GiB) for tensor:blk.32.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 2.19 GiB) for tensor:blk.32.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 2.22 GiB) for tensor:blk.33.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 2.26 GiB) for tensor:blk.33.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 2.29 GiB) for tensor:blk.34.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 2.32 GiB) for tensor:blk.34.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 2.36 GiB) for tensor:blk.35.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 2.39 GiB) for tensor:blk.35.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 2.42 GiB) for tensor:blk.36.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 2.46 GiB) for tensor:blk.36.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 2.49 GiB) for tensor:blk.37.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 2.52 GiB) for tensor:blk.37.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 2.56 GiB) for tensor:blk.38.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 2.59 GiB) for tensor:blk.38.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 2.62 GiB) for tensor:blk.39.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 2.66 GiB) for tensor:blk.39.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 2.69 GiB) for tensor:blk.40.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 2.72 GiB) for tensor:blk.40.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 2.76 GiB) for tensor:blk.41.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 2.79 GiB) for tensor:blk.41.attn_output_b.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 2.82 GiB) for tensor:blk.42.attn_output_a.weight
+ds4: CUDA cached q8 soa 34.00 MiB (total 2.86 GiB) for tensor:blk.42.attn_output_b.weight
+ds4: CUDA startup model cache prepared 80.76 GiB of tensor spans in 19.431s
+ds4: cuda backend initialized for graph diagnostics
+ds4: using GPU graph generation with layer-major graph prefill
+ds4: CUDA cached q8 fp16 8.00 MiB (total 0.01 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 0.01 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 0.07 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 0.14 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 0.20 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 0.21 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 0.23 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 0.25 GiB)
+ds4: gpu prefill layer 1/43ds4: CUDA cached q8 fp16 8.00 MiB (total 0.25 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 0.26 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 0.32 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 0.38 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 0.45 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 0.46 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 0.48 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 0.49 GiB)
+ds4: gpu prefill layer 2/43ds4: CUDA cached q8 fp16 8.00 MiB (total 0.50 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 0.50 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 0.57 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 0.63 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 0.69 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 0.71 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 0.72 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 0.74 GiB)
+ds4: gpu prefill layer 3/43ds4: CUDA cached q8 fp16 8.00 MiB (total 0.75 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 0.75 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 0.81 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 0.88 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 0.94 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 0.95 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 0.97 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 0.98 GiB)
+ds4: gpu prefill layer 4/43ds4: CUDA cached q8 fp16 8.00 MiB (total 0.99 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 1.00 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 1.06 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 1.12 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 1.18 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 1.20 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 1.21 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 1.23 GiB)
+ds4: gpu prefill layer 5/43ds4: CUDA cached q8 fp16 8.00 MiB (total 1.24 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 1.24 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 1.30 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 1.37 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 1.43 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 1.45 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 1.46 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 1.48 GiB)
+ds4: gpu prefill layer 6/43ds4: CUDA cached q8 fp16 8.00 MiB (total 1.48 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 1.49 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 1.55 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 1.61 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 1.68 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 1.69 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 1.71 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 1.72 GiB)
+ds4: gpu prefill layer 7/43ds4: CUDA cached q8 fp16 8.00 MiB (total 1.73 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 1.73 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 1.80 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 1.86 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 1.92 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 1.94 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 1.95 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 1.97 GiB)
+ds4: gpu prefill layer 8/43ds4: CUDA cached q8 fp16 8.00 MiB (total 1.98 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 1.98 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 2.04 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 2.11 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 2.17 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 2.18 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 2.20 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 2.21 GiB)
+ds4: gpu prefill layer 9/43ds4: CUDA cached q8 fp16 8.00 MiB (total 2.22 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 2.23 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 2.29 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 2.35 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 2.41 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 2.43 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 2.45 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 2.46 GiB)
+ds4: gpu prefill layer 10/43ds4: CUDA cached q8 fp16 8.00 MiB (total 2.47 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 2.47 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 2.54 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 2.60 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 2.66 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 2.68 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 2.69 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 2.71 GiB)
+ds4: gpu prefill layer 11/43ds4: CUDA cached q8 fp16 8.00 MiB (total 2.71 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 2.72 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 2.78 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 2.84 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 2.91 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 2.92 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 2.94 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 2.95 GiB)
+ds4: gpu prefill layer 12/43ds4: CUDA cached q8 fp16 8.00 MiB (total 2.96 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 2.96 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 3.03 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 3.09 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 3.15 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 3.17 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 3.18 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 3.20 GiB)
+ds4: gpu prefill layer 13/43ds4: CUDA cached q8 fp16 8.00 MiB (total 3.21 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 3.21 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 3.27 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 3.34 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 3.40 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 3.41 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 3.43 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 3.45 GiB)
+ds4: gpu prefill layer 14/43ds4: CUDA cached q8 fp16 8.00 MiB (total 3.45 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 3.46 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 3.52 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 3.58 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 3.64 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 3.66 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 3.68 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 3.69 GiB)
+ds4: gpu prefill layer 15/43ds4: CUDA cached q8 fp16 8.00 MiB (total 3.70 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 3.70 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 3.77 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 3.83 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 3.89 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 3.91 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 3.92 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 3.94 GiB)
+ds4: gpu prefill layer 16/43ds4: CUDA cached q8 fp16 8.00 MiB (total 3.95 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 3.95 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 4.01 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 4.07 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 4.14 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 4.15 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 4.17 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 4.18 GiB)
+ds4: gpu prefill layer 17/43ds4: CUDA cached q8 fp16 8.00 MiB (total 4.19 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 4.20 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 4.26 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 4.32 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 4.38 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 4.40 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 4.41 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 4.43 GiB)
+ds4: gpu prefill layer 18/43ds4: CUDA cached q8 fp16 8.00 MiB (total 4.44 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 4.44 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 4.50 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 4.57 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 4.63 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 4.64 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 4.66 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 4.68 GiB)
+ds4: gpu prefill layer 19/43ds4: CUDA cached q8 fp16 8.00 MiB (total 4.68 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 4.69 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 4.75 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 4.81 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 4.88 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 4.89 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 4.91 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 4.92 GiB)
+ds4: gpu prefill layer 20/43ds4: CUDA cached q8 fp16 8.00 MiB (total 4.93 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 4.93 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 5.00 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 5.06 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 5.12 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 5.14 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 5.15 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 5.17 GiB)
+ds4: gpu prefill layer 21/43ds4: CUDA cached q8 fp16 8.00 MiB (total 5.18 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 5.18 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 5.24 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 5.30 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 5.37 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 5.38 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 5.40 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 5.41 GiB)
+ds4: gpu prefill layer 22/43ds4: CUDA cached q8 fp16 8.00 MiB (total 5.42 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 5.43 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 5.49 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 5.55 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 5.61 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 5.63 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 5.64 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 5.66 GiB)
+ds4: gpu prefill layer 23/43ds4: CUDA cached q8 fp16 8.00 MiB (total 5.67 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 5.67 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 5.73 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 5.80 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 5.86 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 5.88 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 5.89 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 5.91 GiB)
+ds4: gpu prefill layer 24/43ds4: CUDA cached q8 fp16 8.00 MiB (total 5.91 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 5.92 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 5.98 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 6.04 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 6.11 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 6.12 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 6.14 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 6.15 GiB)
+ds4: gpu prefill layer 25/43ds4: CUDA cached q8 fp16 8.00 MiB (total 6.16 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 6.16 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 6.23 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 6.29 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 6.35 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 6.37 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 6.38 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 6.40 GiB)
+ds4: gpu prefill layer 26/43ds4: CUDA cached q8 fp16 8.00 MiB (total 6.41 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 6.41 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 6.47 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 6.54 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 6.60 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 6.61 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 6.63 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 6.64 GiB)
+ds4: gpu prefill layer 27/43ds4: CUDA cached q8 fp16 8.00 MiB (total 6.65 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 6.66 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 6.72 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 6.78 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 6.84 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 6.86 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 6.88 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 6.89 GiB)
+ds4: gpu prefill layer 28/43ds4: CUDA cached q8 fp16 8.00 MiB (total 6.90 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 6.90 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 6.96 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 7.03 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 7.09 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 7.11 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 7.12 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 7.14 GiB)
+ds4: gpu prefill layer 29/43ds4: CUDA cached q8 fp16 8.00 MiB (total 7.14 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 7.15 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 7.21 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 7.27 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 7.34 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 7.35 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 7.37 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 7.38 GiB)
+ds4: gpu prefill layer 30/43ds4: CUDA cached q8 fp16 8.00 MiB (total 7.39 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 7.39 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 7.46 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 7.52 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 7.58 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 7.60 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 7.61 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 7.63 GiB)
+ds4: gpu prefill layer 31/43ds4: CUDA cached q8 fp16 8.00 MiB (total 7.64 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 7.64 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 7.70 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 7.77 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 7.83 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 7.84 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 7.86 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 7.88 GiB)
+ds4: gpu prefill layer 32/43ds4: CUDA cached q8 fp16 8.00 MiB (total 7.88 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 7.89 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 7.95 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 8.01 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 8.07 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 8.09 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 8.11 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 8.12 GiB)
+ds4: gpu prefill layer 33/43ds4: CUDA cached q8 fp16 8.00 MiB (total 8.13 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 8.13 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 8.20 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 8.26 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 8.32 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 8.34 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 8.35 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 8.37 GiB)
+ds4: gpu prefill layer 34/43ds4: CUDA cached q8 fp16 8.00 MiB (total 8.38 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 8.38 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 8.44 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 8.50 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 8.57 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 8.58 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 8.60 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 8.61 GiB)
+ds4: gpu prefill layer 35/43ds4: CUDA cached q8 fp16 8.00 MiB (total 8.62 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 8.62 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 8.69 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 8.75 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 8.81 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 8.83 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 8.84 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 8.86 GiB)
+ds4: gpu prefill layer 36/43ds4: CUDA cached q8 fp16 8.00 MiB (total 8.87 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 8.87 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 8.93 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 9.00 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 9.06 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 9.07 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 9.09 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 9.11 GiB)
+ds4: gpu prefill layer 37/43ds4: CUDA cached q8 fp16 8.00 MiB (total 9.11 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 9.12 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 9.18 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 9.24 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 9.30 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 9.32 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 9.34 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 9.35 GiB)
+ds4: gpu prefill layer 38/43ds4: CUDA cached q8 fp16 8.00 MiB (total 9.36 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 9.36 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 9.43 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 9.49 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 9.55 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 9.57 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 9.58 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 9.60 GiB)
+ds4: gpu prefill layer 39/43ds4: CUDA cached q8 fp16 8.00 MiB (total 9.61 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 9.61 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 9.67 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 9.73 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 9.80 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 9.81 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 9.83 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 9.84 GiB)
+ds4: gpu prefill layer 40/43ds4: CUDA cached q8 fp16 8.00 MiB (total 9.85 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 9.86 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 9.92 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 9.98 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 10.04 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 10.06 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 10.07 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 10.09 GiB)
+ds4: gpu prefill layer 41/43ds4: CUDA cached q8 fp16 8.00 MiB (total 10.10 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 10.10 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 10.16 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 10.23 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 10.29 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 10.30 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 10.32 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 10.34 GiB)
+ds4: gpu prefill layer 42/43ds4: CUDA cached q8 fp16 8.00 MiB (total 10.34 GiB)
+ds4: CUDA cached q8 fp16 4.00 MiB (total 10.35 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 10.41 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 10.47 GiB)
+ds4: CUDA cached q8 fp16 64.00 MiB (total 10.54 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 10.55 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 10.57 GiB)
+ds4: CUDA cached q8 fp16 16.00 MiB (total 10.58 GiB)
+ds4: gpu prefill layer 43/43
+ds4: prefill: 12.24 t/s, generation: 37673.30 t/s

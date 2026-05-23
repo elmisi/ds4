@@ -1,0 +1,30 @@
+[
+  {
+    "row": "exact_fast_after_codegen_revert",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 15.96,
+    "gen_8192": 15.96,
+    "gen_last": 15.96,
+    "gen_mean": 15.96,
+    "gen_max": 15.96,
+    "gen_ss_mean": 15.96,
+    "prefill_mean": 389.8,
+    "prefill_max": 389.8
+  },
+  {
+    "row": "exact_fast",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 16.28,
+    "gen_8192": 16.28,
+    "gen_last": 16.28,
+    "gen_mean": 16.28,
+    "gen_max": 16.28,
+    "gen_ss_mean": 16.28,
+    "prefill_mean": 392.16,
+    "prefill_max": 392.16
+  }
+]
