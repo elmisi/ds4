@@ -62,6 +62,9 @@ kernel change creates a new reason to retest them.
 | `attn_qb_hwarp16` / `DS4_CUDA_ATTN_Q_B_HWARP16=1` | Negative: 15.92 vs 16.13 t/s same-run control. |
 | `attn_qb_soa_hwarp16` / `DS4_CUDA_Q8_SOA_QB=1 DS4_CUDA_ATTN_Q_B_HWARP16=1` | Negative: 16.03 vs 16.13 t/s same-run control. |
 | `attn_qb_b32_special` / `DS4_CUDA_ATTN_Q_B_B32_SPECIAL=1` | Exact-order specialization, but still negative: 16.07 vs 16.12 t/s control. |
+| `attn_qkv_pair_shape` / `DS4_CUDA_ATTN_QKV_PAIR_SHAPE=1` | Exact-order QKV pair shape specialization raised register use and was slower: 16.07 vs 16.12 t/s control. |
+| `attn_b_shape4096` / `DS4_CUDA_ATTENTION_OUTPUT_B_SHAPE4096=1` | Exact-order attention-output-B 4096x4096 shape specialization raised register use and was slower: 15.90 vs 16.12 t/s control. |
+| `soa_qkv_no_pair` / `DS4_CUDA_Q8_SOA_QKV=1 DS4_METAL_DISABLE_QKV_PAIR_PROJ=1` | Testing whether QKV SoA works better without the pair projection was negative: 15.70 vs 15.94 t/s control. |
 | `soa_hc_expand` / `DS4_CUDA_Q8_SOA_HC_EXPAND=1` | Targeted HC-expand SoA tail probe was negative: 16.01 vs 16.06 t/s same-run control. |
 | `hc_expand_nhc4_special` / `DS4_CUDA_HC_EXPAND_NHC4_SPECIAL=1` | Exact-shape HC-expand specialization was negative: 16.11 vs 16.14 t/s control. |
 | `hc_expand_no_block_out` / `DS4_CUDA_HC_EXPAND_NO_BLOCK_OUT=1` | Auxiliary `attn_out` store removal was negative: 16.09 vs 16.17 t/s control. |
