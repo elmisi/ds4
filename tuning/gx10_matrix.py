@@ -71,6 +71,7 @@ BASE_UNSET_NAMES = {
     "DS4_CUDA_MOE_DECODE_GATE_SHAPE2048",
     "DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_CONSTSTRIDE",
     "DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_CONSTCLAMP",
+    "DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_SPLITUP",
     "DS4_CUDA_MOE_GATE_PREFER_L1",
     "DS4_CUDA_MOE_DECODE_GATE_SPAN",
     "DS4_CUDA_TOPK_CHUNK8192",
@@ -311,6 +312,22 @@ MATRIX = {
         "env": {**EXACT_FAST, **env(DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_CONSTCLAMP=1)},
         "status": "shape2048 routed MoE gate/up with DS4 constant strides and clamp",
     },
+    "moe_gate_shape2048_splitup": {
+        "category": "prototype",
+        "env": {**EXACT_FAST, **env(DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_SPLITUP=1)},
+        "status": "shape2048 routed MoE gate/up with gate and up scheduled separately",
+    },
+    "moe_gate_conststride_soa_b_forced": {
+        "category": "prototype",
+        "env": {
+            **EXACT_FAST,
+            **env(
+                DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_CONSTSTRIDE=1,
+                DS4_CUDA_Q8_SOA_ATTN_OUTPUT_B_DECODE=1,
+            ),
+        },
+        "status": "constant-stride routed gate/up plus forced attn_output_b SoA decode",
+    },
     "moe_gate_prefer_l1": {
         "category": "prototype",
         "env": {**EXACT_FAST, **env(DS4_CUDA_MOE_GATE_PREFER_L1=1)},
@@ -491,6 +508,8 @@ ROW_GROUPS = {
         "moe_gate_shape2048",
         "moe_gate_shape2048_conststride",
         "moe_gate_shape2048_constclamp",
+        "moe_gate_shape2048_splitup",
+        "moe_gate_conststride_soa_b_forced",
         "moe_down_shape4096",
         "moe_shape_special",
         "shape_gate_shared",
