@@ -171,6 +171,7 @@ door on hard but plausible kernel work.
 | `shared_gate_up_noaux` | `DS4_CUDA_SHARED_GATE_UP_NOAUX=1` | shared expert mid-only kernel, 16.01 vs 16.15 t/s control | diagnostic only; do not promote |
 | `shared_gate_up_cache_x` | `DS4_CUDA_SHARED_GATE_UP_CACHE_X=1` | shared activation staging for fused shared gate/up SwiGLU was slower: 15.88 vs 16.00 t/s control | diagnostic only; do not promote |
 | `shared_gate_up_dot2` | `DS4_CUDA_SHARED_GATE_UP_DOT2=1` | shared one activation load for the two fused SwiGLU Q8 dots; `REG:61` vs baseline `REG:62`, but 15.89 vs 15.97 t/s control | diagnostic only; do not promote |
+| `shared_gate_up_pair_pack` | `DS4_CUDA_SHARED_GATE_UP_PAIR_PACK=1` | native paired/aligned Q8_0 pack for shared gate/up; `REG:51` vs baseline `REG:62`, but 15.38 vs 15.95 t/s control | diagnostic only; do not promote |
 | `f16_pair_fast_reduce` | `DS4_CUDA_F16_PAIR_FAST_REDUCE=1` | exact-order final-warp sync reduction for compressor F16 pair was neutral/slower: 16.04 vs 16.07 t/s control | diagnostic only; do not promote |
 | `compressor_pair_off` | `DS4_METAL_DISABLE_COMPRESSOR_PAIR_PROJ=1` | disabling paired F16 compressor projections was slower: 15.85 vs 16.09 t/s control | diagnostic only; keep pair path |
 | `soa_cache_x` | `DS4_CUDA_Q8_SOA_CACHE_X=1` | noisy/unstable and slower | re-test only after kernel change |

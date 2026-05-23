@@ -5628,6 +5628,59 @@ next promising local directions are not MoE down or shared activation staging;
 they are either a real native paired Q8 layout/tensor-core port branch, or
 another measured frontier kernel with a structural change.
 
+### 2026-05-23 continuation - shared gate/up native paired pack
+
+The next "outside the wrapper" attempt tried the smallest native layout that
+could be memory-safe: only the shared expert Q8_0 gate/up weights were
+duplicated into a paired, aligned layout. This is **not** the routed MoE native
+pack already rejected earlier; it targets the much smaller shared expert path.
+
+Implementation:
+
+- `DS4_CUDA_SHARED_GATE_UP_PAIR_PACK=1`;
+- startup preload through `ds4_gpu_cache_q8_f16_range`, keyed by matching
+  `ffn_gate_shexp` / `ffn_up_shexp` tensor labels, so graph capture does not
+  allocate;
+- paired pack format per Q8 block:
+  `gate_scale(2), up_scale(2), gate_q[32], up_q[32]` = 68 bytes;
+- `matmul_q8_0_pair_swiglu_preq_warp8_pack68_kernel`, using aligned Q8 weight
+  loads plus one shared activation load for both dots.
+
+The resource signal looked promising:
+
+| Kernel | Registers |
+| --- | ---: |
+| `matmul_q8_0_pair_swiglu_preq_warp8_pack68_kernel` | 51 |
+| `matmul_q8_0_pair_swiglu_preq_warp8_dot2_kernel` | 61 |
+| `matmul_q8_0_pair_swiglu_preq_warp8_kernel` | 62 |
+
+A first scratch version used 72-byte stride padding and was already slower
+(`15.55` vs `16.07` t/s control), so the measured artifact below uses the final
+68-byte compact format.
+
+Smoke:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast shared_gate_up_pair_pack \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_shared_gate_up_pair_pack \
+  --summary tuning/gx10_matrix_results/prototype_20260523_shared_gate_up_pair_pack/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_shared_gate_up_pair_pack/summary.md
+```
+
+Result:
+
+| Row | 8192/128 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **15.95** | 393.04 | control |
+| `shared_gate_up_pair_pack` | **15.38** | 388.87 | negative |
+
+Decision: reject. The lower register count did not translate to speed; the
+native paired layout likely worsens cache-line behavior or independent memory
+latency hiding enough to swamp the instruction/register savings. This also
+weakens the case for a similar small paired pack on Q8 gate/up-style projections
+unless a profiler points to a different access pattern.
+
 ## Branch / commit map
 
 ```
