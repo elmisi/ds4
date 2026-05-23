@@ -3268,16 +3268,19 @@ __global__ static void matmul_f16_pair_kernel(
         const __half *w1,
         const float *x,
         uint64_t in_dim,
-        uint64_t out_dim) {
+        uint64_t out_dim,
+        uint64_t n_tok) {
     uint64_t row = (uint64_t)blockIdx.x;
-    if (row >= out_dim) return;
+    uint64_t tok = (uint64_t)blockIdx.y;
+    if (row >= out_dim || tok >= n_tok) return;
 
     float sum0 = 0.0f;
     float sum1 = 0.0f;
     const __half *wr0 = w0 + row * in_dim;
     const __half *wr1 = w1 + row * in_dim;
+    const float *xt = x + tok * in_dim;
     for (uint64_t i = threadIdx.x; i < in_dim; i += blockDim.x) {
-        const float xv = x[i];
+        const float xv = xt[i];
         sum0 += __half2float(wr0[i]) * xv;
         sum1 += __half2float(wr1[i]) * xv;
     }
@@ -3295,8 +3298,8 @@ __global__ static void matmul_f16_pair_kernel(
         __syncthreads();
     }
     if (threadIdx.x == 0) {
-        out0[row] = partial0[0];
-        out1[row] = partial1[0];
+        out0[tok * out_dim + row] = partial0[0];
+        out1[tok * out_dim + row] = partial1[0];
     }
 }
 
@@ -12505,8 +12508,7 @@ extern "C" int ds4_gpu_matmul_f16_pair_tensor(
     if (!out0 || !out1 || !x || !model_map || in_dim == 0 || out_dim == 0 || n_tok == 0) {
         return 0;
     }
-    if (n_tok != 1 ||
-        g_cuda_no_f16_pair_matmul ||
+    if (g_cuda_no_f16_pair_matmul ||
         g_cuda_serial_f16_matmul ||
         g_cuda_serial_router) {
         return ds4_gpu_matmul_f16_tensor(out0, model_map, model_size, weight0_offset,
@@ -12521,15 +12523,15 @@ extern "C" int ds4_gpu_matmul_f16_pair_tensor(
     const uint64_t weight_bytes = out_dim * in_dim * sizeof(uint16_t);
     if (weight_bytes > model_size - weight0_offset ||
         weight_bytes > model_size - weight1_offset ||
-        x->bytes < in_dim * sizeof(float) ||
-        out0->bytes < out_dim * sizeof(float) ||
-        out1->bytes < out_dim * sizeof(float)) {
+        x->bytes < n_tok * in_dim * sizeof(float) ||
+        out0->bytes < n_tok * out_dim * sizeof(float) ||
+        out1->bytes < n_tok * out_dim * sizeof(float)) {
         return 0;
     }
     const __half *w0 = (const __half *)cuda_model_range_ptr(model_map, weight0_offset, weight_bytes, "f16_pair0");
     const __half *w1 = (const __half *)cuda_model_range_ptr(model_map, weight1_offset, weight_bytes, "f16_pair1");
     if (!w0 || !w1) return 0;
-    if (g_cuda_f16_pair_vec8 && (in_dim % 8u) == 0u) {
+    if (g_cuda_f16_pair_vec8 && n_tok == 1u && (in_dim % 8u) == 0u) {
         matmul_f16_pair_warp_vec8_kernel<<<(unsigned)out_dim, 32>>>(
             (float *)out0->ptr,
             (float *)out1->ptr,
@@ -12542,7 +12544,7 @@ extern "C" int ds4_gpu_matmul_f16_pair_tensor(
         return cuda_ok(cudaGetLastError(), "matmul_f16_pair_warp_vec8 launch");
     }
     if (!cuda_use_ordered_f16_matmul()) {
-        if (g_cuda_f16_pair_fast_reduce) {
+        if (g_cuda_f16_pair_fast_reduce && n_tok == 1u) {
             matmul_f16_pair_fast_reduce_kernel<<<(unsigned)out_dim, 256>>>(
                 (float *)out0->ptr,
                 (float *)out1->ptr,
@@ -12553,15 +12555,23 @@ extern "C" int ds4_gpu_matmul_f16_pair_tensor(
                 out_dim);
             return cuda_ok(cudaGetLastError(), "matmul_f16_pair_fast_reduce launch");
         }
-        matmul_f16_pair_kernel<<<(unsigned)out_dim, 256>>>(
+        dim3 grid((unsigned)out_dim, (unsigned)n_tok, 1);
+        matmul_f16_pair_kernel<<<grid, 256>>>(
             (float *)out0->ptr,
             (float *)out1->ptr,
             w0,
             w1,
             (const float *)x->ptr,
             in_dim,
-            out_dim);
+            out_dim,
+            n_tok);
         return cuda_ok(cudaGetLastError(), "matmul_f16_pair launch");
+    }
+    if (n_tok != 1u) {
+        return ds4_gpu_matmul_f16_tensor(out0, model_map, model_size, weight0_offset,
+                                           in_dim, out_dim, x, n_tok) &&
+               ds4_gpu_matmul_f16_tensor(out1, model_map, model_size, weight1_offset,
+                                           in_dim, out_dim, x, n_tok);
     }
     matmul_f16_pair_ordered_chunks_kernel<<<(unsigned)out_dim, 32>>>(
         (float *)out0->ptr,
@@ -12963,6 +12973,80 @@ extern "C" int ds4_gpu_compressor_update_tensor(
     }
     return ok;
 }
+
+extern "C" int ds4_gpu_compressor_emit_from_state_tensor(
+        ds4_gpu_tensor       *state_kv,
+        ds4_gpu_tensor       *state_score,
+        ds4_gpu_tensor       *comp_cache,
+        const void             *model_map,
+        uint64_t                model_size,
+        uint64_t                norm_offset,
+        uint32_t                norm_type,
+        uint32_t                head_dim,
+        uint32_t                ratio,
+        uint32_t                pos,
+        uint32_t                comp_row,
+        uint32_t                n_rot,
+        uint32_t                n_ctx_orig,
+        float                   freq_base,
+        float                   freq_scale,
+        float                   ext_factor,
+        float                   attn_factor,
+        float                   beta_fast,
+        float                   beta_slow,
+        float                   rms_eps) {
+    if (!state_kv || !state_score || !comp_cache || !model_map ||
+        head_dim == 0 || ratio == 0 || ((pos + 1u) % ratio) != 0u ||
+        n_rot > head_dim || (n_rot & 1u) != 0 || norm_type != 0u) {
+        return 0;
+    }
+    const uint32_t coff = ratio == 4u ? 2u : 1u;
+    const uint32_t width = coff * head_dim;
+    const uint32_t state_rows = coff * ratio;
+    const uint64_t state_bytes = (uint64_t)state_rows * width * sizeof(float);
+    const uint64_t comp_bytes = (uint64_t)(comp_row + 1u) * head_dim * sizeof(float);
+    const uint64_t norm_bytes = (uint64_t)head_dim * sizeof(float);
+    if (norm_offset > model_size || norm_bytes > model_size - norm_offset ||
+        state_kv->bytes < state_bytes || state_score->bytes < state_bytes ||
+        comp_cache->bytes < comp_bytes) {
+        return 0;
+    }
+
+    ds4_gpu_tensor *comp_row_view = ds4_gpu_tensor_view(
+            comp_cache,
+            (uint64_t)comp_row * head_dim * sizeof(float),
+            (uint64_t)head_dim * sizeof(float));
+    if (!comp_row_view) return 0;
+    compressor_update_pool_kernel<<<(head_dim + 255) / 256, 256>>>(
+            (float *)comp_row_view->ptr,
+            (const float *)state_kv->ptr,
+            (const float *)state_score->ptr,
+            head_dim,
+            ratio);
+    int ok = cuda_ok(cudaGetLastError(), "compressor lazy pool launch");
+    if (ok) ok = ds4_gpu_rms_norm_weight_rows_tensor(comp_row_view, comp_row_view,
+                                                       model_map, model_size, norm_offset,
+                                                       head_dim, 1, rms_eps);
+    if (ok && n_rot != 0u) {
+        const uint32_t pairs = n_rot / 2u;
+        rope_tail_kernel<<<(pairs + 255u) / 256u, 256>>>(
+                (float *)comp_row_view->ptr,
+                1u, 1u, head_dim, n_rot,
+                pos + 1u - ratio, 1u, n_ctx_orig, 0,
+                freq_base, freq_scale, ext_factor, attn_factor,
+                beta_fast, beta_slow);
+        ok = cuda_ok(cudaGetLastError(), "compressor lazy rope_tail launch");
+    }
+    ds4_gpu_tensor_free(comp_row_view);
+    if (ok && ratio == 4u) {
+        uint64_t half = 4ull * width;
+        compressor_shift_ratio4_kernel<<<(half + 255) / 256, 256>>>(
+                (float *)state_kv->ptr, (float *)state_score->ptr, width);
+        ok = cuda_ok(cudaGetLastError(), "compressor lazy ratio4 shift launch");
+    }
+    return ok;
+}
+
 extern "C" int ds4_gpu_compressor_prefill_tensor(
         ds4_gpu_tensor       *comp_cache,
         ds4_gpu_tensor       *state_kv,

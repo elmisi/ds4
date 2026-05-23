@@ -1,0 +1,5 @@
+row,rows,ctx_first,ctx_last,gen_first,gen_8192,gen_last,gen_mean,gen_max,gen_ss_mean,prefill_mean,prefill_max
+compressor_emit_only_ratio128_unsafe,1,8192,8192,16.39,16.39,16.39,16.39,16.39,16.39,388.31,388.31
+compressor_emit_only_ratio4_unsafe,1,8192,8192,16.58,16.58,16.58,16.58,16.58,16.58,389.49,389.49
+compressor_emit_only_unsafe,1,8192,8192,16.67,16.67,16.67,16.67,16.67,16.67,387.4,387.4
+exact_fast,1,8192,8192,16.21,16.21,16.21,16.21,16.21,16.21,390.62,390.62

@@ -6561,6 +6561,116 @@ route is slower even before considering the reduction-order risk that already
 rejected the online heads8 path. Do not repeat this family unless the sparse
 attention algorithm itself changes.
 
+### 2026-05-23 continuation - compressor lazy scheduling upper bound
+
+The clean stage profile showed that the ratio-4 compressor/indexer path is a
+real low/mid-context cost, so the next pass tested whether skipping
+non-emitting compressor updates could expose a worthwhile upper bound. This is
+explicitly quality-unsafe: non-visible frontier state is not updated until an
+emit boundary, so future compressed rows can be wrong. It is a scheduling
+diagnostic, not a candidate.
+
+Implemented diagnostic rows:
+
+- `DS4_CUDA_COMPRESSOR_EMIT_ONLY_UNSAFE=all`
+- `DS4_CUDA_COMPRESSOR_EMIT_ONLY_UNSAFE=ratio4`
+- `DS4_CUDA_COMPRESSOR_EMIT_ONLY_UNSAFE=ratio128`
+
+First all-layer upper-bound smoke:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast compressor_emit_only_unsafe \
+  --model /home/alessandro/projects/ds4/ds4flash.gguf \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_compressor_emit_only_unsafe \
+  --summary tuning/gx10_matrix_results/prototype_20260523_compressor_emit_only_unsafe/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_compressor_emit_only_unsafe/summary.md
+```
+
+| Row | 8192/128 gen t/s | Prefill t/s |
+| --- | ---: | ---: |
+| `exact_fast` | **16.13** | 393.32 |
+| `compressor_emit_only_unsafe` | **16.80** | 389.14 |
+
+A quick 2-question `ds4-eval` run passed 2/2, but this was not considered a
+quality pass because the prompt contexts were too short to stress compressed
+history.
+
+Split upper-bound smoke:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast \
+  compressor_emit_only_ratio4_unsafe compressor_emit_only_ratio128_unsafe \
+  compressor_emit_only_unsafe \
+  --model /home/alessandro/projects/ds4/ds4flash.gguf \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_compressor_emit_only_split \
+  --summary tuning/gx10_matrix_results/prototype_20260523_compressor_emit_only_split/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_compressor_emit_only_split/summary.md
+```
+
+| Row | 8192/128 gen t/s | Prefill t/s | Delta vs control |
+| --- | ---: | ---: | ---: |
+| `exact_fast` | **16.21** | 390.62 | control |
+| `compressor_emit_only_ratio4_unsafe` | **16.58** | 389.49 | +2.3% |
+| `compressor_emit_only_ratio128_unsafe` | **16.39** | 388.31 | +1.1% |
+| `compressor_emit_only_unsafe` | **16.67** | 387.40 | +2.8% |
+
+Interpretation: the ratio-4 compressor/indexer work explains most of the
+measured upper bound. The speed signal is real, but too small to be the full
+path to 20 t/s by itself. It is still useful because it identifies a
+quality-preserving target: move ratio-4 compressor work out of non-emitting
+tokens without changing the visible state.
+
+#### WIP exact-intent ratio-4 lazy compressor
+
+A first exact-intent prototype was added behind
+`DS4_CUDA_COMPRESSOR_LAZY_RATIO4=1`:
+
+- buffer `attn_norm` rows for ratio-4 layers;
+- at an emit boundary, compute the four compressor projections as a batch;
+- store the four phase rows into compressor state;
+- emit the compressed row from state using the existing pool/norm/rope/shift
+  sequence.
+
+Build:
+
+```sh
+make -j$(nproc) cuda-spark
+```
+
+Result: success.
+
+Parity smoke:
+
+```sh
+python3 tuning/gx10_matrix.py run exact_fast -- ./ds4 --cuda \
+  -m /home/alessandro/projects/ds4/ds4flash.gguf --ctx 100000 \
+  --dump-logprobs tuning/gx10_matrix_results/prototype_20260523_compressor_lazy_ratio4_exact.json \
+  --logprobs-top-k 5 --temp 0 -n 32 --nothink \
+  -p "Racconta in breve la storia della Repubblica Italiana."
+
+python3 tuning/gx10_matrix.py run compressor_lazy_ratio4 -- ./ds4 --cuda \
+  -m /home/alessandro/projects/ds4/ds4flash.gguf --ctx 100000 \
+  --dump-logprobs tuning/gx10_matrix_results/prototype_20260523_compressor_lazy_ratio4_candidate.json \
+  --logprobs-top-k 5 --temp 0 -n 32 --nothink \
+  -p "Racconta in breve la storia della Repubblica Italiana."
+```
+
+Result: generated stdout matched in the short smoke, but `dump-logprobs`
+diverged starting at step 1 and selected a different token by step 2
+(`.` in the control, `!` in the candidate). Therefore this prototype is not a
+production candidate yet and should not be benchmark-promoted.
+
+Most likely cause: decode can start in the middle of a ratio-4 window after
+prefill. The first lazy emit may batch only decode-side pending rows while
+some earlier phases for the current compressor window already live in state
+from prefill. The next fix should add per-layer pending phase masks and keep
+partial first windows on the exact path. Do not repeat the unsafe emit-only
+probe; continue by fixing the exact lazy scheduling boundary or by moving to a
+larger structural launch-fusion path if the corrected lazy variant is too
+small.
+
 ## Branch / commit map
 
 ```

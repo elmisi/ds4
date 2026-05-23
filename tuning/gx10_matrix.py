@@ -34,6 +34,8 @@ BASE_UNSET_NAMES = {
     "DS4_CUDA_F16_PAIR_FAST_REDUCE",
     "DS4_CUDA_F16_VEC8",
     "DS4_CUDA_F16_PAIR_VEC8",
+    "DS4_CUDA_COMPRESSOR_EMIT_ONLY_UNSAFE",
+    "DS4_CUDA_COMPRESSOR_LAZY_RATIO4",
     "DS4_CUDA_Q8_CUBLAS_DECODE",
     "DS4_CUDA_Q8_BATCH1_CACHE_X",
     "DS4_CUDA_ATTENTION_OUTPUT_A_CUBLAS_MIN",
@@ -591,6 +593,26 @@ MATRIX = {
         "category": "diagnostic",
         "env": {**EXACT_FAST, **env(DS4_METAL_DISABLE_COMPRESSOR_PAIR_PROJ=1)},
         "status": "disable paired F16 compressor projections and use separate matmuls",
+    },
+    "compressor_emit_only_unsafe": {
+        "category": "diagnostic",
+        "env": {**EXACT_FAST, **env(DS4_CUDA_COMPRESSOR_EMIT_ONLY_UNSAFE="all")},
+        "status": "quality-unsafe upper bound for lazy compressor scheduling",
+    },
+    "compressor_emit_only_ratio4_unsafe": {
+        "category": "diagnostic",
+        "env": {**EXACT_FAST, **env(DS4_CUDA_COMPRESSOR_EMIT_ONLY_UNSAFE="ratio4")},
+        "status": "quality-unsafe upper bound for lazy ratio-4 compressor scheduling",
+    },
+    "compressor_emit_only_ratio128_unsafe": {
+        "category": "diagnostic",
+        "env": {**EXACT_FAST, **env(DS4_CUDA_COMPRESSOR_EMIT_ONLY_UNSAFE="ratio128")},
+        "status": "quality-unsafe upper bound for lazy ratio-128 compressor scheduling",
+    },
+    "compressor_lazy_ratio4": {
+        "category": "prototype",
+        "env": {**EXACT_FAST, **env(DS4_CUDA_COMPRESSOR_LAZY_RATIO4=1)},
+        "status": "WIP exact-intent ratio-4 compressor buffering; current probe failed logprob parity",
     },
     "sample_cache_probs": {
         "category": "prototype",
