@@ -70,6 +70,7 @@ kernel change creates a new reason to retest them.
 | `hc_expand_nhc4_special` / `DS4_CUDA_HC_EXPAND_NHC4_SPECIAL=1` | Exact-shape HC-expand specialization was negative: 16.11 vs 16.14 t/s control. |
 | `hc_expand_no_block_out` / `DS4_CUDA_HC_EXPAND_NO_BLOCK_OUT=1` | Auxiliary `attn_out` store removal was negative: 16.09 vs 16.17 t/s control. |
 | `hc_expand_soa_ldg` / `DS4_CUDA_HC_EXPAND_SOA_LDG=1` | Read-only-cache loads for HC-expand Q8 SoA weights raised resources (`REG:63` vs `REG:62`) and regressed: 15.84 vs 16.13 t/s control. |
+| `hc_expand_soa_par_hc4` / `DS4_CUDA_HC_EXPAND_SOA_PAR_HC4=1` | Parallelizing the n_hc=4 expansion/store across lanes lowered resources (`REG:51`) but still regressed: 15.91 vs 16.06 t/s control. |
 | `shared_gate_up_noaux` / `DS4_CUDA_SHARED_GATE_UP_NOAUX=1` | Separate shared-expert no-aux probe was negative: 16.01 vs 16.15 t/s control. |
 | `shared_gate_up_cache_x` / `DS4_CUDA_SHARED_GATE_UP_CACHE_X=1` | ROCm/LDS-inspired shared activation staging for the fused shared gate/up SwiGLU kernel was slower: 15.88 vs 16.00 t/s control. |
 | `shared_gate_up_dot2` / `DS4_CUDA_SHARED_GATE_UP_DOT2=1` | Sharing one prequant activation load across the gate/up Q8 dot products lowered the kernel to `REG:61` but was still slower: 15.89 vs 15.97 t/s control. |
