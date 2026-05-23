@@ -112,6 +112,7 @@ kernel change creates a new reason to retest them.
 | `sample_cache_probs` / `DS4_SAMPLE_CACHE_PROBS=1` | Default sampled CLI output was byte-identical for seed 1, but throughput stayed 18.08 vs 18.08 t/s. |
 | `ffn_parallel_shared` / `DS4_CUDA_FFN_PARALLEL_SHARED=1` | Shared gate/up on a second CUDA stream was slower: 15.26 vs 16.14 t/s same-run control. |
 | `ffn_shared_first` / `DS4_CUDA_FFN_SHARED_FIRST=1` | Shared gate/up before router/routed MoE failed graph capture with CUDA synchronize-not-permitted. |
+| explicit `sm_121` build / `make cuda CUDA_ARCH=sm_121` | Slower than the default `cuda-spark` build and changed the greedy parity stream at step 2; reject unless future toolchain/codegen changes make it worth retesting. |
 | `moe_meta_cache` / both metadata-cache flags | Negative speed smoke. |
 | MTP graph/guard/prefix rows | Diagnostic only unless user explicitly accepts the quality/speed tradeoff. |
 

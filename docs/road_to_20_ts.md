@@ -6930,6 +6930,66 @@ per-token/per-layer scalar state onto the device or splitting the graph. That
 engineering only makes sense if paired with removal of real GPU work, not just
 less host graph update traffic.
 
+### 2026-05-23 continuation - explicit `sm_121` CUDA build probe
+
+An outside-the-kernel build-target check found that the default `cuda-spark`
+build currently emits `sm_75` PTX/cubin when `CUDA_ARCH` is left empty:
+
+```sh
+strings ds4 | rg -n "\.target sm_|-arch sm_" | head
+```
+
+The CUDA 13.0 toolchain on the box supports both `sm_120` and `sm_121`, so an
+explicit GB10 build was tested:
+
+```sh
+make clean
+make -j$(nproc) cuda CUDA_ARCH=sm_121
+```
+
+The resulting binary did contain `sm_121` targets. This was worth checking
+because it could have been a cheap architecture-codegen win, but it failed both
+cheap gates.
+
+Parity smoke:
+
+```sh
+python3 tuning/gx10_matrix.py run exact_fast -- ./ds4 --cuda \
+  -m /home/alessandro/projects/ds4/ds4flash.gguf --ctx 100000 \
+  --dump-logprobs tuning/gx10_matrix_results/prototype_20260523_sm121_build/exact_sm121.json \
+  --logprobs-top-k 5 --temp 0 -n 32 --nothink \
+  -p "Racconta in breve la storia della Repubblica Italiana."
+```
+
+Result: stdout matched the saved exact control, but JSON logprobs did not.
+The greedy stream changed at step 2 on a tight margin: the control selected `.`
+while the `sm_121` build selected `!` (`37.5714607` vs `37.5636902` in the
+`sm_121` run). Later tokens diverged accordingly. This is not automatically a
+quality regression, but it fails the deterministic exact gate and would require
+full canary/eval if it were faster.
+
+Throughput smoke:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast moe_conststride_lazy_ratio4 \
+  --model /home/alessandro/projects/ds4/ds4flash.gguf \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_sm121_build_bench \
+  --summary tuning/gx10_matrix_results/prototype_20260523_sm121_build_bench/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_sm121_build_bench/summary.md \
+  --stop-on-fail
+```
+
+| Row | 8192/128 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` (`sm_121` build) | **15.92** | 376.84 | slower and non-byte-identical |
+| `moe_conststride_lazy_ratio4` (`sm_121` build) | **16.07** | 377.25 | slower than default build recheck |
+
+Decision: reject explicit `sm_121` for now. It is slower than the default
+`cuda-spark` build in the same branch and changes greedy output on the parity
+prompt. The local binaries were rebuilt back with `make cuda-spark` after the
+probe so the working copy runs the previously tested build profile.
+
 ## Branch / commit map
 
 ```
