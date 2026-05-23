@@ -8,7 +8,8 @@ and what is still worth exploring before creating a clean upstream PR branch.
 
 ## Branch Strategy
 
-- Keep `gx10-cuda-graph-decode` as the research branch. It may contain negative
+- Keep the active research branch (`gx10-mmqv-port`, descended from the earlier
+  `gx10-cuda-graph-decode` work) as the history branch. It may contain negative
   probes and diagnostic flags because their history is useful.
 - Once a path is good enough for upstream, create a fresh branch from current
   `main` / `upstream/main` and cherry-pick or reimplement only the winning pieces.
@@ -40,6 +41,7 @@ diagnostic switches, and no half-warp/codegen/metadata-cache probes.
 | --- | --- | --- |
 | CUDA graph decode | Keep | Real decode speed win and part of `exact_fast`. |
 | Q8 SoA cache for attention output A/B | Keep | Exact memory-for-speed win; current best full-quality path. |
+| `moe_conststride_lazy_ratio4` | Keep as clean-branch candidate | Exact compound of the two small positives; ~16.42 vs 16.09 t/s in the 256-token recheck. |
 | `ds4-agent-exact-fast` wrapper | Keep locally | Makes the tested exact-fast runtime easy to launch with `ctx=100000`. |
 | `tuning/gx10_matrix.py` | Keep locally | Reproducible matrix runner for speed, coding eval, and `ds4-eval`. |
 | `ds4-eval` gates in matrix runner | Keep locally | Caught the IQ2/Q2 codegen regression quickly. |
@@ -104,6 +106,7 @@ kernel change creates a new reason to retest them.
 | `graph_no_presync` / `DS4_CUDA_GRAPH_DECODE_NO_SYNC=1` | Normal decode graph capture without pre-sync was slower: 16.03 vs 16.18 t/s same-run control. |
 | `graph_canonical_hc` / `DS4_CUDA_GRAPH_CANONICAL_HC=1` | External graph-WIP idea: restore `cur_hc` / `after_ffn_hc` labels after odd-layer decode tokens. It was slower: 16.35 vs 16.54 t/s control. |
 | `graph_reuse_unsafe` / `DS4_CUDA_GRAPH_REUSE_UNSAFE=1` | Quality-unsafe upper bound that reuses the first decode graph without recapture/update: 17.10 vs 16.48 t/s. Useful ceiling, not a candidate. |
+| router decode-state token cleanup | Fixed one stale hash-router token argument under `graph_reuse_unsafe`, but unsafe reuse still diverges by step 2/3 and only measured 16.76 vs 16.23 t/s in the follow-up. Keep as cleanup/diagnostic, not a speed candidate. |
 | `weight_tensor_align2m` / `DS4_CUDA_WEIGHT_TENSOR_ALIGN_MB=2` | Entrpi-inspired 2 MiB tensor-base alignment in the local arena was slower: 15.95 vs 16.04 t/s control. |
 | `q8_batch1_cache_x` / `DS4_CUDA_Q8_BATCH1_CACHE_X=1` | Using cached-x warp8 for one-token blocks<=32 Q8 projections was neutral/negative: 16.09 vs 16.13 t/s control. |
 | `sample_cache_probs` / `DS4_SAMPLE_CACHE_PROBS=1` | Default sampled CLI output was byte-identical for seed 1, but throughput stayed 18.08 vs 18.08 t/s. |

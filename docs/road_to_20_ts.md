@@ -5,7 +5,9 @@ DS4 V4 Flash decode throughput on a DGX Spark (GB10, sm_121) from ~15 t/s to
 the 20 t/s target. It is meant as a self-contained handoff so a future
 session can pick up without re-discovering anything.
 
-Branch: `gx10-cuda-graph-decode` (pushed to fork `origin`, never to upstream).
+Current research branch: `gx10-mmqv-port` (pushed to fork `origin`, never to
+upstream). Earlier sections were developed on `gx10-cuda-graph-decode` before
+the isolated MMQ/MMVQ port branch became the active research branch.
 
 For a compact promoted/rejected/diagnostic summary and clean-branch extraction
 plan, see `docs/gx10_decision_log.md`. This file remains the chronological
@@ -6847,6 +6849,86 @@ Decision: keep the compound row as the current best exact-minor candidate for
 the future clean branch. It is not the 20 t/s solution by itself, but it is a
 repeatable full-quality +2% class signal and should be preferred over either
 single minor candidate if we later rebuild from main.
+
+### 2026-05-23 continuation - router decode-state graph stale-arg cleanup
+
+Before investing more in no-recapture graph reuse, one concrete stale-argument
+case was isolated and fixed: hash-mode router selection still captured the
+decode token as a scalar kernel argument. Under
+`DS4_CUDA_GRAPH_REUSE_UNSAFE=1`, later graph launches therefore reused the
+first captured token for router hash lookup. The router kernels now treat
+`INT32_MIN` as a sentinel in decode-state mode and read
+`g_decode_state.token`, preserving the normal non-graph and batch paths.
+
+This was intentionally scoped as a diagnostic cleanup, not a promotion. The
+existing Nsight data also closed the duplicated-FFN-quantization idea before
+implementation: `quantize_q8_0_f32_kernel` and `q8_K_quantize_kernel` together
+are below 1% GPU time in the saved decode profile, so duplicating those
+quantized rows cannot plausibly cover the remaining gap to 20 t/s.
+
+Build:
+
+```sh
+make -j$(nproc) cuda-spark
+```
+
+Result: build passed for `ds4`, `ds4-server`, `ds4-bench`, `ds4-eval`, and
+`ds4-agent`.
+
+Exact-path parity smoke:
+
+```sh
+python3 tuning/gx10_matrix.py run exact_fast -- ./ds4 --cuda \
+  -m /home/alessandro/projects/ds4/ds4flash.gguf --ctx 100000 \
+  --dump-logprobs tuning/gx10_matrix_results/prototype_20260523_router_decode_state/exact_after_patch.json \
+  --logprobs-top-k 5 --temp 0 -n 32 --nothink \
+  -p "Racconta in breve la storia della Repubblica Italiana."
+```
+
+Result: `cmp` matched both JSON logprobs and stdout against the saved
+`prototype_20260523_compressor_lazy_ratio4_phasefix_exact` control.
+
+Unsafe graph-reuse diagnostic:
+
+```sh
+python3 tuning/gx10_matrix.py run graph_reuse_unsafe -- ./ds4 --cuda \
+  -m /home/alessandro/projects/ds4/ds4flash.gguf --ctx 100000 \
+  --dump-logprobs tuning/gx10_matrix_results/prototype_20260523_router_decode_state/graph_reuse_after_patch.json \
+  --logprobs-top-k 5 --temp 0 -n 32 --nothink \
+  -p "Racconta in breve la storia della Repubblica Italiana."
+```
+
+Result: still not exact. The first JSON difference is byte 1358, line 9. Step
+2 still selects `.`, but logits already diverge (`37.3427162` exact vs
+`34.628746` unsafe reuse); the greedy token stream diverges at step 3
+(`" E"` exact vs `" La"` unsafe reuse). Therefore router-token freshness fixes
+only one stale graph argument. Other per-token/per-layer state, likely
+compressor/indexer/attention scalar arguments and graph topology, still makes
+no-recapture graph reuse quality-unsafe.
+
+Throughput smoke:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast graph_reuse_unsafe \
+  --model /home/alessandro/projects/ds4/ds4flash.gguf \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_router_decode_state_bench \
+  --summary tuning/gx10_matrix_results/prototype_20260523_router_decode_state_bench/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_router_decode_state_bench/summary.md
+```
+
+| Row | 8192/128 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **16.23** | 392.27 | control |
+| `graph_reuse_unsafe` | **16.76** | 389.76 | still quality-unsafe |
+
+Decision: keep the router decode-state change as a narrow cleanup because it
+does not affect the exact normal path and documents one real stale-arg source.
+Do not invest in full no-recapture graph reuse by itself: the measured ceiling
+is only mid-16 to low-17 t/s and correctness would require moving more
+per-token/per-layer scalar state onto the device or splitting the graph. That
+engineering only makes sense if paired with removal of real GPU work, not just
+less host graph update traffic.
 
 ## Branch / commit map
 

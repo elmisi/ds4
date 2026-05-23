@@ -9591,6 +9591,15 @@ __device__ static float softplus_dev(float x) {
     return log1pf(expf(x));
 }
 
+__device__ __forceinline__ static int32_t router_token_value(
+        const int32_t *tokens,
+        uint32_t t,
+        int32_t token_scalar) {
+    if (tokens) return tokens[t];
+    if (token_scalar == INT32_MIN) return (int32_t)g_decode_state.token;
+    return token_scalar;
+}
+
 __global__ static void router_select_kernel(
         int32_t *selected,
         float *weights,
@@ -9614,7 +9623,7 @@ __global__ static void router_select_kernel(
     for (int i = 0; i < 256; i++) prob[i] = sqrtf(softplus_dev(log[i]));
 
     if (hash_mode) {
-        int32_t tok = tokens ? tokens[t] : token_scalar;
+        int32_t tok = router_token_value(tokens, t, token_scalar);
         if (tok < 0 || (uint32_t)tok >= hash_rows) tok = 0;
         const int32_t *row = hash + (uint64_t)tok * 6;
         for (int i = 0; i < 6; i++) sel[i] = row[i];
@@ -9672,7 +9681,7 @@ __global__ static void router_select_parallel_kernel(
 
     if (i != 0) return;
     if (hash_mode) {
-        int32_t tok = tokens ? tokens[t] : token_scalar;
+        int32_t tok = router_token_value(tokens, t, token_scalar);
         if (tok < 0 || (uint32_t)tok >= hash_rows) tok = 0;
         const int32_t *row = hash + (uint64_t)tok * 6;
         for (int j = 0; j < 6; j++) sel[j] = row[j];
@@ -9744,7 +9753,7 @@ __global__ static void router_select_warp_topk_kernel(
 
     if (hash_mode) {
         if (lane == 0) {
-            int32_t tok = tokens ? tokens[t] : token_scalar;
+            int32_t tok = router_token_value(tokens, t, token_scalar);
             if (tok < 0 || (uint32_t)tok >= hash_rows) tok = 0;
             const int32_t *row = hash + (uint64_t)tok * 6u;
             float sum = 0.0f;
@@ -15025,14 +15034,17 @@ extern "C" int ds4_gpu_router_select_tensor(ds4_gpu_tensor *selected, ds4_gpu_te
         if (!g_cuda_no_warp_router_select &&
             !g_cuda_no_parallel_router_select) {
             dim3 block(32, 4, 1);
+            if (g_use_decode_state) tok = INT32_MIN;
             router_select_warp_topk_kernel<<<1, block>>>((int32_t *)selected->ptr, (float *)weights->ptr, (float *)probs->ptr,
                                                          bias, hash, (const float *)logits->ptr, NULL, tok, hash_rows, 1,
                                                          has_bias && !hash_mode, hash_mode);
         } else if (!g_cuda_no_parallel_router_select) {
+            if (g_use_decode_state) tok = INT32_MIN;
             router_select_parallel_kernel<<<1, 256>>>((int32_t *)selected->ptr, (float *)weights->ptr, (float *)probs->ptr,
                                                       bias, hash, (const float *)logits->ptr, NULL, tok, hash_rows, 1,
                                                       has_bias && !hash_mode, hash_mode);
         } else {
+            if (g_use_decode_state) tok = INT32_MIN;
             router_select_kernel<<<1, 1>>>((int32_t *)selected->ptr, (float *)weights->ptr, (float *)probs->ptr,
                                           bias, hash, (const float *)logits->ptr, NULL, tok, hash_rows, 1,
                                           has_bias && !hash_mode, hash_mode);
