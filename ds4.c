@@ -15375,6 +15375,12 @@ static int cuda_graph_decode_reuse_unsafe(void) {
     return cached;
 }
 
+static int cuda_graph_decode_skip_end_sync(void) {
+    static int cached = -1;
+    if (cached < 0) cached = getenv("DS4_CUDA_GRAPH_SKIP_END_SYNC") != NULL ? 1 : 0;
+    return cached;
+}
+
 static void metal_graph_canonicalize_decode_hc(ds4_gpu_graph *g) {
     if (!g || !cuda_graph_decode_canonical_hc() || !(DS4_N_LAYER & 1u)) return;
     ds4_gpu_tensor *tmp = g->cur_hc;
@@ -15405,7 +15411,9 @@ static bool metal_graph_eval_token_raw_swa(
      */
     bool ok = true;
     double t_encoded = 0.0;
+    bool graph_decode_active = false;
     if (cuda_graph_decode_mode() && ds4_gpu_graph_capture_supported()) {
+        graph_decode_active = true;
         /* Phase 4c: cache the executor across tokens via cudaGraphExecUpdate.
          *
          * First call captures + instantiates a fresh exec. Subsequent calls
@@ -15453,7 +15461,9 @@ static bool metal_graph_eval_token_raw_swa(
         if (ok) ok = metal_graph_encode_token_raw_swa(g, model, weights, token, pos, logits != NULL, true);
         t_encoded = profile ? now_sec() : 0.0;
     }
-    if (ok) ok = ds4_gpu_end_commands() != 0;
+    if (ok && !(graph_decode_active && logits != NULL && cuda_graph_decode_skip_end_sync())) {
+        ok = ds4_gpu_end_commands() != 0;
+    }
     const double t_done = profile ? now_sec() : 0.0;
     if (ok) metal_graph_canonicalize_decode_hc(g);
 
@@ -15503,7 +15513,9 @@ static bool metal_graph_eval_token_raw_swa_top(
 
     bool ok = true;
     double t_encoded = 0.0;
+    bool graph_decode_active = false;
     if (cuda_graph_decode_mode() && ds4_gpu_graph_capture_supported()) {
+        graph_decode_active = true;
         static __thread ds4_gpu_graph_handle *cached_top_handle = NULL;
         const uint32_t raw_row = pos % g->raw_cap;
         const uint32_t n_raw = metal_graph_raw_span_for_batch(g, pos, 1);
@@ -15537,7 +15549,7 @@ static bool metal_graph_eval_token_raw_swa_top(
                                                         weights->output->dim[1]);
         t_encoded = profile ? now_sec() : 0.0;
     }
-    if (ok) {
+    if (ok && !(graph_decode_active && cuda_graph_decode_skip_end_sync())) {
         ok = ds4_gpu_end_commands() != 0;
     }
     const double t_done = profile ? now_sec() : 0.0;

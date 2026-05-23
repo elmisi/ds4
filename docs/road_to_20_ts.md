@@ -6029,6 +6029,49 @@ overhead that hurt `q8_batch1_cache_x`, but the extra per-qwarp work/register
 pressure still loses to the simple warp8 stream. This closes another
 non-tensor-core `attn_q_b` activation-sharing variant.
 
+### 2026-05-23 continuation - graph final-sync probe
+
+The unsafe graph-reuse ceiling showed that removing recapture/update can expose
+about a 3-4% upper bound, but most wall time remains in GPU kernels. A smaller
+exact-safe graph probe checked whether the final `cudaDeviceSynchronize()` after
+graph launch was redundant with the mandatory logits/top-id device-to-host read.
+
+`DS4_CUDA_GRAPH_SKIP_END_SYNC=1` skips `ds4_gpu_end_commands()` only in graph
+decode calls that immediately perform a readback. The CUDA stream is still
+synchronized by the following `cudaMemcpy`, so this does not alter kernel math,
+cache contents, or sampling.
+
+Build:
+
+```sh
+make -j$(nproc) cuda-spark
+```
+
+Result: success.
+
+Speed smoke:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast graph_skip_end_sync \
+  --model /home/alessandro/projects/ds4/ds4flash.gguf \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_graph_skip_end_sync \
+  --summary tuning/gx10_matrix_results/prototype_20260523_graph_skip_end_sync/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_graph_skip_end_sync/summary.md \
+  --stop-on-fail
+```
+
+Result:
+
+| Row | 8192/128 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **16.39** | 393.13 | control |
+| `graph_skip_end_sync` | **16.14** | 391.98 | reject |
+
+Decision: reject. The final device synchronize is not a measurable positive
+target in this path; removing it shifts waiting into the required readback and
+adds noise/regression. Do not repeat final-sync-only graph probes.
+
 ## Branch / commit map
 
 ```
