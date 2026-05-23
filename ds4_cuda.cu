@@ -185,6 +185,8 @@ static int g_cuda_shared_gate_up_shape2048;
 static int g_cuda_shared_gate_up_cache_x;
 static int g_cuda_shared_gate_up_dot2;
 static int g_cuda_shared_gate_up_pair_pack;
+static int g_cuda_shared_gate_up_warp1;
+static int g_cuda_shared_gate_up_warp1_exact;
 static int g_cuda_no_warp_router_select;
 static int g_cuda_no_parallel_router_select;
 static int g_cuda_moe_no_decode_lut_gate;
@@ -1878,6 +1880,8 @@ extern "C" int ds4_gpu_init(void) {
     g_cuda_shared_gate_up_cache_x = getenv("DS4_CUDA_SHARED_GATE_UP_CACHE_X") != NULL;
     g_cuda_shared_gate_up_dot2 = getenv("DS4_CUDA_SHARED_GATE_UP_DOT2") != NULL;
     g_cuda_shared_gate_up_pair_pack = getenv("DS4_CUDA_SHARED_GATE_UP_PAIR_PACK") != NULL;
+    g_cuda_shared_gate_up_warp1 = getenv("DS4_CUDA_SHARED_GATE_UP_WARP1") != NULL;
+    g_cuda_shared_gate_up_warp1_exact = getenv("DS4_CUDA_SHARED_GATE_UP_WARP1_EXACT") != NULL;
     g_cuda_no_warp_router_select = getenv("DS4_CUDA_NO_WARP_ROUTER_SELECT") != NULL;
     g_cuda_no_parallel_router_select = getenv("DS4_CUDA_NO_PARALLEL_ROUTER_SELECT") != NULL;
     g_cuda_moe_no_decode_lut_gate = getenv("DS4_CUDA_MOE_NO_DECODE_LUT_GATE") != NULL;
@@ -4561,6 +4565,124 @@ __global__ static void matmul_q8_0_pair_swiglu_preq_warp8_kernel(
     gate = warp_sum_f32(gate);
     up = warp_sum_f32(up);
     if (lane == 0) {
+        gate_out[row] = gate;
+        up_out[row] = up;
+        float g = gate;
+        float u = up;
+        if (clamp > 1.0e-6f) {
+            g = fminf(g, clamp);
+            u = fminf(fmaxf(u, -clamp), clamp);
+        }
+        mid_out[row] = (g / (1.0f + expf(-g))) * u;
+    }
+}
+
+template <uint32_t BLOCKS>
+__global__ static void matmul_q8_0_pair_swiglu_preq_warp1_quad_kernel(
+        float *gate_out,
+        float *up_out,
+        float *mid_out,
+        const unsigned char *gate_w,
+        const unsigned char *up_w,
+        const int8_t *xq,
+        const float *xscale,
+        uint64_t out_dim,
+        float clamp,
+        int use_dp4a) {
+    static_assert(BLOCKS % 4u == 0u, "BLOCKS must be divisible by four");
+    static_assert(BLOCKS / 4u <= 32u, "BLOCKS/4 must fit in one warp");
+    const uint64_t row = (uint64_t)blockIdx.x;
+    if (row >= out_dim) return;
+
+    const uint32_t lane = threadIdx.x & 31u;
+    const uint32_t warp_id = threadIdx.x >> 5u;
+    const uint32_t which_out = warp_id >> 2u;
+    const uint32_t warp_in_out = warp_id & 3u;
+    const unsigned char *wr = (which_out ? up_w : gate_w) + row * BLOCKS * 34u;
+    const uint32_t b = warp_in_out * (BLOCKS / 4u) + lane;
+    float acc = 0.0f;
+    if (lane < (BLOCKS / 4u) && b < BLOCKS) {
+        const __half *scale_h = (const __half *)(wr + b * 34u);
+        const int8_t *qs = (const int8_t *)(wr + b * 34u + 2u);
+        const int8_t *xqb = xq + b * 32u;
+        const int dot = dot_i8_block(qs, xqb, 32u, use_dp4a);
+        acc = __half2float(*scale_h) * xscale[b] * (float)dot;
+    }
+    acc = warp_sum_f32(acc);
+
+    __shared__ float partial[8];
+    if (lane == 0) partial[warp_id] = acc;
+    __syncthreads();
+
+    if (threadIdx.x == 0) {
+        const float gate = partial[0] + partial[1] + partial[2] + partial[3];
+        const float up = partial[4] + partial[5] + partial[6] + partial[7];
+        gate_out[row] = gate;
+        up_out[row] = up;
+        float g = gate;
+        float u = up;
+        if (clamp > 1.0e-6f) {
+            g = fminf(g, clamp);
+            u = fminf(fmaxf(u, -clamp), clamp);
+        }
+        mid_out[row] = (g / (1.0f + expf(-g))) * u;
+    }
+}
+
+template <uint32_t BLOCKS>
+__global__ static void matmul_q8_0_pair_swiglu_preq_warp1_quad_exact_kernel(
+        float *gate_out,
+        float *up_out,
+        float *mid_out,
+        const unsigned char *gate_w,
+        const unsigned char *up_w,
+        const int8_t *xq,
+        const float *xscale,
+        uint64_t out_dim,
+        float clamp,
+        int use_dp4a) {
+    static_assert(BLOCKS == 128u, "exact warp1 shared gate/up is specialized for 128 Q8 blocks");
+    const uint64_t row = (uint64_t)blockIdx.x;
+    if (row >= out_dim) return;
+
+    const uint32_t lane = threadIdx.x & 31u;
+    const uint32_t warp_id = threadIdx.x >> 5u;
+    const uint32_t which_out = warp_id >> 2u;
+    const uint32_t warp_in_out = warp_id & 3u;
+    const unsigned char *wr = (which_out ? up_w : gate_w) + row * BLOCKS * 34u;
+    const uint32_t b = warp_in_out * 32u + lane;
+    float acc = 0.0f;
+    const __half *scale_h = (const __half *)(wr + b * 34u);
+    const int8_t *qs = (const int8_t *)(wr + b * 34u + 2u);
+    const int8_t *xqb = xq + b * 32u;
+    const int dot = dot_i8_block(qs, xqb, 32u, use_dp4a);
+    acc = __half2float(*scale_h) * xscale[b] * (float)dot;
+
+    __shared__ float partial[8 * 32];
+    __shared__ float total[2];
+    partial[warp_id * 32u + lane] = acc;
+    __syncthreads();
+
+    if (warp_id == 0u) {
+        float gate = partial[lane] +
+                     partial[32u + lane] +
+                     partial[64u + lane] +
+                     partial[96u + lane];
+        gate = warp_sum_f32(gate);
+        if (lane == 0) total[0] = gate;
+    } else if (warp_id == 4u) {
+        float up = partial[128u + lane] +
+                   partial[160u + lane] +
+                   partial[192u + lane] +
+                   partial[224u + lane];
+        up = warp_sum_f32(up);
+        if (lane == 0) total[1] = up;
+    }
+    __syncthreads();
+
+    if (threadIdx.x == 0) {
+        const float gate = total[0];
+        const float up = total[1];
         gate_out[row] = gate;
         up_out[row] = up;
         float g = gate;
@@ -14261,6 +14383,38 @@ extern "C" int ds4_gpu_shared_gate_up_swiglu_q8_0_tensor(
                             clamp,
                             use_dp4a);
                     return cuda_ok(cudaGetLastError(), "shared gate/up swiglu cached-x launch");
+                }
+                if (g_cuda_shared_gate_up_warp1_exact &&
+                    in_dim == blocks * 32u &&
+                    blocks == 128u) {
+                    matmul_q8_0_pair_swiglu_preq_warp1_quad_exact_kernel<128><<<(unsigned)out_dim, 256, 0, stream>>>(
+                            (float *)gate->ptr,
+                            (float *)up->ptr,
+                            (float *)mid->ptr,
+                            reinterpret_cast<const unsigned char *>(gate_w),
+                            reinterpret_cast<const unsigned char *>(up_w),
+                            xq,
+                            xscale,
+                            out_dim,
+                            clamp,
+                            use_dp4a);
+                    return cuda_ok(cudaGetLastError(), "shared gate/up swiglu warp1_quad_exact<128> launch");
+                }
+                if (g_cuda_shared_gate_up_warp1 &&
+                    in_dim == blocks * 32u &&
+                    blocks == 128u) {
+                    matmul_q8_0_pair_swiglu_preq_warp1_quad_kernel<128><<<(unsigned)out_dim, 256, 0, stream>>>(
+                            (float *)gate->ptr,
+                            (float *)up->ptr,
+                            (float *)mid->ptr,
+                            reinterpret_cast<const unsigned char *>(gate_w),
+                            reinterpret_cast<const unsigned char *>(up_w),
+                            xq,
+                            xscale,
+                            out_dim,
+                            clamp,
+                            use_dp4a);
+                    return cuda_ok(cudaGetLastError(), "shared gate/up swiglu warp1_quad<128> launch");
                 }
                 if (g_cuda_shared_gate_up_shape2048 &&
                     in_dim == 4096u &&

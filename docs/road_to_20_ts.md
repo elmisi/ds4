@@ -6270,6 +6270,117 @@ layout. Do not repeat HC-expand CTA-per-row variants unless a future change
 also removes the surrounding quantize/graph launch cost or changes the
 post-HC store work.
 
+### 2026-05-23 continuation - shared gate/up one-row-per-CTA probe
+
+The cghart Q8 `warp1` idea was then adapted to the local fused shared
+gate/up+SwiGLU kernel. This is distinct from the earlier shared-gate probes:
+`cache_x`, `dot2`, `pair_pack`, `shape2048`, and `noaux` changed memory reuse,
+packing, shape specialization, or stored outputs, but none changed the CTA
+mapping from 8 rows per CTA to 1 row per CTA with 8 warps cooperating on the
+same shared-expert row.
+
+Two local rows were added:
+
+| Row | Env delta over `exact_fast` | Meaning |
+| --- | --- | --- |
+| `shared_gate_up_warp1` | `DS4_CUDA_SHARED_GATE_UP_WARP1=1` | fast one-row-per-CTA fused shared gate/up+SwiGLU, reduction order changed |
+| `shared_gate_up_warp1_exact` | `DS4_CUDA_SHARED_GATE_UP_WARP1_EXACT=1` | one-row-per-CTA variant that reconstructs the original lane grouping before the warp reduction |
+
+Build:
+
+```sh
+make -j$(nproc) cuda-spark
+```
+
+Result: success.
+
+128-token speed smoke:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast shared_gate_up_warp1 \
+  --model /home/alessandro/projects/ds4/ds4flash.gguf \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_shared_gate_up_warp1 \
+  --summary tuning/gx10_matrix_results/prototype_20260523_shared_gate_up_warp1/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_shared_gate_up_warp1/summary.md \
+  --stop-on-fail
+```
+
+| Row | 8192/128 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **16.15** | 392.31 | control |
+| `shared_gate_up_warp1` | **16.16** | 390.17 | near-noise positive |
+
+256-token repeat:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast shared_gate_up_warp1 \
+  --model /home/alessandro/projects/ds4/ds4flash.gguf \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 256 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_shared_gate_up_warp1_r2 \
+  --summary tuning/gx10_matrix_results/prototype_20260523_shared_gate_up_warp1_r2/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_shared_gate_up_warp1_r2/summary.md \
+  --stop-on-fail
+```
+
+| Row | 8192/256 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **16.08** | 389.63 | control |
+| `shared_gate_up_warp1` | **16.21** | 389.03 | speed-positive but quality-failed |
+
+Short `ds4-eval` gate, same two questions:
+
+```sh
+python3 tuning/gx10_matrix.py run shared_gate_up_warp1 -- ./ds4-eval --cuda \
+  -m /home/alessandro/projects/ds4/ds4flash.gguf \
+  --questions 2 --tokens 512 \
+  --hard-limit-reply-budget 128 --soft-limit-reply-budget 256 \
+  --nothink --plain \
+  --trace tuning/gx10_matrix_results/prototype_20260523_shared_gate_up_warp1_r2/shared_gate_up_warp1_ds4_eval_2q.txt
+
+python3 tuning/gx10_matrix.py run exact_fast -- ./ds4-eval --cuda \
+  -m /home/alessandro/projects/ds4/ds4flash.gguf \
+  --questions 2 --tokens 512 \
+  --hard-limit-reply-budget 128 --soft-limit-reply-budget 256 \
+  --nothink --plain \
+  --trace tuning/gx10_matrix_results/prototype_20260523_shared_gate_up_warp1_r2/exact_fast_ds4_eval_2q.txt
+```
+
+Result:
+
+| Row | `ds4-eval` 2q | Notes |
+| --- | ---: | --- |
+| `exact_fast` | **2/2** | both reference answers reproduced |
+| `shared_gate_up_warp1` | **1/2** | failed `SuperGPQA/001b51d76b4d422988f2c11f104a2c6c`, answering G instead of C |
+
+The quality failure is attributable to the reduction-order change, not to test
+instability, because the same binary and same questions passed under
+`exact_fast`.
+
+The exact-order variant was then tested:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast shared_gate_up_warp1_exact \
+  --model /home/alessandro/projects/ds4/ds4flash.gguf \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 256 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_shared_gate_up_warp1_exact \
+  --summary tuning/gx10_matrix_results/prototype_20260523_shared_gate_up_warp1_exact/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_shared_gate_up_warp1_exact/summary.md \
+  --stop-on-fail
+```
+
+| Row | 8192/256 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **16.16** | 392.49 | control |
+| `shared_gate_up_warp1_exact` | **16.01** | 389.58 | reject |
+
+Decision: reject as a production candidate. The fast one-row-per-CTA shared
+gate/up kernel is a useful upper-bound signal but fails the cheap quality gate.
+The exact-order variant removes the quality risk but loses throughput. Do not
+repeat shared gate/up CTA-per-row work unless it preserves the original
+reduction order without adding the extra shared-memory/synchronization cost, or
+unless it is part of a larger fusion that removes launches elsewhere.
+
 ## Branch / commit map
 
 ```
