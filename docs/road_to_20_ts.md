@@ -5381,6 +5381,62 @@ python3 tuning/gx10_matrix.py bench-suite exact_fast soa_qkv soa_qkv_no_pair \
 Decision: reject `soa_qkv_no_pair`. The pair projection remains worth keeping;
 the SoA-QKV line is still diagnostic only and not a promotion candidate.
 
+The micro-shape probes above made it clear that more static Q8 dimensions are
+not enough. A short Nsight Systems profile was captured on the graph path to
+rank actual kernel families rather than relying only on manual stage buckets:
+
+```sh
+DS4_CUDA_GRAPH_DECODE=1 DS4_CUDA_Q8_SOA_CACHE=1 \
+  nsys profile --trace=cuda --sample=none --cpuctxsw=none \
+  --cuda-graph-trace=node --force-overwrite=true \
+  --output tuning/gx10_matrix_results/prototype_20260523_nsys_graph_exact/decode_graph_exact \
+  ./ds4 --cuda -m ds4flash.gguf --ctx 8192 -n 32 --temp 0 \
+  -p "Ecco una funzione"
+
+nsys stats --report cuda_gpu_kern_sum \
+  tuning/gx10_matrix_results/prototype_20260523_nsys_graph_exact/decode_graph_exact.nsys-rep \
+  > tuning/gx10_matrix_results/prototype_20260523_nsys_graph_exact/cuda_gpu_kern_sum.txt
+```
+
+The full `.nsys-rep` / `.sqlite` files were not committed because they are
+generated and large; the committed artifact is the kernel summary text.
+
+Top graph-path kernel families from `cuda_gpu_kern_sum.txt`:
+
+| Kernel family | Time % | Instances | Avg |
+| --- | ---: | ---: | ---: |
+| `moe_gate_up_mid_decode_lut_qwarp32_kernel` | 14.9 | 1333 | 235.378 us |
+| `matmul_q8_0_hc_expand_preq_warp8_soa_kernel` | 10.0 | 1333 | 157.406 us |
+| `matmul_q8_0_preq_batch_warp8_kernel` (`attn_q_b`) | 9.8 | 1333 | 155.578 us |
+| `grouped_q8_0_a_preq_warp8_soa_kernel` | 9.7 | 1333 | 153.431 us |
+| `moe_down_sum6_qwarp32_kernel` | 6.9 | 1333 | 109.840 us |
+| `matmul_q8_0_pair_swiglu_preq_warp8_kernel` | 5.3 | 1333 | 83.982 us |
+| output full-logits `matmul_q8_0_preq_kernel` | 3.7 | 32 | 2.462 ms |
+| `attention_decode_mixed_kernel` | 3.7 | 1333 | 58.151 us |
+
+This profile explained why the old cghart "output Q8 warp rows" idea was worth
+rechecking: the full-logits output head still used the generic one-row-per-CTA
+Q8 kernel. A new diagnostic row routed only the output-head-sized
+`4096 -> vocab` full-logits matmul through the existing `warp8` Q8 kernel:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast output_q8_warp8 \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_output_q8_warp8 \
+  --summary tuning/gx10_matrix_results/prototype_20260523_output_q8_warp8/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_output_q8_warp8/summary.md
+```
+
+| Row | 8192/128 gen t/s | Decision |
+| --- | ---: | --- |
+| `exact_fast` | **16.13** | control |
+| `output_q8_warp8` | **15.93** | negative |
+
+Decision: reject `output_q8_warp8`. Even though the output full-logits kernel
+is visible in the profile, replacing it with the warp8 reducer worsened
+end-to-end throughput and also changes reduction order, so it does not deserve
+a quality gate.
+
 ## Branch / commit map
 
 ```

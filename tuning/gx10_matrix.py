@@ -24,6 +24,7 @@ BASE_UNSET_NAMES = {
     "DS4_CUDA_GRAPH_VERIFY",
     "DS4_CUDA_DIRECT_MODEL",
     "DS4_CUDA_OUTPUT_TOP1",
+    "DS4_CUDA_OUTPUT_Q8_WARP8",
     "DS4_CUDA_FORCE_ORDERED_F16_MATMUL",
     "DS4_CUDA_NO_ORDERED_F16_MATMUL",
     "DS4_CUDA_Q8_CUBLAS_DECODE",
@@ -226,6 +227,11 @@ MATRIX = {
         "category": "diagnostic",
         "env": {**EXACT_FAST, **env(DS4_CUDA_OUTPUT_TOP1=1)},
         "status": "exact but slower in A/B",
+    },
+    "output_q8_warp8": {
+        "category": "prototype",
+        "env": {**EXACT_FAST, **env(DS4_CUDA_OUTPUT_Q8_WARP8=1)},
+        "status": "full-logits output head routed through warp8 Q8 kernel, reduction-order probe",
     },
     "attn_b_cublas_min1": {
         "category": "diagnostic",
@@ -511,6 +517,7 @@ ROW_GROUPS = {
         "shared_gate_up_shape2048",
         "soa_cache_x",
         "output_top1",
+        "output_q8_warp8",
         "attn_b_cublas_min1",
         "attn_b_shape4096",
         "attn_a_hwarp16",

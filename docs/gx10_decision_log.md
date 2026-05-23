@@ -58,6 +58,7 @@ kernel change creates a new reason to retest them.
 | `soa_shared` / `DS4_CUDA_Q8_SOA_SHARED=1` | Memory-safe and micro-positive, but end-to-end neutral and not byte-identical in stored logprobs. |
 | `soa_cache_x` / `DS4_CUDA_Q8_SOA_CACHE_X=1` | Noisy/unstable and slower end-to-end. |
 | `attn_b_cublas_min1` / `DS4_CUDA_ATTENTION_OUTPUT_B_CUBLAS_MIN=1` | Did not improve refreshed profile and spent significant extra memory. |
+| `output_q8_warp8` / `DS4_CUDA_OUTPUT_Q8_WARP8=1` | Nsys showed output full-logits still using the generic Q8 kernel, but routing it to warp8 was slower: 15.93 vs 16.13 t/s and changes reduction order. |
 | `attn_a_hwarp16` / `DS4_CUDA_ATTENTION_OUTPUT_A_HWARP16=1` | Negative speed smoke and changes reduction order. |
 | `attn_qb_hwarp16` / `DS4_CUDA_ATTN_Q_B_HWARP16=1` | Negative: 15.92 vs 16.13 t/s same-run control. |
 | `attn_qb_soa_hwarp16` / `DS4_CUDA_Q8_SOA_QB=1 DS4_CUDA_ATTN_Q_B_HWARP16=1` | Negative: 16.03 vs 16.13 t/s same-run control. |
