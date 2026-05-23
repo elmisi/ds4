@@ -1,0 +1,30 @@
+[
+  {
+    "row": "exact_fast",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 15.96,
+    "gen_8192": 15.96,
+    "gen_last": 15.96,
+    "gen_mean": 15.96,
+    "gen_max": 15.96,
+    "gen_ss_mean": 15.96,
+    "prefill_mean": 392.74,
+    "prefill_max": 392.74
+  },
+  {
+    "row": "mmq_moe_gate_up",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 2.59,
+    "gen_8192": 2.59,
+    "gen_last": 2.59,
+    "gen_mean": 2.59,
+    "gen_max": 2.59,
+    "gen_ss_mean": 2.59,
+    "prefill_mean": 390.36,
+    "prefill_max": 390.36
+  }
+]

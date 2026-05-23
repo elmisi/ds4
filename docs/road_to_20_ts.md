@@ -5800,6 +5800,90 @@ Decision: keep as an inactive scaffold and commit separately. The next gate is
 an explicit opt-in single-token Q8 projection route, measured against same-run
 `exact_fast` before any larger dispatcher or graph-capture changes.
 
+### 2026-05-23 continuation - MMQ/MMVQ runtime probes
+
+The isolated branch then tested the imported MMQ/MMVQ scaffold behind opt-in
+runtime flags. These were full-quality or exact-order probes, not reduced-K
+quality tradeoffs.
+
+Implemented rows:
+
+| Row | Env delta over `exact_fast` | What it tests |
+| --- | --- | --- |
+| `mmq_q8_dense_vec_attn_q_b` | `DS4_CUDA_MMQ_Q8_DENSE_VEC_ATTN_Q_B=1` | route only single-token `attn_q_b` Q8 shape (`1024 -> 32768`) through imported MMVQ dense-vector path |
+| `mmq_q8_dense_vec_attn_q_b_persist` | previous row plus `DS4_CUDA_MMQ_Q81_PERSISTENT=1` | same path, but with persistent Q8_1 scratch instead of per-call pool allocation |
+| `mmq_moe_gate_up` | `DS4_CUDA_MMQ_MOE_GATE_UP=1` | generic MMQ IQ2 routed gate/up pair, then local DS4 clamp/router SwiGLU post-kernel |
+| `mmvq_moe_gate_up_persist` | `DS4_CUDA_MMVQ_MOE_GATE_UP=1 DS4_CUDA_MMQ_Q81_PERSISTENT=1` | fused MMVQ IQ2 routed gate/up with in-kernel DS4 clamp and router weights, native down unchanged |
+
+Build gate:
+
+```sh
+make -j$(nproc) cuda-spark
+```
+
+Result: success. `ds4`, `ds4-server`, `ds4-bench`, `ds4-eval`, and `ds4-agent`
+all link with the runtime probe code.
+
+Speed smokes:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast mmq_q8_dense_vec_attn_q_b \
+  --model /home/alessandro/projects/ds4/ds4flash.gguf \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_mmq_q8_dense_vec_attn_q_b_r2 \
+  --summary tuning/gx10_matrix_results/prototype_20260523_mmq_q8_dense_vec_attn_q_b_r2/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_mmq_q8_dense_vec_attn_q_b_r2/summary.md
+
+python3 tuning/gx10_matrix.py bench-suite exact_fast mmq_q8_dense_vec_attn_q_b_persist \
+  --model /home/alessandro/projects/ds4/ds4flash.gguf \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_mmq_q8_dense_vec_attn_q_b_persist \
+  --summary tuning/gx10_matrix_results/prototype_20260523_mmq_q8_dense_vec_attn_q_b_persist/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_mmq_q8_dense_vec_attn_q_b_persist/summary.md
+
+python3 tuning/gx10_matrix.py bench-suite exact_fast mmq_moe_gate_up \
+  --model /home/alessandro/projects/ds4/ds4flash.gguf \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_mmq_moe_gate_up \
+  --summary tuning/gx10_matrix_results/prototype_20260523_mmq_moe_gate_up/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_mmq_moe_gate_up/summary.md
+
+python3 tuning/gx10_matrix.py bench-suite exact_fast mmvq_moe_gate_up_persist \
+  --model /home/alessandro/projects/ds4/ds4flash.gguf \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_mmvq_moe_gate_up_persist \
+  --summary tuning/gx10_matrix_results/prototype_20260523_mmvq_moe_gate_up_persist/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_mmvq_moe_gate_up_persist/summary.md
+```
+
+Results:
+
+| Row | Same-run control | Candidate gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | ---: | --- |
+| `mmq_q8_dense_vec_attn_q_b` | 16.02 | **9.65** | 389.61 | reject |
+| `mmq_q8_dense_vec_attn_q_b_persist` | 15.95 | **15.72** | 389.50 | reject, near but slower |
+| `mmq_moe_gate_up` | 15.96 | **2.59** | 390.36 | reject |
+| `mmvq_moe_gate_up_persist` | 16.37 | **10.15** | 390.35 | reject |
+
+Interpretation:
+
+- The first Q8 dense-vector probe mostly measured per-call/captured pool
+  allocation overhead. Persistent Q8_1 scratch removed most of that loss, but
+  the imported MMVQ vector path still did not beat the existing warp8
+  `attn_q_b` path.
+- Generic MMQ for single-token routed MoE is structurally wrong for this decode
+  shape. It wastes too much work versus the current qwarp/LUT gate-up kernel.
+- Fused MMVQ routed gate/up is full-quality after adding in-kernel DS4 clamp and
+  router scaling, but it is still far slower than the native qwarp path. Do not
+  repeat this as "MMVQ MoE fusion" unless the underlying vector dot strategy is
+  redesigned.
+
+Decision: park these MMQ/MMVQ runtime routes as negative diagnostics. The
+isolated import is still useful as a reference scaffold, but no tested imported
+MMQ/MMVQ path is a candidate for promotion. Any future tensor-core route must be
+a real kernel/layout redesign, not another dispatcher switch to the imported
+generic MMQ/MMVQ calls.
+
 ## Branch / commit map
 
 ```

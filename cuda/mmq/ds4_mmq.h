@@ -288,10 +288,10 @@ int ds4_mmq_q4_K_moe_vec(
 // fusion.glu_op = GGML_GLU_OP_SWIGLU). The kernel applies silu to the
 // fusion.gate matmul and multiplies into the main matmul: pass the
 // SwiGLU "up" weights as W_a and the SwiGLU "gate" weights as W_b to
-// match ds4's expected silu(gate)*up semantics. The DeepSeek V4 clamp
-// and router-weight multiplication are NOT applied by the kernel - the
-// caller is expected to apply them as a small post-process (or to skip
-// clamp if clamp==0).
+// match ds4's expected silu(gate)*up semantics. The base entry does NOT
+// apply DeepSeek V4 clamp or router-weight multiplication. The _weighted
+// variant applies both inside the same mmvq fusion and is the DS4
+// full-quality decode path under test.
 //
 // Constraints:
 //   - n_tokens = 1 ONLY. mmvq supports fusion only at ncols_dst = 1.
@@ -309,6 +309,20 @@ int ds4_mmq_iq2_xxs_moe_pair_vec(
     int             K,
     int             n_experts,
     int             n_expert_used,
+    cudaStream_t    stream);
+
+int ds4_mmq_iq2_xxs_moe_pair_vec_weighted(
+    const void    * W_a,
+    const void    * W_b,
+    const float   * X_f32,
+    const int32_t * ids,
+    const float   * weights,
+    float         * out_silu,
+    int             M,
+    int             K,
+    int             n_experts,
+    int             n_expert_used,
+    float           clamp,
     cudaStream_t    stream);
 
 int ds4_mmq_q4_K_moe_pair_vec(

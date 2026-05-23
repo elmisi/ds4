@@ -163,6 +163,8 @@ door on hard but plausible kernel work.
 | `attn_qb_hwarp16` | `DS4_CUDA_ATTN_Q_B_HWARP16=1` | 15.92 vs 16.13 t/s same-run control; changes reduction shape | diagnostic only; do not promote |
 | `attn_qb_soa_hwarp16` | `DS4_CUDA_Q8_SOA_QB=1 DS4_CUDA_ATTN_Q_B_HWARP16=1` | 16.03 vs 16.13 t/s same-run control; changes reduction shape | diagnostic only; do not promote |
 | `attn_qb_b32_special` | `DS4_CUDA_ATTN_Q_B_B32_SPECIAL=1` | exact-order decode-shape specialization, 16.07 vs 16.12 t/s control | diagnostic only; do not promote |
+| `mmq_q8_dense_vec_attn_q_b` | `DS4_CUDA_MMQ_Q8_DENSE_VEC_ATTN_Q_B=1` | imported MMVQ dense-vector path for single-token `attn_q_b` was strongly slower: 9.65 vs 16.02 t/s control | diagnostic only; do not promote |
+| `mmq_q8_dense_vec_attn_q_b_persist` | `DS4_CUDA_MMQ_Q8_DENSE_VEC_ATTN_Q_B=1 DS4_CUDA_MMQ_Q81_PERSISTENT=1` | persistent Q8_1 scratch removed most allocation overhead, but still slower: 15.72 vs 15.95 t/s control | diagnostic only; do not promote |
 | `attn_qkv_pair_shape` | `DS4_CUDA_ATTN_QKV_PAIR_SHAPE=1` | exact-order QKV pair shape specialization, 16.07 vs 16.12 t/s control and higher register use | diagnostic only; do not promote |
 | `attn_b_shape4096` | `DS4_CUDA_ATTENTION_OUTPUT_B_SHAPE4096=1` | exact-order attention-output-B shape specialization, 15.90 vs 16.12 t/s control and higher register use | diagnostic only; do not promote |
 | `soa_qkv_no_pair` | `DS4_CUDA_Q8_SOA_QKV=1 DS4_METAL_DISABLE_QKV_PAIR_PROJ=1` | disabling the pair projection did not rescue QKV SoA: 15.70 vs 15.94 t/s control | diagnostic only; do not promote |
@@ -187,6 +189,8 @@ door on hard but plausible kernel work.
 | `moe_noaux` | `DS4_CUDA_MOE_DECODE_GATE_NOAUX=1` | neutral/negative | re-test only after MoE kernel change |
 | `moe_pair2` | `DS4_CUDA_MOE_DECODE_GATE_PAIR2=1` | byte-identical but slower | re-test only after MoE kernel change |
 | `moe_fused_midq` | `DS4_CUDA_MOE_DECODE_FUSED_MIDQ=1` | byte-identical but slower | re-test only after MoE kernel change |
+| `mmq_moe_gate_up` | `DS4_CUDA_MMQ_MOE_GATE_UP=1` | generic imported MMQ IQ2 routed gate/up pair plus exact local SwiGLU was catastrophically slower: 2.59 vs 15.96 t/s control | diagnostic only; do not repeat generic MMQ MoE |
+| `mmvq_moe_gate_up_persist` | `DS4_CUDA_MMVQ_MOE_GATE_UP=1 DS4_CUDA_MMQ_Q81_PERSISTENT=1` | fused imported MMVQ IQ2 gate/up with in-kernel DS4 clamp/router weights was full-quality but much slower: 10.15 vs 16.37 t/s control | diagnostic only; do not repeat MMVQ MoE fusion without kernel redesign |
 | `moe_down_meta_cache` | `DS4_CUDA_MOE_DOWN_SUM6_META_CACHE=1` | tiny/noisy +0.6% in one smoke, below gate | diagnostic only; do not promote |
 | `moe_gate_weight_cache` | `DS4_CUDA_MOE_DECODE_GATE_WEIGHT_CACHE=1` | negative in smoke | diagnostic only; do not promote |
 | `moe_span128_template` | `DS4_CUDA_MOE_DECODE_GATE_SPAN128_TEMPLATE=1` | explicit span<128> template, 16.00 vs 16.16 t/s control | diagnostic only; do not promote |
@@ -258,7 +262,7 @@ matrix rows.
 
 | Candidate | Source branch | Why it matters | Current decision |
 | --- | --- | --- | --- |
-| CUDA MMQ + layer graphs | `Entrpi/ds4:mmq-step-A-full-layer-graphs` | vendored llama.cpp MMQ/MMVQ, per-layer CUDA graph replay, VMM arena, proof harness | isolated branch `gx10-mmqv-port`; first checkpoint imports/builds `cuda/mmq/` only, runtime inactive; public GB10 CSV reports 13.74 t/s at ctx=8192/128 and 11.70 t/s at ctx=65536/128, below current exact-fast |
+| CUDA MMQ + layer graphs | `Entrpi/ds4:mmq-step-A-full-layer-graphs` | vendored llama.cpp MMQ/MMVQ, per-layer CUDA graph replay, VMM arena, proof harness | isolated branch `gx10-mmqv-port`; scaffold imports/builds `cuda/mmq/`, but runtime probes are negative: Q8 dense vec 15.72 vs 15.95 after persistent scratch, generic MMQ MoE 2.59 vs 15.96, fused MMVQ MoE 10.15 vs 16.37; do not broaden the import without kernel redesign |
 | MTP prefix/fused verifier | `reffdev/ds4:fused-matmul-mtp`, Entrpi MTP commits | alternative MTP verifier architecture and prefix-K ideas | keep as research input; no simple env drop-in here |
 | KV self-eviction guard | `audreyt/ds4:feat/kv-cache-guard-fresh-cold-saves` | one-commit server cache correctness guard | small import candidate if reproduces locally |
 | ROCm/HIP prequant ideas | `ejpir/ds4-hip`, `chiefnoah/ds4` | prequant/f16 scratch and launch-overhead work | architecture-specific; mine for concepts only |

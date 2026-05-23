@@ -1,0 +1,30 @@
+[
+  {
+    "row": "exact_fast",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 15.95,
+    "gen_8192": 15.95,
+    "gen_last": 15.95,
+    "gen_mean": 15.95,
+    "gen_max": 15.95,
+    "gen_ss_mean": 15.95,
+    "prefill_mean": 391.95,
+    "prefill_max": 391.95
+  },
+  {
+    "row": "mmq_q8_dense_vec_attn_q_b_persist",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 15.72,
+    "gen_8192": 15.72,
+    "gen_last": 15.72,
+    "gen_mean": 15.72,
+    "gen_max": 15.72,
+    "gen_ss_mean": 15.72,
+    "prefill_mean": 389.5,
+    "prefill_max": 389.5
+  }
+]

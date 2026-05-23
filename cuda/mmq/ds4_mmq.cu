@@ -902,11 +902,13 @@ int ds4_mmq_moe_pair_vec_impl(
         const void    * W_b,
         const float   * X_f32,
         const int32_t * ids,
+        const float   * scale,
         float         * out_silu,
         int             M,
         int             K,
         int             n_experts,
         int             n_expert_used,
+        float           clamp,
         cudaStream_t    stream) {
 
     if (!W_a || !W_b || !X_f32 || !ids || !out_silu) {
@@ -944,10 +946,17 @@ int ds4_mmq_moe_pair_vec_impl(
     const int64_t ne10_padded = GGML_PAD((int64_t)K, MATRIX_ROW_PADDING);
     const size_t  nbytes_q8_1 = (size_t)n_tokens * ne10_padded *
                                 sizeof(block_q8_1) / QK8_1;
-    ggml_cuda_pool_alloc<char> src1_q8_1(ctx->pool(), nbytes_q8_1);
+    ggml_cuda_pool_alloc<char> src1_q8_1_pool;
+    char *src1_q8_1_ptr = nullptr;
+    if (g_q81_scratch_enabled && g_q81_scratch_ptr && g_q81_scratch_bytes >= nbytes_q8_1) {
+        src1_q8_1_ptr = (char *)g_q81_scratch_ptr;
+    } else {
+        src1_q8_1_pool.alloc(ctx->pool(), nbytes_q8_1);
+        src1_q8_1_ptr = src1_q8_1_pool.get();
+    }
 
     quantize_row_q8_1_cuda(
-        X_f32, /*ids=*/nullptr, (void *)src1_q8_1.get(),
+        X_f32, /*ids=*/nullptr, (void *)src1_q8_1_ptr,
         type, /*ne00=*/K,
         /*s11=*/(int64_t)K, /*s12=*/(int64_t)K, /*s13=*/(int64_t)K * n_tokens,
         /*ne0=*/ne10_padded, /*ne1=*/1, /*ne2=*/n_tokens, /*ne3=*/1,
@@ -968,17 +977,20 @@ int ds4_mmq_moe_pair_vec_impl(
     const int64_t s1_dst    = (int64_t)M;
     const int ids_stride    = n_expert_used;
 
-    // Configure fusion: gate=W_b (up weights), glu_op=SWIGLU.
+    // Configure fusion: gate=W_b, glu_op=SWIGLU.
     // mmvq's kernel will compute, for each (channel_dst, row):
-    //   a = vec_dot(W_a, x); b = vec_dot(W_b, x);
-    //   dst = silu(a) * b
+    //   up = vec_dot(W_a, x); gate = vec_dot(W_b, x);
+    //   dst = silu(gate) * up * scale[channel_dst]
     ggml_cuda_mm_fusion_args_device fusion = {};
-    fusion.gate   = W_b;
-    fusion.glu_op = GGML_GLU_OP_SWIGLU;
+    fusion.gate         = W_b;
+    fusion.scale        = scale;
+    fusion.glu_op       = GGML_GLU_OP_SWIGLU;
+    fusion.clamp        = clamp;
+    fusion.scale_stride = n_expert_used;
 
     mul_mat_vec_q_switch_type(
         /*vx=*/W_a, /*type_x=*/type,
-        /*vy=*/(const void *)src1_q8_1.get(),
+        /*vy=*/(const void *)src1_q8_1_ptr,
         /*ids=*/ids, /*fusion=*/fusion,
         /*dst=*/out_silu,
         /*ncols_x=*/K, /*nrows_x=*/M, /*ncols_dst=*/n_tokens,
@@ -1048,11 +1060,18 @@ int ds4_mmq_dense_vec_impl(
     const int64_t ne10_padded = GGML_PAD((int64_t)K, MATRIX_ROW_PADDING);
     const size_t  nbytes_q8_1 = (size_t)N * ne10_padded *
                                 sizeof(block_q8_1) / QK8_1;
-    ggml_cuda_pool_alloc<char> src1_q8_1(ctx->pool(), nbytes_q8_1);
+    ggml_cuda_pool_alloc<char> src1_q8_1_pool;
+    char *src1_q8_1_ptr = nullptr;
+    if (g_q81_scratch_enabled && g_q81_scratch_ptr && g_q81_scratch_bytes >= nbytes_q8_1) {
+        src1_q8_1_ptr = (char *)g_q81_scratch_ptr;
+    } else {
+        src1_q8_1_pool.alloc(ctx->pool(), nbytes_q8_1);
+        src1_q8_1_ptr = src1_q8_1_pool.get();
+    }
 
     // Dense src1 layout: K innermost, N next; ne11=N, ne12=1, ne13=1.
     quantize_row_q8_1_cuda(
-        X_f32, /*ids=*/nullptr, (void *)src1_q8_1.get(),
+        X_f32, /*ids=*/nullptr, (void *)src1_q8_1_ptr,
         type, /*ne00=*/K,
         /*s11=*/(int64_t)K, /*s12=*/(int64_t)K * N, /*s13=*/(int64_t)K * N,
         /*ne0=*/ne10_padded, /*ne1=*/N, /*ne2=*/1, /*ne3=*/1,
@@ -1081,7 +1100,7 @@ int ds4_mmq_dense_vec_impl(
 
     mul_mat_vec_q_switch_type(
         /*vx=*/W, /*type_x=*/type,
-        /*vy=*/(const void *)src1_q8_1.get(),
+        /*vy=*/(const void *)src1_q8_1_ptr,
         /*ids=*/nullptr, /*fusion=*/fusion,
         /*dst=*/out_f32,
         /*ncols_x=*/K, /*nrows_x=*/M, /*ncols_dst=*/N,
@@ -1151,8 +1170,18 @@ extern "C" int ds4_mmq_iq2_xxs_moe_pair_vec(
         int M, int K, int n_experts, int n_expert_used,
         cudaStream_t stream) {
     return ds4_mmq_moe_pair_vec_impl<GGML_TYPE_IQ2_XXS>(
-        "ds4_mmq_iq2_xxs_moe_pair_vec", W_a, W_b, X, ids, out_silu,
-        M, K, n_experts, n_expert_used, stream);
+        "ds4_mmq_iq2_xxs_moe_pair_vec", W_a, W_b, X, ids, nullptr, out_silu,
+        M, K, n_experts, n_expert_used, 0.0f, stream);
+}
+
+extern "C" int ds4_mmq_iq2_xxs_moe_pair_vec_weighted(
+        const void * W_a, const void * W_b,
+        const float * X, const int32_t * ids, const float * weights,
+        float * out_silu, int M, int K, int n_experts, int n_expert_used,
+        float clamp, cudaStream_t stream) {
+    return ds4_mmq_moe_pair_vec_impl<GGML_TYPE_IQ2_XXS>(
+        "ds4_mmq_iq2_xxs_moe_pair_vec_weighted", W_a, W_b, X, ids, weights, out_silu,
+        M, K, n_experts, n_expert_used, clamp, stream);
 }
 
 extern "C" int ds4_mmq_q4_K_moe_pair_vec(
@@ -1161,8 +1190,8 @@ extern "C" int ds4_mmq_q4_K_moe_pair_vec(
         int M, int K, int n_experts, int n_expert_used,
         cudaStream_t stream) {
     return ds4_mmq_moe_pair_vec_impl<GGML_TYPE_Q4_K>(
-        "ds4_mmq_q4_K_moe_pair_vec", W_a, W_b, X, ids, out_silu,
-        M, K, n_experts, n_expert_used, stream);
+        "ds4_mmq_q4_K_moe_pair_vec", W_a, W_b, X, ids, nullptr, out_silu,
+        M, K, n_experts, n_expert_used, 0.0f, stream);
 }
 
 extern "C" int ds4_mmq_q8_0_dense_vec(

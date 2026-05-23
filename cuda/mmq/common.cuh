@@ -1479,11 +1479,17 @@ struct ggml_cuda_mm_fusion_args_host {
     const ggml_tensor * x_bias = nullptr;
     const ggml_tensor * gate = nullptr;
     const ggml_tensor * gate_bias = nullptr;
+    const ggml_tensor * scale = nullptr;
     ggml_glu_op glu_op;
+    float clamp = 0.0f;
+    int scale_stride = 0;
 };
 struct ggml_cuda_mm_fusion_args_device {
     const void * x_bias = nullptr;
     const void * gate = nullptr;
     const void * gate_bias = nullptr;
+    const void * scale = nullptr;
     ggml_glu_op glu_op;
+    float clamp = 0.0f;
+    int scale_stride = 0;
 };

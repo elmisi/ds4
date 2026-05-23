@@ -432,19 +432,27 @@ static __global__ void mul_mat_vec_q(
     bool use_gate = false;
     bool use_bias = false;
     bool use_gate_bias = false;
+    bool use_scale = false;
     const void * vgate = nullptr;
     const float * x_bias = nullptr;
     const float * gate_bias = nullptr;
+    const float * scale = nullptr;
     ggml_glu_op active_glu;
+    float active_clamp = 0.0f;
+    int scale_stride = 0;
 
     if constexpr (has_fusion) {
         use_gate      = fusion.gate      != nullptr;
         use_bias      = fusion.x_bias    != nullptr;
         use_gate_bias = fusion.gate_bias != nullptr && use_gate;
+        use_scale     = fusion.scale     != nullptr;
         vgate         = fusion.gate;
         x_bias        = (const float *) fusion.x_bias;
         gate_bias     = (const float *) fusion.gate_bias;
+        scale         = (const float *) fusion.scale;
         active_glu    = fusion.glu_op;
+        active_clamp  = fusion.clamp;
+        scale_stride  = fusion.scale_stride;
     }
 
 
@@ -567,6 +575,10 @@ static __global__ void mul_mat_vec_q(
                     if (use_gate_bias) {
                         gate_value += gate_biases[j];
                     }
+                    if (active_clamp > 1.0e-6f) {
+                        gate_value = fminf(gate_value, active_clamp);
+                        result = fminf(fmaxf(result, -active_clamp), active_clamp);
+                    }
                     switch (active_glu) {
                         case GGML_GLU_OP_SWIGLU:
                             result *= ggml_cuda_op_silu_single(gate_value);
@@ -583,13 +595,17 @@ static __global__ void mul_mat_vec_q(
                             break;
                     }
                 }
+                if (use_scale) {
+                    result *= scale[(uint64_t)sample_dst * (uint32_t)scale_stride + channel_dst];
+                }
             }
             dst[j*stride_col_dst + threadIdx.x] = result;
         }
     }
 
     if constexpr (!has_fusion) {
-        GGML_UNUSED_VARS(use_gate, use_bias, use_gate_bias, active_glu, gate_bias, x_bias, tmp_gate);
+        GGML_UNUSED_VARS(use_gate, use_bias, use_gate_bias, use_scale, active_glu,
+                         active_clamp, scale_stride, gate_bias, x_bias, scale, tmp_gate);
     }
 }
 
@@ -678,7 +694,8 @@ static void mul_mat_vec_q_switch_fusion(
         const dim3 & block_nums, const dim3 & block_dims, const int nbytes_shared,
         const uint32_t ids_stride, cudaStream_t stream) {
 
-    const bool has_fusion = fusion.gate != nullptr || fusion.x_bias != nullptr || fusion.gate_bias != nullptr;
+    const bool has_fusion = fusion.gate != nullptr || fusion.x_bias != nullptr ||
+                            fusion.gate_bias != nullptr || fusion.scale != nullptr;
     if constexpr (c_ncols_dst == 1) {
         if (has_fusion) {
             mul_mat_vec_q<type, c_ncols_dst, true, small_k><<<block_nums, block_dims, nbytes_shared, stream>>>
@@ -740,7 +757,8 @@ static void mul_mat_vec_q_switch_ncols_dst(
     const int warp_size = ggml_cuda_info().devices[device].warp_size;
     const mmvq_parameter_table_id table_id  = get_device_table_id(cc);
 
-    const bool has_fusion = fusion.gate != nullptr || fusion.x_bias != nullptr || fusion.gate_bias != nullptr;
+    const bool has_fusion = fusion.gate != nullptr || fusion.x_bias != nullptr ||
+                            fusion.gate_bias != nullptr || fusion.scale != nullptr;
     const bool has_ids = ids != nullptr;
 
     const auto should_use_small_k = [&](int c_ncols_dst) {
@@ -1084,7 +1102,13 @@ void ggml_cuda_mul_mat_vec_q(
             GGML_ASSERT(!ids || fusion->gate_bias->ne[1] == src0->ne[2]);
             fusion_local.gate_bias = fusion->gate_bias->data;
         }
+        if (fusion->scale) {
+            GGML_ASSERT(fusion->scale->type == GGML_TYPE_F32);
+            fusion_local.scale = fusion->scale->data;
+        }
         fusion_local.glu_op = fusion->glu_op;
+        fusion_local.clamp = fusion->clamp;
+        fusion_local.scale_stride = fusion->scale_stride;
     }
 
     // If src0 is a temporary compute buffer, clear any potential padding.

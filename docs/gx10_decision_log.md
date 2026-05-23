@@ -63,6 +63,8 @@ kernel change creates a new reason to retest them.
 | `attn_qb_hwarp16` / `DS4_CUDA_ATTN_Q_B_HWARP16=1` | Negative: 15.92 vs 16.13 t/s same-run control. |
 | `attn_qb_soa_hwarp16` / `DS4_CUDA_Q8_SOA_QB=1 DS4_CUDA_ATTN_Q_B_HWARP16=1` | Negative: 16.03 vs 16.13 t/s same-run control. |
 | `attn_qb_b32_special` / `DS4_CUDA_ATTN_Q_B_B32_SPECIAL=1` | Exact-order specialization, but still negative: 16.07 vs 16.12 t/s control. |
+| `mmq_q8_dense_vec_attn_q_b` / `DS4_CUDA_MMQ_Q8_DENSE_VEC_ATTN_Q_B=1` | Imported MMVQ dense-vector route for single-token `attn_q_b` was strongly slower: 9.65 vs 16.02 t/s control. |
+| `mmq_q8_dense_vec_attn_q_b_persist` / `DS4_CUDA_MMQ_Q8_DENSE_VEC_ATTN_Q_B=1 DS4_CUDA_MMQ_Q81_PERSISTENT=1` | Persistent Q8_1 scratch fixed most allocation overhead, but the imported MMVQ path still lost: 15.72 vs 15.95 t/s control. |
 | `attn_qkv_pair_shape` / `DS4_CUDA_ATTN_QKV_PAIR_SHAPE=1` | Exact-order QKV pair shape specialization raised register use and was slower: 16.07 vs 16.12 t/s control. |
 | `attn_b_shape4096` / `DS4_CUDA_ATTENTION_OUTPUT_B_SHAPE4096=1` | Exact-order attention-output-B 4096x4096 shape specialization raised register use and was slower: 15.90 vs 16.12 t/s control. |
 | `soa_qkv_no_pair` / `DS4_CUDA_Q8_SOA_QKV=1 DS4_METAL_DISABLE_QKV_PAIR_PROJ=1` | Testing whether QKV SoA works better without the pair projection was negative: 15.70 vs 15.94 t/s control. |
@@ -77,6 +79,8 @@ kernel change creates a new reason to retest them.
 | `shared_gate_up_pair_pack` / `DS4_CUDA_SHARED_GATE_UP_PAIR_PACK=1` | Native paired/aligned shared gate/up Q8_0 pack lowered the kernel to `REG:51` but strongly regressed decode: 15.38 vs 15.95 t/s control. |
 | `f16_pair_fast_reduce` / `DS4_CUDA_F16_PAIR_FAST_REDUCE=1` | Exact-order final-warp reduction sync reduction for compressor F16 pair was neutral/slower: 16.04 vs 16.07 t/s control. |
 | `compressor_pair_off` / `DS4_METAL_DISABLE_COMPRESSOR_PAIR_PROJ=1` | Disabling paired F16 compressor projections was slower: 15.85 vs 16.09 t/s control, so the existing pair kernel remains correct to keep. |
+| `mmq_moe_gate_up` / `DS4_CUDA_MMQ_MOE_GATE_UP=1` | Generic imported MMQ IQ2 routed gate/up pair plus exact local SwiGLU was catastrophically slower: 2.59 vs 15.96 t/s control. |
+| `mmvq_moe_gate_up_persist` / `DS4_CUDA_MMVQ_MOE_GATE_UP=1 DS4_CUDA_MMQ_Q81_PERSISTENT=1` | Fused imported MMVQ IQ2 gate/up with in-kernel DS4 clamp/router weights was full-quality but much slower: 10.15 vs 16.37 t/s control. |
 | `moe_down_meta_cache` / `DS4_CUDA_MOE_DOWN_SUM6_META_CACHE=1` | Tiny/noisy +0.6%, below gate. |
 | `moe_gate_weight_cache` / `DS4_CUDA_MOE_DECODE_GATE_WEIGHT_CACHE=1` | Negative speed smoke. |
 | `moe_span128_template` / `DS4_CUDA_MOE_DECODE_GATE_SPAN128_TEMPLATE=1` | Explicit span<128> template was negative: 16.00 vs 16.16 t/s control. |
@@ -124,6 +128,7 @@ Do not spend more time on these without a genuinely new design:
 | Shared activation cache for grouped attention-output-A | Exact but slower. |
 | Attention-output-A shape specialization and 16-row shared-x shape | Did not beat the generic promoted SoA kernel; no compound gain with MoE shape. |
 | Narrow `attn_q_b` half-warp/SoA/specialized kernels | Did not beat the generic warp8 Q8 projection. |
+| Imported MMVQ dense-vector `attn_q_b` | Per-call allocation was bad; persistent Q8_1 scratch made it close but still slower than native warp8. |
 | HC-expand SoA tail, exact-shape specialization, and auxiliary-write removal | Did not beat the current generic/SoA mixed path. |
 | Long-context top-k chunk-size-only variants | 8192-row chunks reduced merge width but slowed decode at frontier 65536. |
 | Normal decode graph pre-sync removal | Verifier no-pre-sync was already diagnostic; normal decode no-pre-sync was also slower. |
@@ -132,6 +137,7 @@ Do not spend more time on these without a genuinely new design:
 | Default sampler duplicate-`expf` avoidance | Exact sampled output, but no measured agent/CLI throughput gain. |
 | Shared expert auxiliary-write removal | Same dot-product work dominates; skipping stores did not help. |
 | FFN shared/routed scheduling overlap or shared-first reordering | Second-stream overlap was slower; shared-first currently breaks CUDA graph capture. |
+| Imported generic MMQ/MMVQ routed MoE gate/up | Generic MMQ was 2.59 t/s and fused MMVQ was 10.15 t/s versus 16+ t/s controls; do not repeat without redesigning the kernel/layout. |
 | MoE gate/up register cap | `__launch_bounds__(256,5)` is invalid on GB10; `__maxnreg__(48)` is noisy and below gate. |
 | Q8/cuBLAS/F16 swaps for attention output | Either slower or too memory-expensive for no speed win. |
 | Reduced-K MoE (`K=2/3/...`) | Can cross 20 t/s, but sacrifices full-quality model behavior. |

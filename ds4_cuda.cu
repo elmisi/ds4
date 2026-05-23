@@ -18,6 +18,8 @@
 #include <unordered_map>
 #include <vector>
 
+#include "cuda/mmq/ds4_mmq.h"
+
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
 #endif
@@ -145,6 +147,10 @@ static int g_cuda_attn_qkv_pair_shape;
 static int g_cuda_attn_output_b_shape4096;
 static int g_cuda_attn_output_b_cublas_min;
 static int g_cuda_output_q8_warp8;
+static int g_cuda_mmq_q8_dense_vec;
+static int g_cuda_mmq_q8_dense_vec_attn_q_b;
+static int g_cuda_mmq_moe_gate_up;
+static int g_cuda_mmvq_moe_gate_up;
 static int g_cuda_q8_qwarp_decode;
 static int g_cuda_hc_expand_f16;
 static int g_cuda_hc_expand_cache_x;
@@ -1822,6 +1828,11 @@ extern "C" int ds4_gpu_init(void) {
     g_cuda_attn_qkv_pair_shape = getenv("DS4_CUDA_ATTN_QKV_PAIR_SHAPE") != NULL;
     g_cuda_attn_output_b_shape4096 = getenv("DS4_CUDA_ATTENTION_OUTPUT_B_SHAPE4096") != NULL;
     g_cuda_output_q8_warp8 = getenv("DS4_CUDA_OUTPUT_Q8_WARP8") != NULL;
+    g_cuda_mmq_q8_dense_vec = getenv("DS4_CUDA_MMQ_Q8_DENSE_VEC") != NULL;
+    g_cuda_mmq_q8_dense_vec_attn_q_b =
+        getenv("DS4_CUDA_MMQ_Q8_DENSE_VEC_ATTN_Q_B") != NULL;
+    g_cuda_mmq_moe_gate_up = getenv("DS4_CUDA_MMQ_MOE_GATE_UP") != NULL;
+    g_cuda_mmvq_moe_gate_up = getenv("DS4_CUDA_MMVQ_MOE_GATE_UP") != NULL;
     g_cuda_attn_output_b_cublas_min = 0;
     if (const char *env = getenv("DS4_CUDA_ATTENTION_OUTPUT_B_CUBLAS_MIN")) {
         const int v = atoi(env);
@@ -1915,6 +1926,11 @@ extern "C" int ds4_gpu_init(void) {
                 : CUBLAS_TF32_TENSOR_OP_MATH;
         (void)cublasSetMathMode(g_cublas, math_mode);
         g_cublas_ready = 1;
+    }
+    if ((g_cuda_mmq_q8_dense_vec || g_cuda_mmq_q8_dense_vec_attn_q_b ||
+         g_cuda_mmq_moe_gate_up || g_cuda_mmvq_moe_gate_up) &&
+        ds4_mmq_init(dev) != 0) {
+        return 0;
     }
     if (getenv("DS4_CUDA_FFN_PARALLEL_SHARED") != NULL &&
         !cuda_ffn_parallel_shared_ensure()) {
@@ -9292,6 +9308,30 @@ __global__ static void swiglu_kernel(float *out, const float *gate, const float 
     out[i] = s * u * weight;
 }
 
+__global__ static void moe_swiglu_weighted_kernel(
+        float *mid,
+        const float *gate,
+        const float *up,
+        const float *weights,
+        uint32_t expert_mid_dim,
+        uint32_t n_expert,
+        uint32_t n_tokens,
+        float clamp) {
+    uint64_t n = (uint64_t)n_tokens * n_expert * expert_mid_dim;
+    uint64_t i = (uint64_t)blockIdx.x * blockDim.x + threadIdx.x;
+    if (i >= n) return;
+    uint64_t pair = i / expert_mid_dim;
+    uint32_t slot = (uint32_t)(pair % n_expert);
+    uint32_t tok = (uint32_t)(pair / n_expert);
+    float g = gate[i];
+    float u = up[i];
+    if (clamp > 1.0e-6f) {
+        g = fminf(g, clamp);
+        u = fminf(fmaxf(u, -clamp), clamp);
+    }
+    mid[i] = (g / (1.0f + expf(-g))) * u * weights[(uint64_t)tok * n_expert + slot];
+}
+
 __global__ static void add_kernel(float *out, const float *a, const float *b, uint32_t n) {
     uint32_t i = blockIdx.x * blockDim.x + threadIdx.x;
     if (i >= n) return;
@@ -10985,6 +11025,27 @@ static int cuda_matmul_q8_0_tensor_labeled(ds4_gpu_tensor *out, const void *mode
         out->bytes < n_tok * out_dim * sizeof(float)) return 0;
     const char *wptr = cuda_model_range_ptr(model_map, weight_offset, weight_bytes, "q8_0");
     if (!wptr) return 0;
+    const int mmq_dense_vec_attn_q_b_target =
+        g_cuda_mmq_q8_dense_vec_attn_q_b &&
+        n_tok == 1 &&
+        in_dim == 1024u &&
+        out_dim == 32768u;
+    const int mmq_dense_vec_target =
+        (g_cuda_mmq_q8_dense_vec || mmq_dense_vec_attn_q_b_target) &&
+        n_tok >= 1 &&
+        n_tok <= 8 &&
+        in_dim <= (uint64_t)INT_MAX &&
+        out_dim <= (uint64_t)INT_MAX &&
+        (in_dim % 256u) == 0u;
+    if (mmq_dense_vec_target) {
+        return ds4_mmq_q8_0_dense_vec(wptr,
+                                      (const float *)x->ptr,
+                                      (float *)out->ptr,
+                                      (int)out_dim,
+                                      (int)n_tok,
+                                      (int)in_dim,
+                                      cudaStreamPerThread) == 0;
+    }
     const int q8_cublas_decode_target =
         g_cuda_attn_q_b_cublas_decode &&
         n_tok == 1 &&
@@ -18389,6 +18450,26 @@ static int routed_moe_launch(
         const uint32_t use_decode_lut_gate =
             (n_tokens == 1u || use_small_direct_moe) && xq_blocks <= 16u &&
             !g_cuda_moe_no_decode_lut_gate;
+        const uint32_t use_mmvq_moe_gate_up =
+            g_cuda_mmvq_moe_gate_up &&
+            !q4k_path &&
+            gate_type == 16u &&
+            down_type == 10u &&
+            n_tokens == 1u &&
+            !write_gate_up &&
+            expert_in_dim <= (uint32_t)INT_MAX &&
+            expert_mid_dim <= (uint32_t)INT_MAX &&
+            n_expert <= (uint32_t)INT_MAX;
+        const uint32_t use_mmq_moe_gate_up =
+            g_cuda_mmq_moe_gate_up &&
+            !use_mmvq_moe_gate_up &&
+            !q4k_path &&
+            gate_type == 16u &&
+            down_type == 10u &&
+            n_tokens == 1u &&
+            expert_in_dim <= (uint32_t)INT_MAX &&
+            expert_mid_dim <= (uint32_t)INT_MAX &&
+            n_expert <= (uint32_t)INT_MAX;
         const uint32_t gate_row_span =
             getenv("DS4_CUDA_MOE_GATE_ROW512") != NULL ? 512u :
             getenv("DS4_CUDA_MOE_GATE_ROW2048") != NULL ? 2048u : 1024u;
@@ -18419,9 +18500,11 @@ static int routed_moe_launch(
         uint32_t tile_capacity = 0;
         uint32_t tile16_capacity = 0;
         uint32_t midq_ready = 0;
-        dim3 xq_grid(xq_blocks, n_tokens, 1);
-        q8_K_quantize_kernel<<<xq_grid, 256>>>(xq, (const float *)x->ptr, expert_in_dim, n_tokens);
-        ok = cuda_ok(cudaGetLastError(), "routed_moe x quantize launch");
+        if (!use_mmq_moe_gate_up && !use_mmvq_moe_gate_up) {
+            dim3 xq_grid(xq_blocks, n_tokens, 1);
+            q8_K_quantize_kernel<<<xq_grid, 256>>>(xq, (const float *)x->ptr, expert_in_dim, n_tokens);
+            ok = cuda_ok(cudaGetLastError(), "routed_moe x quantize launch");
+        }
         if (prof_ev[1]) (void)cudaEventRecord(prof_ev[1], 0);
         if (ok && use_sorted_pairs) {
             const uint64_t counts_bytes = 256ull * sizeof(uint32_t);
@@ -18505,7 +18588,47 @@ static int routed_moe_launch(
             }
         }
         if (prof_ev[2]) (void)cudaEventRecord(prof_ev[2], 0);
-        if (ok) {
+        if (ok && use_mmvq_moe_gate_up) {
+            ok = ds4_mmq_iq2_xxs_moe_pair_vec_weighted(
+                    up_w,
+                    gate_w,
+                    (const float *)x->ptr,
+                    (const int32_t *)selected->ptr,
+                    (const float *)weights->ptr,
+                    (float *)mid->ptr,
+                    (int)expert_mid_dim,
+                    (int)expert_in_dim,
+                    256,
+                    (int)n_expert,
+                    clamp,
+                    cudaStreamPerThread) == 0;
+        } else if (ok && use_mmq_moe_gate_up) {
+            ok = ds4_mmq_iq2_xxs_moe_pair(gate_w,
+                                           up_w,
+                                           (const float *)x->ptr,
+                                           (const int32_t *)selected->ptr,
+                                           (float *)gate->ptr,
+                                           (float *)up->ptr,
+                                           (int)expert_mid_dim,
+                                           (int)expert_in_dim,
+                                           (int)n_tokens,
+                                           256,
+                                           (int)n_expert,
+                                           cudaStreamPerThread) == 0;
+            if (ok) {
+                const uint64_t n_mid = (uint64_t)n_tokens * n_expert * expert_mid_dim;
+                moe_swiglu_weighted_kernel<<<(n_mid + 255u) / 256u, 256>>>(
+                        (float *)mid->ptr,
+                        (const float *)gate->ptr,
+                        (const float *)up->ptr,
+                        (const float *)weights->ptr,
+                        expert_mid_dim,
+                        n_expert,
+                        n_tokens,
+                        clamp);
+                ok = cuda_ok(cudaGetLastError(), "routed_moe mmq swiglu launch");
+            }
+        } else if (ok) {
             dim3 mgrid((expert_mid_dim + 31u) / 32u, n_tokens * n_expert, 1);
             if (ok && sorted_pairs && use_expert_tiles && sorted_offsets && sorted_counts && tile_total && tile_experts && tile_starts) {
                 if (use_gate_row2048) {

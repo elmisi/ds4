@@ -40,6 +40,11 @@ BASE_UNSET_NAMES = {
     "DS4_CUDA_ATTN_Q_B_HWARP16",
     "DS4_CUDA_ATTN_Q_B_B32_SPECIAL",
     "DS4_CUDA_ATTN_QKV_PAIR_SHAPE",
+    "DS4_CUDA_MMQ_Q8_DENSE_VEC",
+    "DS4_CUDA_MMQ_Q8_DENSE_VEC_ATTN_Q_B",
+    "DS4_CUDA_MMQ_Q81_PERSISTENT",
+    "DS4_CUDA_MMQ_MOE_GATE_UP",
+    "DS4_CUDA_MMVQ_MOE_GATE_UP",
     "DS4_METAL_DISABLE_QKV_PAIR_PROJ",
     "DS4_METAL_DISABLE_COMPRESSOR_PAIR_PROJ",
     "DS4_CUDA_Q8_F16_ALL",
@@ -180,6 +185,22 @@ MATRIX = {
         "env": {**EXACT_FAST, **env(DS4_CUDA_ATTN_Q_B_B32_SPECIAL=1)},
         "status": "exact-order attn_q_b blocks=32 specialized kernel",
     },
+    "mmq_q8_dense_vec_attn_q_b": {
+        "category": "prototype",
+        "env": {**EXACT_FAST, **env(DS4_CUDA_MMQ_Q8_DENSE_VEC_ATTN_Q_B=1)},
+        "status": "MMVQ-backed single-token Q8 dense vector path for attn_q_b shape",
+    },
+    "mmq_q8_dense_vec_attn_q_b_persist": {
+        "category": "prototype",
+        "env": {
+            **EXACT_FAST,
+            **env(
+                DS4_CUDA_MMQ_Q8_DENSE_VEC_ATTN_Q_B=1,
+                DS4_CUDA_MMQ_Q81_PERSISTENT=1,
+            ),
+        },
+        "status": "MMVQ attn_q_b with persistent Q8_1 scratch to avoid per-call pool alloc/free",
+    },
     "attn_qkv_pair_shape": {
         "category": "prototype",
         "env": {**EXACT_FAST, **env(DS4_CUDA_ATTN_QKV_PAIR_SHAPE=1)},
@@ -229,6 +250,22 @@ MATRIX = {
         "category": "diagnostic",
         "env": {**EXACT_FAST, **env(DS4_CUDA_SHARED_GATE_UP_NOAUX=1)},
         "status": "shared expert gate/up writes only mid output",
+    },
+    "mmq_moe_gate_up": {
+        "category": "prototype",
+        "env": {**EXACT_FAST, **env(DS4_CUDA_MMQ_MOE_GATE_UP=1)},
+        "status": "MMQ routed IQ2 gate/up, local exact clamp/router SwiGLU, native down unchanged",
+    },
+    "mmvq_moe_gate_up_persist": {
+        "category": "prototype",
+        "env": {
+            **EXACT_FAST,
+            **env(
+                DS4_CUDA_MMVQ_MOE_GATE_UP=1,
+                DS4_CUDA_MMQ_Q81_PERSISTENT=1,
+            ),
+        },
+        "status": "MMVQ fused routed IQ2 gate/up with in-kernel DS4 clamp/router weights, native down unchanged",
     },
     "shared_gate_up_shape2048": {
         "category": "prototype",
@@ -548,6 +585,8 @@ ROW_GROUPS = {
         "attn_qb_hwarp16",
         "attn_qb_soa_hwarp16",
         "attn_qb_b32_special",
+        "mmq_q8_dense_vec_attn_q_b",
+        "mmq_q8_dense_vec_attn_q_b_persist",
         "attn_qkv_pair_shape",
         "soa_qkv",
         "soa_qkv_no_pair",
@@ -558,6 +597,8 @@ ROW_GROUPS = {
         "hc_expand_soa_ldg",
         "hc_expand_soa_par_hc4",
         "shared_gate_up_noaux",
+        "mmq_moe_gate_up",
+        "mmvq_moe_gate_up_persist",
         "shared_gate_up_shape2048",
         "soa_cache_x",
         "output_top1",
