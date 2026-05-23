@@ -170,12 +170,15 @@ needs either:
 - a clean upstreamable extraction of graph decode + Q8 SoA if the current result
   is already interesting enough.
 
-Fresh profiling on 2026-05-23 reconfirmed the measured target order:
+Fresh profiling on 2026-05-23 reconfirmed the measured target order. A
+decode-window Nsight run with `--delay=22 --duration=6` produced:
 
 1. routed MoE gate/up (`moe_gate_up_mid_decode_lut_qwarp32_kernel`);
-2. HC-expand SoA and `attn_q_b` Q8 projection, both around 10-11% of decode-node
-   kernel time;
-3. attention-output-A SoA and MoE down.
+2. HC-expand SoA, `attn_q_b`, and attention-output-A SoA, each around 12% of
+   decode-window kernel time;
+3. MoE down at 8.8%, below the Q8 projection frontier and already covered by
+   prior row-major/native-pack/meta-cache/LDG/row4/parallel/shape probes;
+4. shared gate/up, attention, f16 pair, and output head behind those rows.
 
 The latest pass also rejected the narrow `attn_q_b` half-warp/SoA/specialized
 variants, HC-expand exact-shape/no-block-out variants, MoE span/global-LUT/
@@ -184,6 +187,7 @@ long-context top-k chunk-size-only variants. Shape-specializing routed gate/up
 is the only exact small positive after this pass, but it is still below the
 promotion gate by itself. The next credible attempt must either compound that
 small win with another exact kernel-level gain or be structural: reduce real
-routed-MoE or attention-output weight traffic, or change scheduling around
-existing exact kernels without repeating the row-major/block-paired/native-pack/
-cache-x/F16/cuBLAS/top-k-chunk experiments already rejected.
+routed-MoE or Q8 projection weight traffic, classify the f16 pair path, or
+change scheduling around existing exact kernels without repeating the
+row-major/block-paired/native-pack/cache-x/F16/cuBLAS/top-k-chunk experiments
+already rejected.
