@@ -136,6 +136,8 @@ static int g_cuda_serial_f16_matmul;
 static int g_cuda_serial_router;
 static int g_cuda_no_f16_pair_matmul;
 static int g_cuda_f16_pair_fast_reduce;
+static int g_cuda_f16_vec8;
+static int g_cuda_f16_pair_vec8;
 static int g_cuda_no_q8_batch_warp;
 static int g_cuda_q8_cache_x;
 static int g_cuda_q8_batch1_cache_x;
@@ -1820,6 +1822,8 @@ extern "C" int ds4_gpu_init(void) {
     g_cuda_serial_router = getenv("DS4_CUDA_SERIAL_ROUTER") != NULL;
     g_cuda_no_f16_pair_matmul = getenv("DS4_CUDA_NO_F16_PAIR_MATMUL") != NULL;
     g_cuda_f16_pair_fast_reduce = getenv("DS4_CUDA_F16_PAIR_FAST_REDUCE") != NULL;
+    g_cuda_f16_vec8 = getenv("DS4_CUDA_F16_VEC8") != NULL;
+    g_cuda_f16_pair_vec8 = getenv("DS4_CUDA_F16_PAIR_VEC8") != NULL;
     g_cuda_no_q8_batch_warp = getenv("DS4_CUDA_NO_Q8_BATCH_WARP") != NULL;
     g_cuda_q8_cache_x = getenv("DS4_CUDA_Q8_CACHE_X") != NULL;
     g_cuda_q8_batch1_cache_x = getenv("DS4_CUDA_Q8_BATCH1_CACHE_X") != NULL;
@@ -3116,6 +3120,42 @@ __global__ static void matmul_f16_ordered_chunks_kernel(
     }
 }
 
+__device__ static float warp_sum_f32(float v);
+
+__global__ static void matmul_f16_warp_vec8_kernel(
+        float *out,
+        const __half *w,
+        const float *x,
+        uint64_t in_dim,
+        uint64_t out_dim,
+        uint64_t n_tok) {
+    const uint64_t row = (uint64_t)blockIdx.x;
+    const uint64_t tok = (uint64_t)blockIdx.y;
+    if (row >= out_dim || tok >= n_tok) return;
+
+    const uint32_t lane = threadIdx.x;
+    const __half *wr = w + row * in_dim;
+    const float *xr = x + tok * in_dim;
+    const uint64_t nvec = in_dim >> 3;
+    float sum = 0.0f;
+    for (uint64_t v = lane; v < nvec; v += 32u) {
+        const uint64_t k = v * 8u;
+        const float4 xa = *((const float4 *)(xr + k));
+        const float4 xb = *((const float4 *)(xr + k + 4u));
+        const float xv[8] = {xa.x, xa.y, xa.z, xa.w, xb.x, xb.y, xb.z, xb.w};
+        const uint4 wv = *((const uint4 *)(wr + k));
+        const __half2 *wh2 = (const __half2 *)&wv;
+#pragma unroll
+        for (int p = 0; p < 4; p++) {
+            const float2 f2 = __half22float2(wh2[p]);
+            sum += f2.x * xv[p * 2 + 0];
+            sum += f2.y * xv[p * 2 + 1];
+        }
+    }
+    sum = warp_sum_f32(sum);
+    if (lane == 0) out[tok * out_dim + row] = sum;
+}
+
 __global__ static void matmul_f16_pair_ordered_chunks_kernel(
         float *out0,
         float *out1,
@@ -3156,6 +3196,60 @@ __global__ static void matmul_f16_pair_ordered_chunks_kernel(
         }
         if (row < out0_dim) out0[row] = total0;
         if (row < out1_dim) out1[row] = total1;
+    }
+}
+
+__global__ static void matmul_f16_pair_warp_vec8_kernel(
+        float *out0,
+        float *out1,
+        const __half *w0,
+        const __half *w1,
+        const float *x,
+        uint64_t in_dim,
+        uint64_t out0_dim,
+        uint64_t out1_dim) {
+    const uint64_t row = (uint64_t)blockIdx.x;
+    if (row >= out0_dim && row >= out1_dim) return;
+
+    const uint32_t lane = threadIdx.x;
+    const bool has0 = row < out0_dim;
+    const bool has1 = row < out1_dim;
+    const __half *wr0 = has0 ? w0 + row * in_dim : NULL;
+    const __half *wr1 = has1 ? w1 + row * in_dim : NULL;
+    const uint64_t nvec = in_dim >> 3;
+    float sum0 = 0.0f;
+    float sum1 = 0.0f;
+    for (uint64_t v = lane; v < nvec; v += 32u) {
+        const uint64_t k = v * 8u;
+        const float4 xa = *((const float4 *)(x + k));
+        const float4 xb = *((const float4 *)(x + k + 4u));
+        const float xv[8] = {xa.x, xa.y, xa.z, xa.w, xb.x, xb.y, xb.z, xb.w};
+        if (has0) {
+            const uint4 wv = *((const uint4 *)(wr0 + k));
+            const __half2 *wh2 = (const __half2 *)&wv;
+#pragma unroll
+            for (int p = 0; p < 4; p++) {
+                const float2 f2 = __half22float2(wh2[p]);
+                sum0 += f2.x * xv[p * 2 + 0];
+                sum0 += f2.y * xv[p * 2 + 1];
+            }
+        }
+        if (has1) {
+            const uint4 wv = *((const uint4 *)(wr1 + k));
+            const __half2 *wh2 = (const __half2 *)&wv;
+#pragma unroll
+            for (int p = 0; p < 4; p++) {
+                const float2 f2 = __half22float2(wh2[p]);
+                sum1 += f2.x * xv[p * 2 + 0];
+                sum1 += f2.y * xv[p * 2 + 1];
+            }
+        }
+    }
+    sum0 = warp_sum_f32(sum0);
+    sum1 = warp_sum_f32(sum1);
+    if (lane == 0) {
+        if (has0) out0[row] = sum0;
+        if (has1) out1[row] = sum1;
     }
 }
 
@@ -11934,6 +12028,16 @@ extern "C" int ds4_gpu_matmul_f16_tensor(ds4_gpu_tensor *out, const void *model_
         matmul_f16_serial_kernel<<<grid, 1>>>((float *)out->ptr, w, (const float *)x->ptr, in_dim, out_dim, n_tok);
         return cuda_ok(cudaGetLastError(), serial_router ? "matmul_f16_router_serial launch" : "matmul_f16_serial launch");
     }
+    if (g_cuda_f16_vec8 && n_tok == 1u && (in_dim % 8u) == 0u) {
+        matmul_f16_warp_vec8_kernel<<<grid, 32>>>(
+            (float *)out->ptr,
+            w,
+            (const float *)x->ptr,
+            in_dim,
+            out_dim,
+            n_tok);
+        return cuda_ok(cudaGetLastError(), "matmul_f16_warp_vec8 launch");
+    }
     if (ordered_router) {
         matmul_f16_ordered_chunks_kernel<<<grid, 32>>>((float *)out->ptr, w, (const float *)x->ptr, in_dim, out_dim, n_tok);
         return cuda_ok(cudaGetLastError(), "matmul_f16_ordered_chunks launch");
@@ -11980,6 +12084,18 @@ extern "C" int ds4_gpu_matmul_f16_pair_tensor(
     const __half *w0 = (const __half *)cuda_model_range_ptr(model_map, weight0_offset, weight_bytes, "f16_pair0");
     const __half *w1 = (const __half *)cuda_model_range_ptr(model_map, weight1_offset, weight_bytes, "f16_pair1");
     if (!w0 || !w1) return 0;
+    if (g_cuda_f16_pair_vec8 && (in_dim % 8u) == 0u) {
+        matmul_f16_pair_warp_vec8_kernel<<<(unsigned)out_dim, 32>>>(
+            (float *)out0->ptr,
+            (float *)out1->ptr,
+            w0,
+            w1,
+            (const float *)x->ptr,
+            in_dim,
+            out_dim,
+            out_dim);
+        return cuda_ok(cudaGetLastError(), "matmul_f16_pair_warp_vec8 launch");
+    }
     if (!cuda_use_ordered_f16_matmul()) {
         if (g_cuda_f16_pair_fast_reduce) {
             matmul_f16_pair_fast_reduce_kernel<<<(unsigned)out_dim, 256>>>(

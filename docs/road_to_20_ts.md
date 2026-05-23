@@ -6155,6 +6155,71 @@ matching CTA width to the 128-block row shape. Do not repeat thread-count-only
 output-head variants; a useful output-head change would need a different memory
 layout or a true sampler/logits redesign.
 
+### 2026-05-23 continuation - cghart F16 vec8 port probe
+
+The cghart fork had a recent GB10 note around F16 GEMV `uint4`/`half2`
+vectorization. This was not the same as our already-tested
+`DS4_CUDA_F16_PAIR_FAST_REDUCE=1`: that earlier local probe kept the scalar
+half loads and only changed the final reduction. A narrow local port was added
+behind explicit flags:
+
+| Row | Env delta over `exact_fast` | Meaning |
+| --- | --- | --- |
+| `f16_vec8` | `DS4_CUDA_F16_VEC8=1 DS4_CUDA_F16_PAIR_VEC8=1` | one-warp `uint4`/`half2` F16 GEMV for single-token F16 projections and paired compressor projections |
+| `f16_vec8_single` | `DS4_CUDA_F16_VEC8=1` | isolate only the single F16 GEMV route |
+| `f16_vec8_pair` | `DS4_CUDA_F16_PAIR_VEC8=1` | isolate only the paired compressor F16 GEMV route |
+
+Build:
+
+```sh
+make -j$(nproc) cuda-spark
+```
+
+Result: success.
+
+Combined speed smoke:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast f16_vec8 \
+  --model /home/alessandro/projects/ds4/ds4flash.gguf \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_f16_vec8 \
+  --summary tuning/gx10_matrix_results/prototype_20260523_f16_vec8/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_f16_vec8/summary.md \
+  --stop-on-fail
+```
+
+| Row | 8192/128 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **16.36** | 393.95 | control |
+| `f16_vec8` | **16.24** | 389.72 | reject combined |
+
+Isolation speed smoke:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast f16_vec8_single f16_vec8_pair \
+  --model /home/alessandro/projects/ds4/ds4flash.gguf \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_f16_vec8_isolation \
+  --summary tuning/gx10_matrix_results/prototype_20260523_f16_vec8_isolation/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_f16_vec8_isolation/summary.md \
+  --stop-on-fail
+```
+
+| Row | 8192/128 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **16.09** | 390.49 | control |
+| `f16_vec8_single` | **16.06** | 388.54 | reject |
+| `f16_vec8_pair` | **16.07** | 388.24 | reject |
+
+Decision: reject for this branch/default. On our current Blackwell path the
+default unordered 256-thread F16 GEMV and paired F16 compressor kernel are
+already faster end-to-end than the one-warp `uint4`/`half2` port. The cghart
+result likely compared against their older ordered 32-thread F16 route, while
+our local default had already moved away from ordered F16 on GB10. Do not
+repeat F16 vector-load-only probes unless they are paired with a larger pipeline
+change that removes launches or changes tensor residency.
+
 ## Branch / commit map
 
 ```

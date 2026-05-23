@@ -32,6 +32,8 @@ BASE_UNSET_NAMES = {
     "DS4_CUDA_FORCE_ORDERED_F16_MATMUL",
     "DS4_CUDA_NO_ORDERED_F16_MATMUL",
     "DS4_CUDA_F16_PAIR_FAST_REDUCE",
+    "DS4_CUDA_F16_VEC8",
+    "DS4_CUDA_F16_PAIR_VEC8",
     "DS4_CUDA_Q8_CUBLAS_DECODE",
     "DS4_CUDA_Q8_BATCH1_CACHE_X",
     "DS4_CUDA_ATTENTION_OUTPUT_A_CUBLAS_MIN",
@@ -531,6 +533,21 @@ MATRIX = {
         "category": "prototype",
         "env": {**EXACT_FAST, **env(DS4_CUDA_F16_PAIR_FAST_REDUCE=1)},
         "status": "exact-order f16 pair reduction with warp-local sync for final strides",
+    },
+    "f16_vec8": {
+        "category": "prototype",
+        "env": {**EXACT_FAST, **env(DS4_CUDA_F16_VEC8=1, DS4_CUDA_F16_PAIR_VEC8=1)},
+        "status": "one-warp uint4/half2 F16 GEMV path for single-token F16 projections and paired compressor projections",
+    },
+    "f16_vec8_single": {
+        "category": "prototype",
+        "env": {**EXACT_FAST, **env(DS4_CUDA_F16_VEC8=1)},
+        "status": "one-warp uint4/half2 F16 GEMV path for single-token F16 projections only",
+    },
+    "f16_vec8_pair": {
+        "category": "prototype",
+        "env": {**EXACT_FAST, **env(DS4_CUDA_F16_PAIR_VEC8=1)},
+        "status": "one-warp uint4/half2 F16 GEMV path for paired compressor projections only",
     },
     "compressor_pair_off": {
         "category": "diagnostic",

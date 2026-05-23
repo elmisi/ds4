@@ -1,0 +1,4 @@
+row,rows,ctx_first,ctx_last,gen_first,gen_8192,gen_last,gen_mean,gen_max,gen_ss_mean,prefill_mean,prefill_max
+exact_fast,1,8192,8192,16.09,16.09,16.09,16.09,16.09,16.09,390.49,390.49
+f16_vec8_pair,1,8192,8192,16.07,16.07,16.07,16.07,16.07,16.07,388.24,388.24
+f16_vec8_single,1,8192,8192,16.06,16.06,16.06,16.06,16.06,16.06,388.54,388.54
