@@ -6381,6 +6381,61 @@ repeat shared gate/up CTA-per-row work unless it preserves the original
 reduction order without adding the extra shared-memory/synchronization cost, or
 unless it is part of a larger fusion that removes launches elsewhere.
 
+### 2026-05-23 continuation - attention output A/B/HC fused-Q8 probe
+
+The remaining cghart GB10 idea was output-A/output-B/HC fusion: compute
+`attn_output_a`, quantize the low-rank intermediate directly into Q8, then feed
+that Q8 activation to `attn_output_b`+HC-expand without materializing the
+float `attn_low` tensor or launching the normal low quantizer.
+
+The local branch differs from cghart in two important ways:
+
+- `exact_fast` already fuses inverse-rope with `attn_output_a` prequant;
+- `exact_fast` already uses SoA weight caches for the promoted
+  `attn_output_a/b` paths.
+
+So the probe was adapted rather than copied directly:
+
+- `DS4_CUDA_ATTENTION_OUTPUT_AB_FUSE=1`;
+- keep the existing inverse-rope Q8 prequant of the grouped heads;
+- compute `attn_output_a` and write the 32-wide `attn_low` block directly as
+  Q8 activation;
+- use SoA `attn_output_a` and `attn_output_b` weights when the default SoA
+  cache is available;
+- skip the route when `attn_low` debug dumping is requested, because the fused
+  path intentionally does not materialize the float low tensor.
+
+Build:
+
+```sh
+make -j$(nproc) cuda-spark
+```
+
+Result: success.
+
+Speed smoke:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast attn_output_ab_fuse \
+  --model /home/alessandro/projects/ds4/ds4flash.gguf \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_attn_output_ab_fuse \
+  --summary tuning/gx10_matrix_results/prototype_20260523_attn_output_ab_fuse/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_attn_output_ab_fuse/summary.md \
+  --stop-on-fail
+```
+
+| Row | 8192/128 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **16.23** | 393.47 | control |
+| `attn_output_ab_fuse` | **16.16** | 389.75 | reject |
+
+Decision: reject. Removing the low-float materialization and quantizer launch
+does not compensate for the fused output-A kernel shape in this branch. The
+current rope+output-A+SoA path remains faster. Do not repeat direct A/B/HC
+fusion unless the output-A-to-Q8 writer is redesigned to preserve the current
+warp8/SoA occupancy profile or fused with a larger graph-level change.
+
 ## Branch / commit map
 
 ```

@@ -10922,6 +10922,11 @@ static bool cuda_no_attn_output_rope_low_fused(void) {
     return metal_graph_env_flag("DS4_CUDA_NO_ATTN_OUTPUT_ROPE_LOW_FUSED", &cache);
 }
 
+static bool cuda_attention_output_ab_fuse_enabled(void) {
+    static int cache = -1;
+    return metal_graph_env_flag("DS4_CUDA_ATTENTION_OUTPUT_AB_FUSE", &cache);
+}
+
 static bool metal_graph_decode_hc_pre(
         ds4_gpu_tensor       *out,
         ds4_gpu_tensor       *split,
@@ -11673,13 +11678,20 @@ static bool metal_graph_encode_decode_layer(
     const bool fuse_attn_out_hc =
         !metal_graph_directional_steering_attn_enabled(g) &&
         !metal_graph_use_reference_attn_out_hc();
+    bool fuse_attn_out_ab = false;
 #ifndef __APPLE__
     const bool dump_kqv_back = metal_graph_debug_wants("kqv_back", il, pos);
+    const bool dump_attn_low = metal_graph_debug_wants("attn_low", il, pos);
     const bool fuse_attn_out_rope_low =
         ok &&
         fuse_attn_out_hc &&
         !cuda_no_attn_output_rope_low_fused() &&
         !dump_kqv_back;
+    fuse_attn_out_ab =
+        fuse_attn_out_rope_low &&
+        cuda_attention_output_ab_fuse_enabled() &&
+        !dump_attn_low &&
+        (((uint64_t)n_groups * rank) % 32u) == 0u;
     if (ok && !fuse_attn_out_rope_low) {
 #endif
         ok = ds4_gpu_rope_tail_tensor(g->heads,
@@ -11701,7 +11713,34 @@ static bool metal_graph_encode_decode_layer(
     }
     if (ok && fuse_attn_out_hc) {
 #ifndef __APPLE__
-        if (fuse_attn_out_rope_low) {
+        if (fuse_attn_out_ab) {
+            ok = ds4_gpu_attention_output_q8_rope_fused_hc_tensor(
+                    g->after_attn_hc,
+                    g->attn_out,
+                    model->map,
+                    model->size,
+                    layer->attn_output_a->abs_offset,
+                    layer->attn_output_b->abs_offset,
+                    group_dim,
+                    rank,
+                    n_groups,
+                    DS4_N_EMBD,
+                    g->heads,
+                    DS4_N_HEAD_DIM,
+                    DS4_N_ROT,
+                    pos,
+                    compressed ? (uint32_t)DS4_ROPE_ORIG_CTX : 0,
+                    freq_base,
+                    freq_scale,
+                    ext_factor,
+                    attn_factor,
+                    DS4_ROPE_YARN_BETA_FAST,
+                    DS4_ROPE_YARN_BETA_SLOW,
+                    g->cur_hc,
+                    g->hc_split,
+                    DS4_N_EMBD,
+                    DS4_N_HC) != 0;
+        } else if (fuse_attn_out_rope_low) {
             ok = ds4_gpu_attention_output_low_q8_rope_tensor(g->attn_low,
                                                                model->map,
                                                                model->size,
@@ -11718,8 +11757,8 @@ static bool metal_graph_encode_decode_layer(
                                                                freq_scale,
                                                                ext_factor,
                                                                attn_factor,
-                                                               DS4_ROPE_YARN_BETA_FAST,
-                                                               DS4_ROPE_YARN_BETA_SLOW) != 0;
+                                                              DS4_ROPE_YARN_BETA_FAST,
+                                                              DS4_ROPE_YARN_BETA_SLOW) != 0;
         } else
 #endif
         {
@@ -11732,7 +11771,7 @@ static bool metal_graph_encode_decode_layer(
                                                           n_groups,
                                                           g->heads) != 0;
         }
-        if (ok) {
+        if (ok && !fuse_attn_out_ab) {
             ok = ds4_gpu_matmul_q8_0_hc_expand_tensor(g->after_attn_hc,
                                                         g->attn_out,
                                                         model->map,

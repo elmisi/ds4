@@ -1,0 +1,3 @@
+row,rows,ctx_first,ctx_last,gen_first,gen_8192,gen_last,gen_mean,gen_max,gen_ss_mean,prefill_mean,prefill_max
+attn_output_ab_fuse,1,8192,8192,16.16,16.16,16.16,16.16,16.16,16.16,389.75,389.75
+exact_fast,1,8192,8192,16.23,16.23,16.23,16.23,16.23,16.23,393.47,393.47
