@@ -169,6 +169,7 @@ static int g_cuda_no_shared_gate_up_fused_swiglu;
 static int g_cuda_shared_gate_up_noaux;
 static int g_cuda_shared_gate_up_shape2048;
 static int g_cuda_shared_gate_up_cache_x;
+static int g_cuda_shared_gate_up_dot2;
 static int g_cuda_no_warp_router_select;
 static int g_cuda_no_parallel_router_select;
 static int g_cuda_moe_no_decode_lut_gate;
@@ -1670,6 +1671,7 @@ extern "C" int ds4_gpu_init(void) {
     g_cuda_shared_gate_up_noaux = getenv("DS4_CUDA_SHARED_GATE_UP_NOAUX") != NULL;
     g_cuda_shared_gate_up_shape2048 = getenv("DS4_CUDA_SHARED_GATE_UP_SHAPE2048") != NULL;
     g_cuda_shared_gate_up_cache_x = getenv("DS4_CUDA_SHARED_GATE_UP_CACHE_X") != NULL;
+    g_cuda_shared_gate_up_dot2 = getenv("DS4_CUDA_SHARED_GATE_UP_DOT2") != NULL;
     g_cuda_no_warp_router_select = getenv("DS4_CUDA_NO_WARP_ROUTER_SELECT") != NULL;
     g_cuda_no_parallel_router_select = getenv("DS4_CUDA_NO_PARALLEL_ROUTER_SELECT") != NULL;
     g_cuda_moe_no_decode_lut_gate = getenv("DS4_CUDA_MOE_NO_DECODE_LUT_GATE") != NULL;
@@ -3181,6 +3183,34 @@ __device__ __forceinline__ static void dot_i8_block2_weight_aligned(
     *dot1 = acc1;
 }
 
+__device__ __forceinline__ static void dot_i8_block2_shared_x(
+        const int8_t *x,
+        const int8_t *w0,
+        const int8_t *w1,
+        uint64_t n,
+        int use_dp4a,
+        int32_t *dot0,
+        int32_t *dot1) {
+    int32_t acc0 = 0;
+    int32_t acc1 = 0;
+    if (use_dp4a && n == 32u) {
+#pragma unroll
+        for (uint32_t i = 0; i < 32u; i += 4u) {
+            const int32_t xv = load_i8x4_i32_aligned(x + i);
+            acc0 = __dp4a(load_i8x4_i32_unaligned(w0 + i), xv, acc0);
+            acc1 = __dp4a(load_i8x4_i32_unaligned(w1 + i), xv, acc1);
+        }
+    } else {
+        for (uint64_t i = 0; i < n; i++) {
+            const int32_t xv = (int32_t)x[i];
+            acc0 += (int32_t)w0[i] * xv;
+            acc1 += (int32_t)w1[i] * xv;
+        }
+    }
+    *dot0 = acc0;
+    *dot1 = acc1;
+}
+
 __global__ static DS4_CUDA_UNUSED void matmul_q8_0_kernel(
         float *out,
         const unsigned char *w,
@@ -4193,6 +4223,56 @@ __global__ static void matmul_q8_0_pair_swiglu_preq_warp8_cached_x_kernel(
         const int8_t *u_qs = (const int8_t *)(uwr + b * 34 + 2);
         int g_dot = dot_i8_block(g_qs, xqb, bn, use_dp4a);
         int u_dot = dot_i8_block(u_qs, xqb, bn, use_dp4a);
+        gate += __half2float(*g_scale_h) * xs * (float)g_dot;
+        up += __half2float(*u_scale_h) * xs * (float)u_dot;
+    }
+    gate = warp_sum_f32(gate);
+    up = warp_sum_f32(up);
+    if (lane == 0) {
+        gate_out[row] = gate;
+        up_out[row] = up;
+        float g = gate;
+        float u = up;
+        if (clamp > 1.0e-6f) {
+            g = fminf(g, clamp);
+            u = fminf(fmaxf(u, -clamp), clamp);
+        }
+        mid_out[row] = (g / (1.0f + expf(-g))) * u;
+    }
+}
+
+__global__ static void matmul_q8_0_pair_swiglu_preq_warp8_dot2_kernel(
+        float *gate_out,
+        float *up_out,
+        float *mid_out,
+        const unsigned char *gate_w,
+        const unsigned char *up_w,
+        const int8_t *xq,
+        const float *xscale,
+        uint64_t in_dim,
+        uint64_t out_dim,
+        uint64_t blocks,
+        float clamp,
+        int use_dp4a) {
+    uint64_t row = (uint64_t)blockIdx.x * 8u + (threadIdx.x >> 5u);
+    uint32_t lane = threadIdx.x & 31u;
+    if (row >= out_dim) return;
+    float gate = 0.0f;
+    float up = 0.0f;
+    const unsigned char *gwr = gate_w + row * blocks * 34;
+    const unsigned char *uwr = up_w + row * blocks * 34;
+    for (uint64_t b = lane; b < blocks; b += 32u) {
+        uint64_t i0 = b * 32;
+        uint64_t bn = in_dim - i0 < 32 ? in_dim - i0 : 32;
+        const int8_t *xqb = xq + b * 32;
+        const float xs = xscale[b];
+        const __half *g_scale_h = (const __half *)(gwr + b * 34);
+        const __half *u_scale_h = (const __half *)(uwr + b * 34);
+        const int8_t *g_qs = (const int8_t *)(gwr + b * 34 + 2);
+        const int8_t *u_qs = (const int8_t *)(uwr + b * 34 + 2);
+        int32_t g_dot = 0;
+        int32_t u_dot = 0;
+        dot_i8_block2_shared_x(xqb, g_qs, u_qs, bn, use_dp4a, &g_dot, &u_dot);
         gate += __half2float(*g_scale_h) * xs * (float)g_dot;
         up += __half2float(*u_scale_h) * xs * (float)u_dot;
     }
@@ -13239,6 +13319,22 @@ extern "C" int ds4_gpu_shared_gate_up_swiglu_q8_0_tensor(
                             clamp,
                             use_dp4a);
                     return cuda_ok(cudaGetLastError(), "shared gate/up swiglu soa launch");
+                }
+                if (g_cuda_shared_gate_up_dot2) {
+                    matmul_q8_0_pair_swiglu_preq_warp8_dot2_kernel<<<((unsigned)out_dim + 7u) / 8u, 256, 0, stream>>>(
+                            (float *)gate->ptr,
+                            (float *)up->ptr,
+                            (float *)mid->ptr,
+                            reinterpret_cast<const unsigned char *>(gate_w),
+                            reinterpret_cast<const unsigned char *>(up_w),
+                            xq,
+                            xscale,
+                            in_dim,
+                            out_dim,
+                            blocks,
+                            clamp,
+                            use_dp4a);
+                    return cuda_ok(cudaGetLastError(), "shared gate/up swiglu dot2 launch");
                 }
                 if (g_cuda_shared_gate_up_cache_x && blocks <= 256u) {
                     const uint64_t smem_bytes = blocks * 32u + blocks * sizeof(float);
