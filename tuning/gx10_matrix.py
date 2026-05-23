@@ -41,6 +41,7 @@ BASE_UNSET_NAMES = {
     "DS4_CUDA_ATTN_Q_B_CUBLAS_DECODE",
     "DS4_CUDA_ATTN_Q_B_HWARP16",
     "DS4_CUDA_ATTN_Q_B_B32_SPECIAL",
+    "DS4_CUDA_ATTN_Q_B_ROWPAIR",
     "DS4_CUDA_ATTN_QKV_PAIR_SHAPE",
     "DS4_CUDA_MMQ_Q8_DENSE_VEC",
     "DS4_CUDA_MMQ_Q8_DENSE_VEC_ATTN_Q_B",
@@ -186,6 +187,11 @@ MATRIX = {
         "category": "diagnostic",
         "env": {**EXACT_FAST, **env(DS4_CUDA_ATTN_Q_B_B32_SPECIAL=1)},
         "status": "exact-order attn_q_b blocks=32 specialized kernel",
+    },
+    "attn_qb_rowpair": {
+        "category": "prototype",
+        "env": {**EXACT_FAST, **env(DS4_CUDA_ATTN_Q_B_ROWPAIR=1)},
+        "status": "attn_q_b qwarp computes two adjacent rows sharing xq/xscale in registers",
     },
     "mmq_q8_dense_vec_attn_q_b": {
         "category": "prototype",

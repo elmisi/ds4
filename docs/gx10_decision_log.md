@@ -63,6 +63,7 @@ kernel change creates a new reason to retest them.
 | `attn_qb_hwarp16` / `DS4_CUDA_ATTN_Q_B_HWARP16=1` | Negative: 15.92 vs 16.13 t/s same-run control. |
 | `attn_qb_soa_hwarp16` / `DS4_CUDA_Q8_SOA_QB=1 DS4_CUDA_ATTN_Q_B_HWARP16=1` | Negative: 16.03 vs 16.13 t/s same-run control. |
 | `attn_qb_b32_special` / `DS4_CUDA_ATTN_Q_B_B32_SPECIAL=1` | Exact-order specialization, but still negative: 16.07 vs 16.12 t/s control. |
+| `attn_qb_rowpair` / `DS4_CUDA_ATTN_Q_B_ROWPAIR=1` | Register-only two-rows-per-qwarp `attn_q_b` probe shared `xq/xscale` without shared memory, but was slower: 16.28 vs 16.48 t/s control. |
 | `mmq_q8_dense_vec_attn_q_b` / `DS4_CUDA_MMQ_Q8_DENSE_VEC_ATTN_Q_B=1` | Imported MMVQ dense-vector route for single-token `attn_q_b` was strongly slower: 9.65 vs 16.02 t/s control. |
 | `mmq_q8_dense_vec_attn_q_b_persist` / `DS4_CUDA_MMQ_Q8_DENSE_VEC_ATTN_Q_B=1 DS4_CUDA_MMQ_Q81_PERSISTENT=1` | Persistent Q8_1 scratch fixed most allocation overhead, but the imported MMVQ path still lost: 15.72 vs 15.95 t/s control. |
 | `attn_qkv_pair_shape` / `DS4_CUDA_ATTN_QKV_PAIR_SHAPE=1` | Exact-order QKV pair shape specialization raised register use and was slower: 16.07 vs 16.12 t/s control. |
@@ -129,7 +130,7 @@ Do not spend more time on these without a genuinely new design:
 | Q8 block padding/alignment | Reads more bytes and was slower. |
 | Shared activation cache for grouped attention-output-A | Exact but slower. |
 | Attention-output-A shape specialization and 16-row shared-x shape | Did not beat the generic promoted SoA kernel; no compound gain with MoE shape. |
-| Narrow `attn_q_b` half-warp/SoA/specialized kernels | Did not beat the generic warp8 Q8 projection. |
+| Narrow `attn_q_b` half-warp/SoA/specialized/rowpair kernels | Did not beat the generic warp8 Q8 projection. |
 | Imported MMVQ dense-vector `attn_q_b` | Per-call allocation was bad; persistent Q8_1 scratch made it close but still slower than native warp8. |
 | HC-expand SoA tail, exact-shape specialization, and auxiliary-write removal | Did not beat the current generic/SoA mixed path. |
 | Long-context top-k chunk-size-only variants | 8192-row chunks reduced merge width but slowed decode at frontier 65536. |

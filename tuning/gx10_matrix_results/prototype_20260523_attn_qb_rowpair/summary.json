@@ -1,0 +1,30 @@
+[
+  {
+    "row": "attn_qb_rowpair",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 16.28,
+    "gen_8192": 16.28,
+    "gen_last": 16.28,
+    "gen_mean": 16.28,
+    "gen_max": 16.28,
+    "gen_ss_mean": 16.28,
+    "prefill_mean": 389.9,
+    "prefill_max": 389.9
+  },
+  {
+    "row": "exact_fast",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 16.48,
+    "gen_8192": 16.48,
+    "gen_last": 16.48,
+    "gen_mean": 16.48,
+    "gen_max": 16.48,
+    "gen_ss_mean": 16.48,
+    "prefill_mean": 394.44,
+    "prefill_max": 394.44
+  }
+]

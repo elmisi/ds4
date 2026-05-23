@@ -163,6 +163,7 @@ door on hard but plausible kernel work.
 | `attn_qb_hwarp16` | `DS4_CUDA_ATTN_Q_B_HWARP16=1` | 15.92 vs 16.13 t/s same-run control; changes reduction shape | diagnostic only; do not promote |
 | `attn_qb_soa_hwarp16` | `DS4_CUDA_Q8_SOA_QB=1 DS4_CUDA_ATTN_Q_B_HWARP16=1` | 16.03 vs 16.13 t/s same-run control; changes reduction shape | diagnostic only; do not promote |
 | `attn_qb_b32_special` | `DS4_CUDA_ATTN_Q_B_B32_SPECIAL=1` | exact-order decode-shape specialization, 16.07 vs 16.12 t/s control | diagnostic only; do not promote |
+| `attn_qb_rowpair` | `DS4_CUDA_ATTN_Q_B_ROWPAIR=1` | register-only two-rows-per-qwarp `attn_q_b` probe shared `xq/xscale` without shared memory, but regressed: 16.28 vs 16.48 t/s control | diagnostic only; do not promote |
 | `mmq_q8_dense_vec_attn_q_b` | `DS4_CUDA_MMQ_Q8_DENSE_VEC_ATTN_Q_B=1` | imported MMVQ dense-vector path for single-token `attn_q_b` was strongly slower: 9.65 vs 16.02 t/s control | diagnostic only; do not promote |
 | `mmq_q8_dense_vec_attn_q_b_persist` | `DS4_CUDA_MMQ_Q8_DENSE_VEC_ATTN_Q_B=1 DS4_CUDA_MMQ_Q81_PERSISTENT=1` | persistent Q8_1 scratch removed most allocation overhead, but still slower: 15.72 vs 15.95 t/s control | diagnostic only; do not promote |
 | `attn_qkv_pair_shape` | `DS4_CUDA_ATTN_QKV_PAIR_SHAPE=1` | exact-order QKV pair shape specialization, 16.07 vs 16.12 t/s control and higher register use | diagnostic only; do not promote |

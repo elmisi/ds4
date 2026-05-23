@@ -5985,6 +5985,50 @@ body remains the dominant cost. Do not spend a large implementation pass on
 full device-argument graph reuse unless it also enables kernel fusion or removes
 real GPU work.
 
+### 2026-05-23 continuation - Q8 `attn_q_b` rowpair probe
+
+After the graph upper-bound check, the next exact probe returned to the Q8
+projection frontier without repeating the old shared-memory activation-cache
+path. `DS4_CUDA_ATTN_Q_B_ROWPAIR=1` adds an `attn_q_b`-only kernel for the fixed
+decode shape (`in=1024`, `out=32768`, `blocks=32`):
+
+- each qwarp computes two adjacent output rows;
+- the two rows share the same `xq` / `xscale` load in registers;
+- no CTA shared-memory staging is used, unlike `q8_batch1_cache_x`;
+- each row keeps the same block order and warp reduction shape as the current
+  warp8 path.
+
+Build:
+
+```sh
+make -j$(nproc) cuda-spark
+```
+
+Result: success.
+
+Speed smoke:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast attn_qb_rowpair \
+  --model /home/alessandro/projects/ds4/ds4flash.gguf \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_attn_qb_rowpair \
+  --summary tuning/gx10_matrix_results/prototype_20260523_attn_qb_rowpair/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_attn_qb_rowpair/summary.md
+```
+
+Result:
+
+| Row | 8192/128 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **16.48** | 394.44 | control |
+| `attn_qb_rowpair` | **16.28** | 389.90 | reject |
+
+Decision: reject. The register-only rowpair idea avoids the shared-memory
+overhead that hurt `q8_batch1_cache_x`, but the extra per-qwarp work/register
+pressure still loses to the simple warp8 stream. This closes another
+non-tensor-core `attn_q_b` activation-sharing variant.
+
 ## Branch / commit map
 
 ```
