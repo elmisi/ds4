@@ -94,6 +94,11 @@ static cudaStream_t g_cuda_ffn_parallel_shared_stream;
 static cudaEvent_t g_cuda_ffn_parallel_ready_event;
 static cudaEvent_t g_cuda_ffn_parallel_done_event;
 static int g_cuda_ffn_parallel_shared_active;
+static cudaStream_t g_cuda_compressor_parallel_stream;
+static cudaEvent_t g_cuda_compressor_parallel_ready_event;
+static cudaEvent_t g_cuda_compressor_parallel_done_event;
+static int g_cuda_compressor_parallel_active;
+static int g_cuda_compressor_parallel_has_done;
 static cublasHandle_t g_cublas;
 static int g_cublas_ready;
 static int g_quality_mode;
@@ -1230,6 +1235,75 @@ extern "C" void ds4_gpu_ffn_parallel_shared_abort(void) {
     g_cuda_ffn_parallel_shared_active = 0;
 }
 
+static int cuda_compressor_parallel_ensure(void) {
+    if (!g_cuda_compressor_parallel_stream) {
+        cudaError_t err = cudaStreamCreateWithFlags(&g_cuda_compressor_parallel_stream,
+                                                    cudaStreamNonBlocking);
+        if (err != cudaSuccess) {
+            fprintf(stderr, "ds4: CUDA compressor stream create failed: %s\n",
+                    cudaGetErrorString(err));
+            (void)cudaGetLastError();
+            return 0;
+        }
+    }
+    if (!g_cuda_compressor_parallel_ready_event) {
+        cudaError_t err = cudaEventCreateWithFlags(&g_cuda_compressor_parallel_ready_event,
+                                                   cudaEventDisableTiming);
+        if (err != cudaSuccess) {
+            fprintf(stderr, "ds4: CUDA compressor ready event create failed: %s\n",
+                    cudaGetErrorString(err));
+            (void)cudaGetLastError();
+            return 0;
+        }
+    }
+    if (!g_cuda_compressor_parallel_done_event) {
+        cudaError_t err = cudaEventCreateWithFlags(&g_cuda_compressor_parallel_done_event,
+                                                   cudaEventDisableTiming);
+        if (err != cudaSuccess) {
+            fprintf(stderr, "ds4: CUDA compressor done event create failed: %s\n",
+                    cudaGetErrorString(err));
+            (void)cudaGetLastError();
+            return 0;
+        }
+    }
+    return 1;
+}
+
+extern "C" int ds4_gpu_compressor_parallel_begin(void) {
+    if (!cuda_compressor_parallel_ensure()) return 0;
+    if (!cuda_ok(cudaEventRecord(g_cuda_compressor_parallel_ready_event, cudaStreamPerThread),
+                 "compressor ready event record")) return 0;
+    if (!cuda_ok(cudaStreamWaitEvent(g_cuda_compressor_parallel_stream,
+                                     g_cuda_compressor_parallel_ready_event,
+                                     0),
+                 "compressor stream wait ready")) return 0;
+    g_cuda_compressor_parallel_active = 1;
+    return 1;
+}
+
+extern "C" int ds4_gpu_compressor_parallel_end(void) {
+    if (!g_cuda_compressor_parallel_active) return 0;
+    g_cuda_compressor_parallel_active = 0;
+    const int ok = cuda_ok(cudaEventRecord(g_cuda_compressor_parallel_done_event,
+                                           g_cuda_compressor_parallel_stream),
+                           "compressor done event record");
+    if (ok) g_cuda_compressor_parallel_has_done = 1;
+    return ok;
+}
+
+extern "C" int ds4_gpu_compressor_parallel_wait(void) {
+    if (!g_cuda_compressor_parallel_done_event ||
+        !g_cuda_compressor_parallel_has_done) return 1;
+    return cuda_ok(cudaStreamWaitEvent(cudaStreamPerThread,
+                                       g_cuda_compressor_parallel_done_event,
+                                       0),
+                   "compressor wait done");
+}
+
+extern "C" void ds4_gpu_compressor_parallel_abort(void) {
+    g_cuda_compressor_parallel_active = 0;
+}
+
 static double cuda_wall_sec(void) {
     struct timespec ts;
     clock_gettime(CLOCK_MONOTONIC, &ts);
@@ -1952,6 +2026,10 @@ extern "C" int ds4_gpu_init(void) {
         !cuda_ffn_parallel_shared_ensure()) {
         return 0;
     }
+    if (getenv("DS4_CUDA_COMPRESSOR_PARALLEL_RATIO4") != NULL &&
+        !cuda_compressor_parallel_ensure()) {
+        return 0;
+    }
     if (!g_decode_state_host) {
         /* Pinned host buffer is the source of cudaMemcpyToSymbolAsync into
          * g_decode_state. The pinned address must stay stable for the life
@@ -2018,6 +2096,20 @@ extern "C" void ds4_gpu_cleanup(void) {
         g_cuda_ffn_parallel_shared_stream = NULL;
     }
     g_cuda_ffn_parallel_shared_active = 0;
+    if (g_cuda_compressor_parallel_done_event) {
+        (void)cudaEventDestroy(g_cuda_compressor_parallel_done_event);
+        g_cuda_compressor_parallel_done_event = NULL;
+    }
+    if (g_cuda_compressor_parallel_ready_event) {
+        (void)cudaEventDestroy(g_cuda_compressor_parallel_ready_event);
+        g_cuda_compressor_parallel_ready_event = NULL;
+    }
+    if (g_cuda_compressor_parallel_stream) {
+        (void)cudaStreamDestroy(g_cuda_compressor_parallel_stream);
+        g_cuda_compressor_parallel_stream = NULL;
+    }
+    g_cuda_compressor_parallel_active = 0;
+    g_cuda_compressor_parallel_has_done = 0;
     if (g_model_device_owned && g_model_device_base) {
         (void)cudaFree((void *)g_model_device_base);
     }
@@ -12531,8 +12623,11 @@ extern "C" int ds4_gpu_matmul_f16_pair_tensor(
     const __half *w0 = (const __half *)cuda_model_range_ptr(model_map, weight0_offset, weight_bytes, "f16_pair0");
     const __half *w1 = (const __half *)cuda_model_range_ptr(model_map, weight1_offset, weight_bytes, "f16_pair1");
     if (!w0 || !w1) return 0;
+    const cudaStream_t stream = g_cuda_compressor_parallel_active
+        ? g_cuda_compressor_parallel_stream
+        : cudaStreamPerThread;
     if (g_cuda_f16_pair_vec8 && n_tok == 1u && (in_dim % 8u) == 0u) {
-        matmul_f16_pair_warp_vec8_kernel<<<(unsigned)out_dim, 32>>>(
+        matmul_f16_pair_warp_vec8_kernel<<<(unsigned)out_dim, 32, 0, stream>>>(
             (float *)out0->ptr,
             (float *)out1->ptr,
             w0,
@@ -12545,7 +12640,7 @@ extern "C" int ds4_gpu_matmul_f16_pair_tensor(
     }
     if (!cuda_use_ordered_f16_matmul()) {
         if (g_cuda_f16_pair_fast_reduce && n_tok == 1u) {
-            matmul_f16_pair_fast_reduce_kernel<<<(unsigned)out_dim, 256>>>(
+            matmul_f16_pair_fast_reduce_kernel<<<(unsigned)out_dim, 256, 0, stream>>>(
                 (float *)out0->ptr,
                 (float *)out1->ptr,
                 w0,
@@ -12556,7 +12651,7 @@ extern "C" int ds4_gpu_matmul_f16_pair_tensor(
             return cuda_ok(cudaGetLastError(), "matmul_f16_pair_fast_reduce launch");
         }
         dim3 grid((unsigned)out_dim, (unsigned)n_tok, 1);
-        matmul_f16_pair_kernel<<<grid, 256>>>(
+        matmul_f16_pair_kernel<<<grid, 256, 0, stream>>>(
             (float *)out0->ptr,
             (float *)out1->ptr,
             w0,
@@ -12573,7 +12668,7 @@ extern "C" int ds4_gpu_matmul_f16_pair_tensor(
                ds4_gpu_matmul_f16_tensor(out1, model_map, model_size, weight1_offset,
                                            in_dim, out_dim, x, n_tok);
     }
-    matmul_f16_pair_ordered_chunks_kernel<<<(unsigned)out_dim, 32>>>(
+    matmul_f16_pair_ordered_chunks_kernel<<<(unsigned)out_dim, 32, 0, stream>>>(
         (float *)out0->ptr,
         (float *)out1->ptr,
         w0,
@@ -12866,7 +12961,10 @@ extern "C" int ds4_gpu_compressor_store_batch_tensor(
     const char *ape = cuda_model_range_ptr(model_map, ape_offset, ape_bytes, "compressor_ape");
     if (!ape) return 0;
     uint64_t n = (uint64_t)n_tokens * width;
-    compressor_store_kernel<<<(n + 255) / 256, 256>>>(
+    const cudaStream_t stream = g_cuda_compressor_parallel_active
+        ? g_cuda_compressor_parallel_stream
+        : cudaStreamPerThread;
+    compressor_store_kernel<<<(n + 255) / 256, 256, 0, stream>>>(
             (const float *)kv->ptr,
             (const float *)sc->ptr,
             (float *)state_kv->ptr,

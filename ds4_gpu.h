@@ -246,6 +246,11 @@ int ds4_gpu_ffn_parallel_shared_end(void);
 int ds4_gpu_ffn_parallel_shared_wait(void);
 void ds4_gpu_ffn_parallel_shared_abort(void);
 
+int ds4_gpu_compressor_parallel_begin(void);
+int ds4_gpu_compressor_parallel_end(void);
+int ds4_gpu_compressor_parallel_wait(void);
+void ds4_gpu_compressor_parallel_abort(void);
+
 int ds4_gpu_matmul_f16_tensor(
         ds4_gpu_tensor       *out,
         const void             *model_map,

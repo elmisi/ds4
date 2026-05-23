@@ -9406,6 +9406,7 @@ typedef struct {
     uint32_t spec_prefix1_n_comp[DS4_N_LAYER];
     uint32_t spec_prefix1_n_index_comp[DS4_N_LAYER];
     bool spec_capture_prefix1;
+    bool compressor_parallel_pending;
     uint32_t raw_cap;
     /* Maximum compressed-row capacity across layers.  Shared work buffers use
      * this worst-case size because ratio-4 indexer layers can still reach it. */
@@ -9420,6 +9421,8 @@ typedef struct {
      * predictable: each pointer names an actual DS4 stage. */
     ds4_gpu_tensor *comp_kv_cur;
     ds4_gpu_tensor *comp_sc_cur;
+    ds4_gpu_tensor *comp_kv_async;
+    ds4_gpu_tensor *comp_sc_async;
     ds4_gpu_tensor *comp_kv_batch;
     ds4_gpu_tensor *comp_sc_batch;
     ds4_gpu_tensor *indexer_q;
@@ -9616,6 +9619,8 @@ static void metal_graph_free(ds4_gpu_graph *g) {
     ds4_gpu_tensor_free(g->heads);
     ds4_gpu_tensor_free(g->comp_sc_batch);
     ds4_gpu_tensor_free(g->comp_kv_batch);
+    ds4_gpu_tensor_free(g->comp_sc_async);
+    ds4_gpu_tensor_free(g->comp_kv_async);
     ds4_gpu_tensor_free(g->comp_sc_cur);
     ds4_gpu_tensor_free(g->comp_kv_cur);
     ds4_gpu_tensor_free(g->comp_mask);
@@ -10151,6 +10156,8 @@ static bool metal_graph_alloc_raw_cap(
     }
     g->comp_kv_cur = ds4_gpu_tensor_alloc(comp_width_max * sizeof(float));
     g->comp_sc_cur = ds4_gpu_tensor_alloc(comp_width_max * sizeof(float));
+    g->comp_kv_async = ds4_gpu_tensor_alloc(comp_width_max * sizeof(float));
+    g->comp_sc_async = ds4_gpu_tensor_alloc(comp_width_max * sizeof(float));
     g->comp_kv_batch = ds4_gpu_tensor_alloc(4ull * comp_width_max * sizeof(float));
     g->comp_sc_batch = ds4_gpu_tensor_alloc(4ull * comp_width_max * sizeof(float));
     g->indexer_q = ds4_gpu_tensor_alloc(indexer_q_dim * sizeof(float));
@@ -10290,6 +10297,7 @@ static bool metal_graph_alloc_raw_cap(
                     g->attn_cur && g->attn_norm && g->qr && g->qr_norm &&
                     g->q && g->kv_raw && g->kv &&
                     g->comp_kv_cur && g->comp_sc_cur &&
+                    g->comp_kv_async && g->comp_sc_async &&
                     g->comp_kv_batch && g->comp_sc_batch &&
                     g->indexer_q && g->indexer_weights && g->indexer_scores &&
                     g->comp_mask && g->comp_selected && g->comp_top_values &&
@@ -11350,9 +11358,22 @@ static bool metal_graph_encode_decode_layer(
             !g->mtp_enabled &&
             g->layer_comp_pending_x[il] != NULL;
         const uint32_t compressor_lazy_phase = pos % ratio;
+        const bool compressor_parallel_ratio4 =
+            getenv("DS4_CUDA_COMPRESSOR_PARALLEL_RATIO4") != NULL &&
+            ratio == 4u &&
+            !emit &&
+            !compressor_lazy_ratio4 &&
+            !g->mtp_enabled &&
+            metal_graph_debug_dump_prefix() == NULL &&
+            g->layer_comp_pending_x[il] != NULL &&
+            g->comp_kv_async != NULL &&
+            g->comp_sc_async != NULL &&
+            !metal_graph_use_reference_compressor_pair_proj();
+        const bool compressor_needs_pending =
+            compressor_lazy_ratio4 || compressor_parallel_ratio4;
         bool compressor_lazy_emit = false;
         bool compressor_lazy_skip_current = false;
-        if (ok && compressor_lazy_ratio4) {
+        if (ok && compressor_needs_pending) {
             if (g->layer_comp_pending_mask[il] == 0u) {
                 g->layer_comp_pending_clean[il] =
                     compressor_lazy_phase == 0u ? 1u : 0u;
@@ -11369,7 +11390,7 @@ static bool metal_graph_encode_decode_layer(
                                           (uint64_t)DS4_N_EMBD * sizeof(float)) != 0;
                 ds4_gpu_tensor_free(pending_row);
             }
-            if (ok) {
+            if (ok && compressor_lazy_ratio4) {
                 g->layer_comp_pending_mask[il] |=
                     (uint8_t)(1u << compressor_lazy_phase);
                 compressor_lazy_emit =
@@ -11383,7 +11404,8 @@ static bool metal_graph_encode_decode_layer(
         const bool compressor_run_exact_current =
             !compressor_emit_only_unsafe &&
             !compressor_lazy_emit &&
-            !compressor_lazy_skip_current;
+            !compressor_lazy_skip_current &&
+            !compressor_parallel_ratio4;
         if (!layer->attn_compressor_kv || !layer->attn_compressor_gate ||
             !layer->attn_compressor_ape || !layer->attn_compressor_norm ||
             layer->attn_compressor_kv->type != DS4_TENSOR_F16 ||
@@ -11400,7 +11422,57 @@ static bool metal_graph_encode_decode_layer(
             ok = false;
         }
         const uint32_t comp_row = g->layer_n_comp[il];
-        if (ok && compressor_lazy_emit) {
+        bool compressor_parallel_begun = false;
+        if (ok && compressor_parallel_ratio4) {
+            ok = ds4_gpu_compressor_parallel_begin() != 0;
+            compressor_parallel_begun = ok;
+            if (ok) g->compressor_parallel_pending = true;
+        }
+        if (ok && compressor_parallel_ratio4) {
+            ds4_gpu_tensor *pending_row = ds4_gpu_tensor_view(
+                    g->layer_comp_pending_x[il],
+                    (uint64_t)compressor_lazy_phase * DS4_N_EMBD * sizeof(float),
+                    (uint64_t)DS4_N_EMBD * sizeof(float));
+            ok = pending_row &&
+                 ds4_gpu_matmul_f16_pair_tensor(g->comp_kv_async,
+                                                 g->comp_sc_async,
+                                                 model->map,
+                                                 model->size,
+                                                 layer->attn_compressor_kv->abs_offset,
+                                                 layer->attn_compressor_gate->abs_offset,
+                                                 DS4_N_EMBD,
+                                                 comp_width,
+                                                 pending_row,
+                                                 1) != 0;
+            if (ok) {
+                ok = ds4_gpu_compressor_update_tensor(
+                        g->comp_kv_async,
+                        g->comp_sc_async,
+                        g->layer_attn_state_kv[il],
+                        g->layer_attn_state_score[il],
+                        g->layer_attn_comp_cache[il],
+                        model->map,
+                        model->size,
+                        layer->attn_compressor_ape->abs_offset,
+                        layer->attn_compressor_ape->type,
+                        layer->attn_compressor_norm->abs_offset,
+                        layer->attn_compressor_norm->type,
+                        DS4_N_HEAD_DIM,
+                        ratio,
+                        pos,
+                        comp_row,
+                        DS4_N_ROT,
+                        compressed ? (uint32_t)DS4_ROPE_ORIG_CTX : 0,
+                        freq_base,
+                        freq_scale,
+                        ext_factor,
+                        attn_factor,
+                        DS4_ROPE_YARN_BETA_FAST,
+                        DS4_ROPE_YARN_BETA_SLOW,
+                        DS4_RMS_EPS) != 0;
+            }
+            ds4_gpu_tensor_free(pending_row);
+        } else if (ok && compressor_lazy_emit) {
             const uint32_t pos0 = pos + 1u - ratio;
             ok = ds4_gpu_matmul_f16_pair_tensor(g->comp_kv_batch,
                                                   g->comp_sc_batch,
@@ -11545,7 +11617,51 @@ static bool metal_graph_encode_decode_layer(
                 ok = false;
             }
             const uint32_t index_row = g->layer_n_index_comp[il];
-            if (ok && compressor_lazy_emit) {
+            if (ok && compressor_parallel_ratio4) {
+                ds4_gpu_tensor *pending_row = ds4_gpu_tensor_view(
+                        g->layer_comp_pending_x[il],
+                        (uint64_t)compressor_lazy_phase * DS4_N_EMBD * sizeof(float),
+                        (uint64_t)DS4_N_EMBD * sizeof(float));
+                ok = pending_row &&
+                     ds4_gpu_matmul_f16_pair_tensor(g->comp_kv_async,
+                                                     g->comp_sc_async,
+                                                     model->map,
+                                                     model->size,
+                                                     layer->indexer_compressor_kv->abs_offset,
+                                                     layer->indexer_compressor_gate->abs_offset,
+                                                     DS4_N_EMBD,
+                                                     index_width,
+                                                     pending_row,
+                                                     1) != 0;
+                if (ok) {
+                    ok = ds4_gpu_compressor_update_tensor(
+                            g->comp_kv_async,
+                            g->comp_sc_async,
+                            g->layer_index_state_kv[il],
+                            g->layer_index_state_score[il],
+                            g->layer_index_comp_cache[il],
+                            model->map,
+                            model->size,
+                            layer->indexer_compressor_ape->abs_offset,
+                            layer->indexer_compressor_ape->type,
+                            layer->indexer_compressor_norm->abs_offset,
+                            layer->indexer_compressor_norm->type,
+                            DS4_N_INDEXER_HEAD_DIM,
+                            ratio,
+                            pos,
+                            index_row,
+                            DS4_N_ROT,
+                            compressed ? (uint32_t)DS4_ROPE_ORIG_CTX : 0,
+                            freq_base,
+                            freq_scale,
+                            ext_factor,
+                            attn_factor,
+                            DS4_ROPE_YARN_BETA_FAST,
+                            DS4_ROPE_YARN_BETA_SLOW,
+                            DS4_RMS_EPS) != 0;
+                }
+                ds4_gpu_tensor_free(pending_row);
+            } else if (ok && compressor_lazy_emit) {
                 const uint32_t pos0 = pos + 1u - ratio;
                 ok = ds4_gpu_matmul_f16_pair_tensor(g->comp_kv_batch,
                                                       g->comp_sc_batch,
@@ -11674,6 +11790,15 @@ static bool metal_graph_encode_decode_layer(
                 g->layer_comp_pending_mask[il] = 0u;
                 g->layer_comp_pending_clean[il] = 0u;
             }
+            if (compressor_parallel_begun) {
+                if (ok) {
+                    ok = ds4_gpu_compressor_parallel_end() != 0;
+                } else {
+                    ds4_gpu_compressor_parallel_abort();
+                    g->compressor_parallel_pending = false;
+                }
+                compressor_parallel_begun = false;
+            }
             const uint32_t decode_top_k = metal_graph_decode_indexer_top_k(g);
             if (ok && g->layer_n_comp[il] > decode_top_k) {
                 const uint64_t indexer_q_dim = (uint64_t)DS4_N_INDEXER_HEAD * DS4_N_INDEXER_HEAD_DIM;
@@ -11786,6 +11911,11 @@ static bool metal_graph_encode_decode_layer(
                         : g->layer_n_index_comp[il];
                 }
             }
+        }
+        if (compressor_parallel_begun) {
+            ds4_gpu_compressor_parallel_abort();
+            g->compressor_parallel_pending = false;
+            compressor_parallel_begun = false;
         }
 
         n_comp = g->layer_n_comp[il];
@@ -13202,6 +13332,7 @@ static bool metal_graph_encode_token_raw_swa(
     }
     const uint32_t raw_row = pos % g->raw_cap;
     const uint32_t n_raw = metal_graph_raw_span_for_batch(g, pos, 1);
+    g->compressor_parallel_pending = false;
 
     bool ok = ds4_gpu_embed_token_hc_tensor(g->cur_hc,
                                               model->map,
@@ -13255,6 +13386,10 @@ static bool metal_graph_encode_token_raw_swa(
 
     if (ok && need_logits) {
         ok = metal_graph_encode_output_head(g, model, weights, weights->output->dim[1]);
+    }
+    if (ok && g->compressor_parallel_pending) {
+        ok = ds4_gpu_compressor_parallel_wait() != 0;
+        g->compressor_parallel_pending = false;
     }
     return ok;
 }

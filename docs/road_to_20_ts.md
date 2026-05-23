@@ -6722,6 +6722,62 @@ full-quality option. Keep this as a closed diagnostic unless it becomes part of
 a broader fused compressor/indexer kernel that removes more work than launch
 overhead.
 
+#### Side-stream ratio-4 compressor overlap probe
+
+The next attempt kept the arithmetic exact but tried to move non-emitting
+ratio-4 compressor updates off the critical path:
+
+- `DS4_CUDA_COMPRESSOR_PARALLEL_RATIO4=1`;
+- copy `attn_norm` into the per-layer pending row so the side stream does not
+  race the reusable `attn_norm` scratch;
+- launch non-emitting ratio-4 attention/indexer compressor projections and
+  state stores on a non-blocking CUDA stream;
+- join the side stream before closing the CUDA graph capture for the token.
+
+The first implementation failed CUDA graph capture with:
+
+```text
+capturing stream has unjoined work
+```
+
+Then the join was moved to the end of the token and guarded by a per-token
+`compressor_parallel_pending` bit. This made the graph capture valid.
+
+Parity smoke:
+
+```sh
+python3 tuning/gx10_matrix.py run compressor_parallel_ratio4 -- ./ds4 --cuda \
+  -m /home/alessandro/projects/ds4/ds4flash.gguf --ctx 100000 \
+  --dump-logprobs tuning/gx10_matrix_results/prototype_20260523_compressor_parallel_ratio4_candidate.json \
+  --logprobs-top-k 5 --temp 0 -n 32 --nothink \
+  -p "Racconta in breve la storia della Repubblica Italiana."
+```
+
+Result: JSON logprobs and stdout matched the saved exact control from the
+phase-mask smoke.
+
+Throughput smoke:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast compressor_parallel_ratio4 \
+  --model /home/alessandro/projects/ds4/ds4flash.gguf \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_compressor_parallel_ratio4 \
+  --summary tuning/gx10_matrix_results/prototype_20260523_compressor_parallel_ratio4/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_compressor_parallel_ratio4/summary.md \
+  --stop-on-fail
+```
+
+| Row | 8192/128 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **16.04** | 392.02 | control |
+| `compressor_parallel_ratio4` | **16.02** | 390.04 | reject |
+
+Decision: reject. The event/stream graph overhead and resource contention eat
+the possible overlap. This closes the ratio-4 compressor scheduling family for
+now: unsafe arithmetic skipping showed a small ceiling, exact lazy batching was
+marginal, and exact side-stream overlap was neutral/negative.
+
 ## Branch / commit map
 
 ```

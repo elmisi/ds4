@@ -36,6 +36,7 @@ BASE_UNSET_NAMES = {
     "DS4_CUDA_F16_PAIR_VEC8",
     "DS4_CUDA_COMPRESSOR_EMIT_ONLY_UNSAFE",
     "DS4_CUDA_COMPRESSOR_LAZY_RATIO4",
+    "DS4_CUDA_COMPRESSOR_PARALLEL_RATIO4",
     "DS4_CUDA_Q8_CUBLAS_DECODE",
     "DS4_CUDA_Q8_BATCH1_CACHE_X",
     "DS4_CUDA_ATTENTION_OUTPUT_A_CUBLAS_MIN",
@@ -613,6 +614,11 @@ MATRIX = {
         "category": "prototype",
         "env": {**EXACT_FAST, **env(DS4_CUDA_COMPRESSOR_LAZY_RATIO4=1)},
         "status": "phase-masked exact-intent ratio-4 compressor buffering; logprob parity smoke passed, speed marginal",
+    },
+    "compressor_parallel_ratio4": {
+        "category": "prototype",
+        "env": {**EXACT_FAST, **env(DS4_CUDA_COMPRESSOR_PARALLEL_RATIO4=1)},
+        "status": "side-stream non-emitting ratio-4 compressor updates; logprob parity passed, speed neutral/negative",
     },
     "sample_cache_probs": {
         "category": "prototype",
