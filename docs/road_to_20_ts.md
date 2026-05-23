@@ -5726,6 +5726,50 @@ Decision: reject. Read-only-cache loads are now negative on both routed MoE
 IQ2/Q2 weights and HC-expand Q8 SoA weights. Do not repeat `__ldg` as a generic
 weight-load fix unless a later architecture-specific profile contradicts this.
 
+### 2026-05-23 continuation - HC-expand lane-parallel HC4 store probe
+
+One remaining HC-expand question was whether the fused kernel was losing time
+after the Q8 dot, where lane 0 serially writes all four HC outputs. The new
+`DS4_CUDA_HC_EXPAND_SOA_PAR_HC4=1` probe keeps the exact Q8 SoA dot and warp
+reduction, then broadcasts the row sum and lets lanes 0..3 compute the four
+`n_hc=4` outputs independently. For each HC lane the arithmetic order is the
+same as the previous serial helper:
+
+```text
+block_v * post[h] + comb[h] * r0 + comb[h+4] * r1
+                  + comb[h+8] * r2 + comb[h+12] * r3
+```
+
+Resource usage was again encouraging but misleading:
+
+| Kernel | Registers |
+| --- | ---: |
+| `matmul_q8_0_hc_expand_preq_warp8_soa_par_hc4_kernel` | 51 |
+| `matmul_q8_0_hc_expand_preq_warp8_soa_kernel` | 62 |
+
+Smoke:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast hc_expand_soa_par_hc4 \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_hc_expand_soa_par_hc4 \
+  --summary tuning/gx10_matrix_results/prototype_20260523_hc_expand_soa_par_hc4/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_hc_expand_soa_par_hc4/summary.md
+```
+
+Result:
+
+| Row | 8192/128 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **16.06** | 391.77 | control |
+| `hc_expand_soa_par_hc4` | **15.91** | 389.54 | negative |
+
+Decision: reject. The HC expansion/store tail is not the limiting part of this
+kernel; the Q8 dot and memory behavior dominate. Together with `hc_expand_soa_ldg`,
+`hc_expand_nhc4_special`, `hc_expand_no_block_out`, and prior cache-x probes,
+HC-expand should stay closed until a tensor-core/native-layout rewrite is on
+the table.
+
 ## Branch / commit map
 
 ```

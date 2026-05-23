@@ -47,6 +47,7 @@ BASE_UNSET_NAMES = {
     "DS4_CUDA_Q8_F16_PRELOAD",
     "DS4_CUDA_Q8_F32_PRELOAD",
     "DS4_CUDA_HC_EXPAND_SOA_LDG",
+    "DS4_CUDA_HC_EXPAND_SOA_PAR_HC4",
     "DS4_CUDA_HC_EXPAND_NHC4_SPECIAL",
     "DS4_CUDA_HC_EXPAND_NO_BLOCK_OUT",
     "DS4_CUDA_Q8_SOA_CACHE",
@@ -218,6 +219,11 @@ MATRIX = {
         "category": "prototype",
         "env": {**EXACT_FAST, **env(DS4_CUDA_HC_EXPAND_SOA_LDG=1)},
         "status": "read-only cache loads for HC-expand Q8 SoA weights",
+    },
+    "hc_expand_soa_par_hc4": {
+        "category": "prototype",
+        "env": {**EXACT_FAST, **env(DS4_CUDA_HC_EXPAND_SOA_PAR_HC4=1)},
+        "status": "parallelize n_hc=4 HC expansion stores across lanes after exact Q8 SoA dot",
     },
     "shared_gate_up_noaux": {
         "category": "diagnostic",
@@ -550,6 +556,7 @@ ROW_GROUPS = {
         "hc_expand_nhc4_special",
         "hc_expand_no_block_out",
         "hc_expand_soa_ldg",
+        "hc_expand_soa_par_hc4",
         "shared_gate_up_noaux",
         "shared_gate_up_shape2048",
         "soa_cache_x",
