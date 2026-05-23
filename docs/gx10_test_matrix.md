@@ -169,6 +169,9 @@ door on hard but plausible kernel work.
 | `hc_expand_nhc4_special` | `DS4_CUDA_HC_EXPAND_NHC4_SPECIAL=1` | exact-shape HC-expand specialization, 16.11 vs 16.14 t/s control | diagnostic only; do not promote |
 | `hc_expand_no_block_out` | `DS4_CUDA_HC_EXPAND_NO_BLOCK_OUT=1` | skips auxiliary `attn_out` store in fused HC-expand, 16.09 vs 16.17 t/s control | diagnostic only; do not promote |
 | `shared_gate_up_noaux` | `DS4_CUDA_SHARED_GATE_UP_NOAUX=1` | shared expert mid-only kernel, 16.01 vs 16.15 t/s control | diagnostic only; do not promote |
+| `shared_gate_up_cache_x` | `DS4_CUDA_SHARED_GATE_UP_CACHE_X=1` | shared activation staging for fused shared gate/up SwiGLU was slower: 15.88 vs 16.00 t/s control | diagnostic only; do not promote |
+| `f16_pair_fast_reduce` | `DS4_CUDA_F16_PAIR_FAST_REDUCE=1` | exact-order final-warp sync reduction for compressor F16 pair was neutral/slower: 16.04 vs 16.07 t/s control | diagnostic only; do not promote |
+| `compressor_pair_off` | `DS4_METAL_DISABLE_COMPRESSOR_PAIR_PROJ=1` | disabling paired F16 compressor projections was slower: 15.85 vs 16.09 t/s control | diagnostic only; keep pair path |
 | `soa_cache_x` | `DS4_CUDA_Q8_SOA_CACHE_X=1` | noisy/unstable and slower | re-test only after kernel change |
 | `output_top1` | `DS4_CUDA_OUTPUT_TOP1=1` | exact but slower than full logits in A/B | diagnostic only |
 | `output_q8_warp8` | `DS4_CUDA_OUTPUT_Q8_WARP8=1` | graph nsys showed full-logits output head on generic Q8, but warp8 routing was slower: 15.93 vs 16.13 and changes reduction order | diagnostic only; do not promote |

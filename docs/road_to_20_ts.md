@@ -5491,6 +5491,92 @@ Interpretation:
   instance count does not match a single per-layer decode row, so first identify
   which compressor/HC calls produce it before adding kernels.
 
+### Fork-inspired LDS/cache probes after decode-window profile
+
+The next scan looked at recent CUDA/ROCm-oriented fork work and similar
+projects for ideas that were not just another MoE-down attempt. Two useful
+themes were worth testing locally:
+
+- Entrpi's MMQ/layer-graph branch had rejected a one-token Q8 pair lift because
+  it quantized activations twice; our current Q8 pair kernels already share the
+  prequant activation, so there was no direct MMQ import without porting that
+  whole backend.
+- ROCm branches repeatedly found wins from staging duplicated per-block inputs
+  in LDS/shared memory. The CUDA branch had already rejected broad Q8 cache-x
+  variants, but had not isolated the fused shared-expert gate/up SwiGLU kernel
+  nor the compressor F16 pair reduction.
+
+The shared gate/up probe added
+`DS4_CUDA_SHARED_GATE_UP_CACHE_X=1`, staging the already-prequantized Q8
+activation and scales once per CTA before the existing 8 warp rows consume
+them. This is exact-order and keeps the same resource signal as the existing
+kernel (`REG:62`, same as baseline):
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast shared_gate_up_cache_x \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_shared_gate_up_cache_x \
+  --summary tuning/gx10_matrix_results/prototype_20260523_shared_gate_up_cache_x/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_shared_gate_up_cache_x/summary.md
+```
+
+Result:
+
+| Row | 8192/128 gen t/s | Decision |
+| --- | ---: | --- |
+| `exact_fast` | **16.00** | control |
+| `shared_gate_up_cache_x` | **15.88** | negative |
+
+Decision: reject. The shared staging overhead does not pay for this kernel,
+matching the earlier pattern from HC-expand and attention-output cache-x probes.
+
+The F16 pair profile row was then classified. The 6262 `matmul_f16_pair_kernel`
+instances in the decode-window profile are exactly:
+
+- 41 attention-compressor paired projections per generated token
+  (all compressed layers 2..42);
+- plus 21 indexer-compressor paired projections on ratio-4 layers.
+
+A narrow exact-order reduction probe added `DS4_CUDA_F16_PAIR_FAST_REDUCE=1`.
+It preserves the current 256-thread partial-sum order, but replaces the final
+warp-local block barriers with `__syncwarp()`. Resource usage was not worse
+(`REG:15` vs `REG:16`, same 2048 B shared memory):
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast f16_pair_fast_reduce \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_f16_pair_fast_reduce \
+  --summary tuning/gx10_matrix_results/prototype_20260523_f16_pair_fast_reduce/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_f16_pair_fast_reduce/summary.md
+```
+
+Result:
+
+| Row | 8192/128 gen t/s | Decision |
+| --- | ---: | --- |
+| `exact_fast` | **16.07** | control |
+| `f16_pair_fast_reduce` | **16.04** | neutral/negative |
+
+Finally, a control row disabled paired compressor projections entirely to make
+sure the current pair route was still worth keeping:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast compressor_pair_off \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_compressor_pair_off \
+  --summary tuning/gx10_matrix_results/prototype_20260523_compressor_pair_off/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_compressor_pair_off/summary.md
+```
+
+| Row | 8192/128 gen t/s | Decision |
+| --- | ---: | --- |
+| `exact_fast` | **16.09** | control |
+| `compressor_pair_off` | **15.85** | keep paired F16 compressor path |
+
+Decision: reject both new probes, but keep the diagnostic flags and summaries.
+The paired F16 compressor kernel is already the right path; the remaining
+headroom is not in its final barrier pattern.
+
 ## Branch / commit map
 
 ```

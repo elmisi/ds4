@@ -27,6 +27,7 @@ BASE_UNSET_NAMES = {
     "DS4_CUDA_OUTPUT_Q8_WARP8",
     "DS4_CUDA_FORCE_ORDERED_F16_MATMUL",
     "DS4_CUDA_NO_ORDERED_F16_MATMUL",
+    "DS4_CUDA_F16_PAIR_FAST_REDUCE",
     "DS4_CUDA_Q8_CUBLAS_DECODE",
     "DS4_CUDA_Q8_BATCH1_CACHE_X",
     "DS4_CUDA_ATTENTION_OUTPUT_A_CUBLAS_MIN",
@@ -40,6 +41,7 @@ BASE_UNSET_NAMES = {
     "DS4_CUDA_ATTN_Q_B_B32_SPECIAL",
     "DS4_CUDA_ATTN_QKV_PAIR_SHAPE",
     "DS4_METAL_DISABLE_QKV_PAIR_PROJ",
+    "DS4_METAL_DISABLE_COMPRESSOR_PAIR_PROJ",
     "DS4_CUDA_Q8_F16_ALL",
     "DS4_CUDA_Q8_F32_ALL",
     "DS4_CUDA_Q8_F16_PRELOAD",
@@ -60,6 +62,7 @@ BASE_UNSET_NAMES = {
     "DS4_CUDA_Q8_SOA_NO_ATTN_OUTPUT_B",
     "DS4_CUDA_SHARED_GATE_UP_NOAUX",
     "DS4_CUDA_SHARED_GATE_UP_SHAPE2048",
+    "DS4_CUDA_SHARED_GATE_UP_CACHE_X",
     "DS4_CUDA_FFN_PARALLEL_SHARED",
     "DS4_CUDA_FFN_SHARED_FIRST",
     "DS4_CUDA_MOE_ACTIVE_EXPERTS",
@@ -403,6 +406,11 @@ MATRIX = {
         },
         "status": "shape-specialized routed gate/up plus attention-output-A SoA kernels",
     },
+    "shared_gate_up_cache_x": {
+        "category": "prototype",
+        "env": {**EXACT_FAST, **env(DS4_CUDA_SHARED_GATE_UP_CACHE_X=1)},
+        "status": "stage shared gate/up fused-SwiGLU activation q8 blocks in CTA shared memory",
+    },
     "indexer_topk_chunk8192": {
         "category": "prototype",
         "env": {**EXACT_FAST, **env(DS4_CUDA_TOPK_CHUNK8192=1)},
@@ -422,6 +430,16 @@ MATRIX = {
         "category": "prototype",
         "env": {**EXACT_FAST, **env(DS4_CUDA_Q8_BATCH1_CACHE_X=1)},
         "status": "use cached-x warp8 kernel for n_tok=1 Q8 projections with <=32 blocks",
+    },
+    "f16_pair_fast_reduce": {
+        "category": "prototype",
+        "env": {**EXACT_FAST, **env(DS4_CUDA_F16_PAIR_FAST_REDUCE=1)},
+        "status": "exact-order f16 pair reduction with warp-local sync for final strides",
+    },
+    "compressor_pair_off": {
+        "category": "diagnostic",
+        "env": {**EXACT_FAST, **env(DS4_METAL_DISABLE_COMPRESSOR_PAIR_PROJ=1)},
+        "status": "disable paired F16 compressor projections and use separate matmuls",
     },
     "sample_cache_probs": {
         "category": "prototype",

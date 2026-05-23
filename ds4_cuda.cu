@@ -133,6 +133,7 @@ static int g_cuda_no_ordered_f16_matmul;
 static int g_cuda_serial_f16_matmul;
 static int g_cuda_serial_router;
 static int g_cuda_no_f16_pair_matmul;
+static int g_cuda_f16_pair_fast_reduce;
 static int g_cuda_no_q8_batch_warp;
 static int g_cuda_q8_cache_x;
 static int g_cuda_q8_batch1_cache_x;
@@ -167,6 +168,7 @@ static int g_cuda_disable_shared_gate_up_pair;
 static int g_cuda_no_shared_gate_up_fused_swiglu;
 static int g_cuda_shared_gate_up_noaux;
 static int g_cuda_shared_gate_up_shape2048;
+static int g_cuda_shared_gate_up_cache_x;
 static int g_cuda_no_warp_router_select;
 static int g_cuda_no_parallel_router_select;
 static int g_cuda_moe_no_decode_lut_gate;
@@ -1628,6 +1630,7 @@ extern "C" int ds4_gpu_init(void) {
     g_cuda_serial_f16_matmul = getenv("DS4_CUDA_SERIAL_F16_MATMUL") != NULL;
     g_cuda_serial_router = getenv("DS4_CUDA_SERIAL_ROUTER") != NULL;
     g_cuda_no_f16_pair_matmul = getenv("DS4_CUDA_NO_F16_PAIR_MATMUL") != NULL;
+    g_cuda_f16_pair_fast_reduce = getenv("DS4_CUDA_F16_PAIR_FAST_REDUCE") != NULL;
     g_cuda_no_q8_batch_warp = getenv("DS4_CUDA_NO_Q8_BATCH_WARP") != NULL;
     g_cuda_q8_cache_x = getenv("DS4_CUDA_Q8_CACHE_X") != NULL;
     g_cuda_q8_batch1_cache_x = getenv("DS4_CUDA_Q8_BATCH1_CACHE_X") != NULL;
@@ -1666,6 +1669,7 @@ extern "C" int ds4_gpu_init(void) {
     g_cuda_no_shared_gate_up_fused_swiglu = getenv("DS4_CUDA_NO_SHARED_GATE_UP_FUSED_SWIGLU") != NULL;
     g_cuda_shared_gate_up_noaux = getenv("DS4_CUDA_SHARED_GATE_UP_NOAUX") != NULL;
     g_cuda_shared_gate_up_shape2048 = getenv("DS4_CUDA_SHARED_GATE_UP_SHAPE2048") != NULL;
+    g_cuda_shared_gate_up_cache_x = getenv("DS4_CUDA_SHARED_GATE_UP_CACHE_X") != NULL;
     g_cuda_no_warp_router_select = getenv("DS4_CUDA_NO_WARP_ROUTER_SELECT") != NULL;
     g_cuda_no_parallel_router_select = getenv("DS4_CUDA_NO_PARALLEL_ROUTER_SELECT") != NULL;
     g_cuda_moe_no_decode_lut_gate = getenv("DS4_CUDA_MOE_NO_DECODE_LUT_GATE") != NULL;
@@ -2981,6 +2985,52 @@ __global__ static void matmul_f16_pair_kernel(
     }
 }
 
+__global__ static void matmul_f16_pair_fast_reduce_kernel(
+        float *out0,
+        float *out1,
+        const __half *w0,
+        const __half *w1,
+        const float *x,
+        uint64_t in_dim,
+        uint64_t out_dim) {
+    uint64_t row = (uint64_t)blockIdx.x;
+    if (row >= out_dim) return;
+
+    float sum0 = 0.0f;
+    float sum1 = 0.0f;
+    const __half *wr0 = w0 + row * in_dim;
+    const __half *wr1 = w1 + row * in_dim;
+    for (uint64_t i = threadIdx.x; i < in_dim; i += blockDim.x) {
+        const float xv = x[i];
+        sum0 += __half2float(wr0[i]) * xv;
+        sum1 += __half2float(wr1[i]) * xv;
+    }
+
+    __shared__ float partial0[256];
+    __shared__ float partial1[256];
+    partial0[threadIdx.x] = sum0;
+    partial1[threadIdx.x] = sum1;
+    __syncthreads();
+    for (uint32_t stride = blockDim.x >> 1; stride > 32u; stride >>= 1) {
+        if (threadIdx.x < stride) {
+            partial0[threadIdx.x] += partial0[threadIdx.x + stride];
+            partial1[threadIdx.x] += partial1[threadIdx.x + stride];
+        }
+        __syncthreads();
+    }
+    if (threadIdx.x < 32u) {
+        for (uint32_t stride = 32u; stride > 0u; stride >>= 1) {
+            partial0[threadIdx.x] += partial0[threadIdx.x + stride];
+            partial1[threadIdx.x] += partial1[threadIdx.x + stride];
+            __syncwarp();
+        }
+        if (threadIdx.x == 0) {
+            out0[row] = partial0[0];
+            out1[row] = partial1[0];
+        }
+    }
+}
+
 __global__ static void matmul_f32_kernel(
         float *out,
         const float *w,
@@ -4077,6 +4127,66 @@ __global__ static void matmul_q8_0_pair_swiglu_preq_warp8_kernel(
         uint64_t bn = in_dim - i0 < 32 ? in_dim - i0 : 32;
         const int8_t *xqb = xq + b * 32;
         const float xs = xscale[b];
+        const __half *g_scale_h = (const __half *)(gwr + b * 34);
+        const __half *u_scale_h = (const __half *)(uwr + b * 34);
+        const int8_t *g_qs = (const int8_t *)(gwr + b * 34 + 2);
+        const int8_t *u_qs = (const int8_t *)(uwr + b * 34 + 2);
+        int g_dot = dot_i8_block(g_qs, xqb, bn, use_dp4a);
+        int u_dot = dot_i8_block(u_qs, xqb, bn, use_dp4a);
+        gate += __half2float(*g_scale_h) * xs * (float)g_dot;
+        up += __half2float(*u_scale_h) * xs * (float)u_dot;
+    }
+    gate = warp_sum_f32(gate);
+    up = warp_sum_f32(up);
+    if (lane == 0) {
+        gate_out[row] = gate;
+        up_out[row] = up;
+        float g = gate;
+        float u = up;
+        if (clamp > 1.0e-6f) {
+            g = fminf(g, clamp);
+            u = fminf(fmaxf(u, -clamp), clamp);
+        }
+        mid_out[row] = (g / (1.0f + expf(-g))) * u;
+    }
+}
+
+__global__ static void matmul_q8_0_pair_swiglu_preq_warp8_cached_x_kernel(
+        float *gate_out,
+        float *up_out,
+        float *mid_out,
+        const unsigned char *gate_w,
+        const unsigned char *up_w,
+        const int8_t *xq,
+        const float *xscale,
+        uint64_t in_dim,
+        uint64_t out_dim,
+        uint64_t blocks,
+        float clamp,
+        int use_dp4a) {
+    extern __shared__ unsigned char smem[];
+    int8_t *sxq = (int8_t *)smem;
+    float *sxscale = (float *)(smem + blocks * 32u);
+    for (uint64_t i = threadIdx.x; i < blocks * 32u; i += blockDim.x) {
+        sxq[i] = xq[i];
+    }
+    for (uint64_t i = threadIdx.x; i < blocks; i += blockDim.x) {
+        sxscale[i] = xscale[i];
+    }
+    __syncthreads();
+
+    uint64_t row = (uint64_t)blockIdx.x * 8u + (threadIdx.x >> 5u);
+    uint32_t lane = threadIdx.x & 31u;
+    if (row >= out_dim) return;
+    float gate = 0.0f;
+    float up = 0.0f;
+    const unsigned char *gwr = gate_w + row * blocks * 34;
+    const unsigned char *uwr = up_w + row * blocks * 34;
+    for (uint64_t b = lane; b < blocks; b += 32u) {
+        uint64_t i0 = b * 32;
+        uint64_t bn = in_dim - i0 < 32 ? in_dim - i0 : 32;
+        const int8_t *xqb = sxq + b * 32;
+        const float xs = sxscale[b];
         const __half *g_scale_h = (const __half *)(gwr + b * 34);
         const __half *u_scale_h = (const __half *)(uwr + b * 34);
         const int8_t *g_qs = (const int8_t *)(gwr + b * 34 + 2);
@@ -11213,6 +11323,17 @@ extern "C" int ds4_gpu_matmul_f16_pair_tensor(
     const __half *w1 = (const __half *)cuda_model_range_ptr(model_map, weight1_offset, weight_bytes, "f16_pair1");
     if (!w0 || !w1) return 0;
     if (!cuda_use_ordered_f16_matmul()) {
+        if (g_cuda_f16_pair_fast_reduce) {
+            matmul_f16_pair_fast_reduce_kernel<<<(unsigned)out_dim, 256>>>(
+                (float *)out0->ptr,
+                (float *)out1->ptr,
+                w0,
+                w1,
+                (const float *)x->ptr,
+                in_dim,
+                out_dim);
+            return cuda_ok(cudaGetLastError(), "matmul_f16_pair_fast_reduce launch");
+        }
         matmul_f16_pair_kernel<<<(unsigned)out_dim, 256>>>(
             (float *)out0->ptr,
             (float *)out1->ptr,
@@ -13106,6 +13227,23 @@ extern "C" int ds4_gpu_shared_gate_up_swiglu_q8_0_tensor(
                             clamp,
                             use_dp4a);
                     return cuda_ok(cudaGetLastError(), "shared gate/up swiglu soa launch");
+                }
+                if (g_cuda_shared_gate_up_cache_x && blocks <= 256u) {
+                    const uint64_t smem_bytes = blocks * 32u + blocks * sizeof(float);
+                    matmul_q8_0_pair_swiglu_preq_warp8_cached_x_kernel<<<((unsigned)out_dim + 7u) / 8u, 256, (unsigned)smem_bytes, stream>>>(
+                            (float *)gate->ptr,
+                            (float *)up->ptr,
+                            (float *)mid->ptr,
+                            reinterpret_cast<const unsigned char *>(gate_w),
+                            reinterpret_cast<const unsigned char *>(up_w),
+                            xq,
+                            xscale,
+                            in_dim,
+                            out_dim,
+                            blocks,
+                            clamp,
+                            use_dp4a);
+                    return cuda_ok(cudaGetLastError(), "shared gate/up swiglu cached-x launch");
                 }
                 if (g_cuda_shared_gate_up_shape2048 &&
                     in_dim == 4096u &&
