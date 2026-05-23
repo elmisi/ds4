@@ -6483,6 +6483,84 @@ attention output, Q path, compressor/indexer, and attention. That confirms the
 next work should still target structural CUDA execution savings, but not by
 repeating already rejected MoE micro-variants.
 
+Follow-up clean profiles after saving the checkpoint:
+
+```sh
+python3 tuning/gx10_matrix.py run soa -- env DS4_METAL_DECODE_STAGE_PROFILE=1 \
+  ./ds4-bench --cuda -m /home/alessandro/projects/ds4/ds4flash.gguf \
+  --prompt-file speed-bench/promessi_sposi.txt \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 3 \
+  --csv tuning/gx10_matrix_results/stage_profile_20260523_soa_clean_8192.csv \
+  > tuning/gx10_matrix_results/stage_profile_20260523_soa_clean_8192.log 2>&1
+```
+
+Aggregated over 129 layer-stage rows:
+
+| Stage | Total ms | Avg ms/layer |
+| --- | ---: | ---: |
+| `routed_moe` | 46.441 | 0.360008 |
+| `attn_output` | 41.088 | 0.318512 |
+| `q_path` | 27.498 | 0.213163 |
+| `compressor_indexer` | 20.387 | 0.158039 |
+| `attention` | 18.747 | 0.145326 |
+| `shared_gate_up` | 11.790 | 0.091395 |
+| `shared_down` | 6.781 | 0.052566 |
+
+The indexer substage profile:
+
+```sh
+python3 tuning/gx10_matrix.py run soa -- env DS4_METAL_INDEXER_STAGE_PROFILE=1 \
+  ./ds4-bench --cuda -m /home/alessandro/projects/ds4/ds4flash.gguf \
+  --prompt-file speed-bench/promessi_sposi.txt \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 3 \
+  --csv tuning/gx10_matrix_results/indexer_stage_profile_20260523_soa_8192.csv \
+  > tuning/gx10_matrix_results/indexer_stage_profile_20260523_soa_8192.log 2>&1
+```
+
+Decode-only ratio-4 indexer subtotals over 63 layer rows:
+
+| Indexer substage | Total ms | Avg ms/layer |
+| --- | ---: | ---: |
+| `decode_attention` | 11.477 | 0.182175 |
+| `decode_score` | 2.277 | 0.036143 |
+| `decode_topk` | 2.249 | 0.035698 |
+
+This says low/mid context is not top-k-bound. The larger unprofiled part of
+`compressor_indexer` is the per-token compressor projection/update work, while
+the actual sparse indexed attention dominates the `attention` bucket. Future
+work should avoid pure top-k chunk-size probes here.
+
+#### Indexed heads8 two-pass diagnostic
+
+The long-context history already rejected one-token indexed heads8 online
+attention for quality. A two-pass variant existed but was not explicitly
+closed, so it was tested before touching the kernel again:
+
+```sh
+python3 tuning/gx10_matrix.py run exact_fast -- ./ds4-bench --cuda \
+  -m /home/alessandro/projects/ds4/ds4flash.gguf \
+  --prompt-file speed-bench/promessi_sposi.txt \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --csv tuning/gx10_matrix_results/prototype_20260523_indexed_heads8_twopass_control.csv
+
+python3 tuning/gx10_matrix.py run exact_fast -- env \
+  DS4_CUDA_DECODE_HEADS8_ATTENTION=1 DS4_CUDA_INDEXED_TWOPASS=1 \
+  ./ds4-bench --cuda -m /home/alessandro/projects/ds4/ds4flash.gguf \
+  --prompt-file speed-bench/promessi_sposi.txt \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --csv tuning/gx10_matrix_results/prototype_20260523_indexed_heads8_twopass_candidate.csv
+```
+
+| Row | 8192/128 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **16.03** | 391.98 | control |
+| `indexed_heads8_twopass` | **14.67** | 345.02 | reject |
+
+Decision: reject without a quality gate. The two-pass heads8 indexed-attention
+route is slower even before considering the reduction-order risk that already
+rejected the online heads8 path. Do not repeat this family unless the sparse
+attention algorithm itself changes.
+
 ## Branch / commit map
 
 ```
