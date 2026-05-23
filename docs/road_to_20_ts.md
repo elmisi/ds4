@@ -5949,6 +5949,21 @@ Quality canaries:
   byte-identical.
 - 2-question `ds4-eval` smoke, `--nothink --seed 1`, passed **2/2** for both
   `exact_fast` and `shape_gate_attn_qb_soa_b32`.
+- 4-question `ds4-eval` smoke also passed **4/4** for both rows:
+
+```sh
+python3 tuning/gx10_matrix.py ds-eval-suite exact_fast \
+  shape_gate_attn_qb_soa_b32 \
+  --questions 4 --tokens 1024 --nothink --seed 1 --timeout-sec 1200 \
+  --label-prefix attn_qb_soa_b32_4q_ \
+  --out-dir tuning/gx10_matrix_results/prototype_20260524_attn_qb_soa_b32_eval_4q \
+  --extra "--hard-limit-reply-budget 256 --soft-limit-reply-budget 512"
+```
+
+| Row | `ds4-eval` 4q result |
+| --- | --- |
+| `exact_fast` | **4/4** |
+| `shape_gate_attn_qb_soa_b32` | **4/4** |
 
 Decision: keep `shape_gate_attn_qb_soa_b32` as the first recent exact-intent
 combo candidate that actually composes. Do not promote it yet: it needs a wider
