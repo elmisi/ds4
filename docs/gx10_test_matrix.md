@@ -168,6 +168,7 @@ door on hard but plausible kernel work.
 | `soa_qkv_no_pair` | `DS4_CUDA_Q8_SOA_QKV=1 DS4_METAL_DISABLE_QKV_PAIR_PROJ=1` | disabling the pair projection did not rescue QKV SoA: 15.70 vs 15.94 t/s control | diagnostic only; do not promote |
 | `hc_expand_nhc4_special` | `DS4_CUDA_HC_EXPAND_NHC4_SPECIAL=1` | exact-shape HC-expand specialization, 16.11 vs 16.14 t/s control | diagnostic only; do not promote |
 | `hc_expand_no_block_out` | `DS4_CUDA_HC_EXPAND_NO_BLOCK_OUT=1` | skips auxiliary `attn_out` store in fused HC-expand, 16.09 vs 16.17 t/s control | diagnostic only; do not promote |
+| `hc_expand_soa_ldg` | `DS4_CUDA_HC_EXPAND_SOA_LDG=1` | read-only-cache loads for HC-expand Q8 SoA weights, 15.84 vs 16.13 t/s control and `REG:63` vs baseline `REG:62` | diagnostic only; do not promote |
 | `shared_gate_up_noaux` | `DS4_CUDA_SHARED_GATE_UP_NOAUX=1` | shared expert mid-only kernel, 16.01 vs 16.15 t/s control | diagnostic only; do not promote |
 | `shared_gate_up_cache_x` | `DS4_CUDA_SHARED_GATE_UP_CACHE_X=1` | shared activation staging for fused shared gate/up SwiGLU was slower: 15.88 vs 16.00 t/s control | diagnostic only; do not promote |
 | `shared_gate_up_dot2` | `DS4_CUDA_SHARED_GATE_UP_DOT2=1` | shared one activation load for the two fused SwiGLU Q8 dots; `REG:61` vs baseline `REG:62`, but 15.89 vs 15.97 t/s control | diagnostic only; do not promote |

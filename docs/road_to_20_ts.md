@@ -5681,6 +5681,51 @@ latency hiding enough to swamp the instruction/register savings. This also
 weakens the case for a similar small paired pack on Q8 gate/up-style projections
 unless a profiler points to a different access pattern.
 
+### 2026-05-23 continuation - HC-expand SoA read-only-load probe
+
+After closing shared gate/up cache, dot2, and pair-pack attempts, the next probe
+returned to a different decode-window frontier: HC-expand Q8 SoA. This was not
+the earlier MoE `__ldg` experiment; it targeted only the already-cached SoA Q8
+weights used by `matmul_q8_0_hc_expand_preq_warp8_soa_kernel`.
+
+Implementation:
+
+- `DS4_CUDA_HC_EXPAND_SOA_LDG=1`;
+- `dot_i8_block_weight_aligned_ldg`, using `__ldg` for aligned Q8 SoA weight
+  words;
+- `matmul_q8_0_hc_expand_preq_warp8_soa_ldg_kernel`, also loading the SoA
+  half scale through `__ldg`;
+- exact store and HC expansion order unchanged.
+
+Resource usage was worse before runtime:
+
+| Kernel | Registers |
+| --- | ---: |
+| `matmul_q8_0_hc_expand_preq_warp8_soa_ldg_kernel` | 63 |
+| `matmul_q8_0_hc_expand_preq_warp8_soa_kernel` | 62 |
+| `matmul_q8_0_hc_expand_preq_warp8_soa_cached_x_kernel` | 50 |
+
+Smoke:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast hc_expand_soa_ldg \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_hc_expand_soa_ldg \
+  --summary tuning/gx10_matrix_results/prototype_20260523_hc_expand_soa_ldg/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_hc_expand_soa_ldg/summary.md
+```
+
+Result:
+
+| Row | 8192/128 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **16.13** | 393.27 | control |
+| `hc_expand_soa_ldg` | **15.84** | 389.48 | negative |
+
+Decision: reject. Read-only-cache loads are now negative on both routed MoE
+IQ2/Q2 weights and HC-expand Q8 SoA weights. Do not repeat `__ldg` as a generic
+weight-load fix unless a later architecture-specific profile contradicts this.
+
 ## Branch / commit map
 
 ```
