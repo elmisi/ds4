@@ -6109,6 +6109,52 @@ the memory budget is not the blocker for the Q8 layout family. Do not repeat
 global SoA cache experiments unless a future kernel changes the SoA access
 pattern rather than only expanding the set of cached tensors.
 
+### 2026-05-23 continuation - full-vocab Q8 B128 output probe
+
+The full-vocabulary output head is a visible Q8 projection, but the earlier
+`DS4_CUDA_OUTPUT_Q8_WARP8=1` route was negative. A more conservative output
+probe was added instead of repeating that warp8 path:
+
+- `DS4_CUDA_OUTPUT_Q8_B128=1`;
+- only applies to the output-head-like shape `n_tok=1`, `in_dim=4096`,
+  `out_dim>=65536`, `blocks=128`;
+- reuses the existing generic Q8 reduction kernel, but launches 128 threads per
+  row instead of 256, matching the 128 Q8 blocks and avoiding half-idle CTAs;
+- keeps the same reduction tree after the removed zero-only half, so the intent
+  is exact-order for the actual nonzero partials.
+
+Build:
+
+```sh
+make -j$(nproc) cuda-spark
+```
+
+Result: success.
+
+Speed smoke:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast output_q8_b128 \
+  --model /home/alessandro/projects/ds4/ds4flash.gguf \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_output_q8_b128 \
+  --summary tuning/gx10_matrix_results/prototype_20260523_output_q8_b128/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_output_q8_b128/summary.md \
+  --stop-on-fail
+```
+
+Result:
+
+| Row | 8192/128 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **16.12** | 393.11 | control |
+| `output_q8_b128` | **16.10** | 389.28 | reject |
+
+Decision: reject. The full-logits Q8 output path is not improved by only
+matching CTA width to the 128-block row shape. Do not repeat thread-count-only
+output-head variants; a useful output-head change would need a different memory
+layout or a true sampler/logits redesign.
+
 ## Branch / commit map
 
 ```

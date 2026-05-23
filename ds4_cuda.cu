@@ -147,6 +147,7 @@ static int g_cuda_attn_q_b_rowpair;
 static int g_cuda_attn_qkv_pair_shape;
 static int g_cuda_attn_output_b_shape4096;
 static int g_cuda_attn_output_b_cublas_min;
+static int g_cuda_output_q8_b128;
 static int g_cuda_output_q8_warp8;
 static int g_cuda_mmq_q8_dense_vec;
 static int g_cuda_mmq_q8_dense_vec_attn_q_b;
@@ -1829,6 +1830,7 @@ extern "C" int ds4_gpu_init(void) {
     g_cuda_attn_q_b_rowpair = getenv("DS4_CUDA_ATTN_Q_B_ROWPAIR") != NULL;
     g_cuda_attn_qkv_pair_shape = getenv("DS4_CUDA_ATTN_QKV_PAIR_SHAPE") != NULL;
     g_cuda_attn_output_b_shape4096 = getenv("DS4_CUDA_ATTENTION_OUTPUT_B_SHAPE4096") != NULL;
+    g_cuda_output_q8_b128 = getenv("DS4_CUDA_OUTPUT_Q8_B128") != NULL;
     g_cuda_output_q8_warp8 = getenv("DS4_CUDA_OUTPUT_Q8_WARP8") != NULL;
     g_cuda_mmq_q8_dense_vec = getenv("DS4_CUDA_MMQ_Q8_DENSE_VEC") != NULL;
     g_cuda_mmq_q8_dense_vec_attn_q_b =
@@ -11227,6 +11229,24 @@ static int cuda_matmul_q8_0_tensor_labeled(ds4_gpu_tensor *out, const void *mode
                 blocks,
                 use_dp4a);
         return cuda_ok(cudaGetLastError(), "matmul_q8_0 output q8 warp8 launch");
+    }
+    if (g_cuda_output_q8_b128 &&
+        n_tok == 1 &&
+        in_dim == 4096u &&
+        out_dim >= 65536u &&
+        blocks == 128u) {
+        dim3 ogrid((unsigned)out_dim, 1u, 1u);
+        matmul_q8_0_preq_kernel<<<ogrid, 128>>>(
+                (float *)out->ptr,
+                reinterpret_cast<const unsigned char *>(wptr),
+                xq,
+                xscale,
+                in_dim,
+                out_dim,
+                n_tok,
+                blocks,
+                use_dp4a);
+        return cuda_ok(cudaGetLastError(), "matmul_q8_0 output q8 b128 launch");
     }
     if (n_tok == 1 && cuda_q8_soa_generic_decode_enabled()) {
         const cuda_q8_soa_range *soa = cuda_q8_soa_ptr(model_map,
