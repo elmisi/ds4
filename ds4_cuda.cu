@@ -143,6 +143,8 @@ static int g_cuda_hc_expand_nhc4_special;
 static int g_cuda_hc_expand_no_block_out;
 static int g_cuda_attn_output_a_cache_x;
 static int g_cuda_attn_output_a_hwarp16;
+static int g_cuda_attn_output_a_shape8192;
+static int g_cuda_attn_output_a_cache_x16;
 static int g_cuda_q8_soa_cache;
 static int g_cuda_q8_soa_qb;
 static int g_cuda_q8_soa_qkv;
@@ -175,6 +177,7 @@ static int g_cuda_moe_decode_gate_global_lut;
 static int g_cuda_moe_decode_gate_maxr48;
 static int g_cuda_moe_decode_gate_ldg;
 static int g_cuda_moe_decode_gate_shape2048;
+static int g_cuda_moe_gate_prefer_l1;
 static int g_cuda_moe_down_sum6_ldg;
 static int g_cuda_moe_down_sum6_shape4096;
 static int g_cuda_moe_k2_direct_gate;
@@ -1633,6 +1636,8 @@ extern "C" int ds4_gpu_init(void) {
     g_cuda_hc_expand_no_block_out = getenv("DS4_CUDA_HC_EXPAND_NO_BLOCK_OUT") != NULL;
     g_cuda_attn_output_a_cache_x = getenv("DS4_CUDA_ATTENTION_OUTPUT_A_CACHE_X") != NULL;
     g_cuda_attn_output_a_hwarp16 = getenv("DS4_CUDA_ATTENTION_OUTPUT_A_HWARP16") != NULL;
+    g_cuda_attn_output_a_shape8192 = getenv("DS4_CUDA_ATTENTION_OUTPUT_A_SHAPE8192") != NULL;
+    g_cuda_attn_output_a_cache_x16 = getenv("DS4_CUDA_ATTENTION_OUTPUT_A_CACHE_X16") != NULL;
     g_cuda_q8_soa_cache = getenv("DS4_CUDA_Q8_SOA_CACHE") != NULL;
     g_cuda_q8_soa_qb = getenv("DS4_CUDA_Q8_SOA_QB") != NULL;
     g_cuda_q8_soa_qkv = getenv("DS4_CUDA_Q8_SOA_QKV") != NULL;
@@ -1667,6 +1672,7 @@ extern "C" int ds4_gpu_init(void) {
     g_cuda_moe_decode_gate_maxr48 = getenv("DS4_CUDA_MOE_DECODE_GATE_MAXR48") != NULL;
     g_cuda_moe_decode_gate_ldg = getenv("DS4_CUDA_MOE_DECODE_GATE_LDG") != NULL;
     g_cuda_moe_decode_gate_shape2048 = getenv("DS4_CUDA_MOE_DECODE_GATE_SHAPE2048") != NULL;
+    g_cuda_moe_gate_prefer_l1 = getenv("DS4_CUDA_MOE_GATE_PREFER_L1") != NULL;
     g_cuda_moe_down_sum6_ldg = getenv("DS4_CUDA_MOE_DOWN_SUM6_LDG") != NULL;
     g_cuda_moe_down_sum6_shape4096 = getenv("DS4_CUDA_MOE_DOWN_SUM6_SHAPE4096") != NULL;
     g_cuda_moe_k2_direct_gate = getenv("DS4_CUDA_MOE_K2_DIRECT_GATE") != NULL;
@@ -5288,6 +5294,63 @@ __global__ static void grouped_q8_0_a_preq_warp8_soa_kernel(
     }
     acc = warp_sum_f32(acc);
     if (lane == 0) low[tok * low_dim + row] = acc;
+}
+
+__global__ static void grouped_q8_0_a_preq_warp8_soa_shape8192_kernel(
+        float *low,
+        const __half *wscale,
+        const int8_t *wq,
+        const int8_t *xq,
+        const float *xscale) {
+    const uint32_t row = blockIdx.x * 8u + (threadIdx.x >> 5u);
+    const uint32_t lane = threadIdx.x & 31u;
+    const uint32_t group = row >> 9u;
+    const __half *sr = wscale + (uint64_t)row * 256u;
+    const int8_t *qr = wq + (uint64_t)row * 8192u;
+    const int8_t *xqr = xq + (uint64_t)group * 8192u;
+    const float *xsr = xscale + (uint64_t)group * 256u;
+    float acc = 0.0f;
+
+    for (uint32_t b = lane; b < 256u; b += 32u) {
+        const int8_t *qs = qr + b * 32u;
+        const int8_t *xqb = xqr + b * 32u;
+        int dot = dot_i8_block_weight_aligned(qs, xqb, 32u, 1);
+        acc += __half2float(sr[b]) * xsr[b] * (float)dot;
+    }
+    acc = warp_sum_f32(acc);
+    if (lane == 0) low[row] = acc;
+}
+
+__global__ static void grouped_q8_0_a_preq_warp16_soa_cached_x_shape8192_kernel(
+        float *low,
+        const __half *wscale,
+        const int8_t *wq,
+        const int8_t *xq,
+        const float *xscale) {
+    extern __shared__ unsigned char smem[];
+    int8_t *sxq = (int8_t *)smem;
+    float *sxscale = (float *)(smem + 8192u);
+
+    const uint32_t base_row = blockIdx.x * 16u;
+    const uint32_t group = base_row >> 9u;
+    const int8_t *xqr = xq + (uint64_t)group * 8192u;
+    const float *xsr = xscale + (uint64_t)group * 256u;
+    for (uint32_t i = threadIdx.x; i < 8192u; i += blockDim.x) sxq[i] = xqr[i];
+    for (uint32_t i = threadIdx.x; i < 256u; i += blockDim.x) sxscale[i] = xsr[i];
+    __syncthreads();
+
+    const uint32_t row = base_row + (threadIdx.x >> 5u);
+    const uint32_t lane = threadIdx.x & 31u;
+    const __half *sr = wscale + (uint64_t)row * 256u;
+    const int8_t *qr = wq + (uint64_t)row * 8192u;
+    float acc = 0.0f;
+    for (uint32_t b = lane; b < 256u; b += 32u) {
+        const int8_t *qs = qr + b * 32u;
+        int dot = dot_i8_block_weight_aligned(qs, sxq + b * 32u, 32u, 1);
+        acc += __half2float(sr[b]) * sxscale[b] * (float)dot;
+    }
+    acc = warp_sum_f32(acc);
+    if (lane == 0) low[row] = acc;
 }
 
 __global__ static void grouped_q8_0_a_preq_hwarp16_soa_kernel(
@@ -12405,7 +12468,33 @@ extern "C" int ds4_gpu_attention_output_q8_batch_tensor(
                                                        low_dim,
                                                        "attn_output_a");
 	        if (soa) {
-	            if (g_cuda_attn_output_a_hwarp16 && blocks_a <= 256u && (rank % 16u) == 0) {
+	            if (g_cuda_attn_output_a_cache_x16 &&
+	                n_tokens == 1u &&
+	                group_dim == 8192u &&
+	                rank == 512u &&
+	                n_groups == 8u &&
+	                blocks_a == 256u &&
+	                use_dp4a) {
+	                grouped_q8_0_a_preq_warp16_soa_cached_x_shape8192_kernel<<<256u, 512, 9216u>>>(
+	                        (float *)low->ptr,
+	                        soa->scale_ptr,
+	                        soa->quant_ptr,
+	                        xq,
+	                        xscale);
+	            } else if (g_cuda_attn_output_a_shape8192 &&
+	                n_tokens == 1u &&
+	                group_dim == 8192u &&
+	                rank == 512u &&
+	                n_groups == 8u &&
+	                blocks_a == 256u &&
+	                use_dp4a) {
+	                grouped_q8_0_a_preq_warp8_soa_shape8192_kernel<<<512u, 256>>>(
+	                        (float *)low->ptr,
+	                        soa->scale_ptr,
+	                        soa->quant_ptr,
+	                        xq,
+	                        xscale);
+	            } else if (g_cuda_attn_output_a_hwarp16 && blocks_a <= 256u && (rank % 16u) == 0) {
 	                dim3 hgrid(((unsigned)low_dim + 15u) / 16u, (unsigned)n_tokens, 1);
 	                grouped_q8_0_a_preq_hwarp16_soa_kernel<<<hgrid, 256>>>(
 	                        (float *)low->ptr,
@@ -12535,7 +12624,31 @@ extern "C" int ds4_gpu_attention_output_low_q8_tensor(
                                                    low_dim,
                                                    "attn_output_a");
     if (soa) {
-        if (g_cuda_attn_output_a_hwarp16 && blocks_a <= 256u && (rank % 16u) == 0) {
+        if (g_cuda_attn_output_a_cache_x16 &&
+            group_dim == 8192u &&
+            rank == 512u &&
+            n_groups == 8u &&
+            blocks_a == 256u &&
+            use_dp4a) {
+            grouped_q8_0_a_preq_warp16_soa_cached_x_shape8192_kernel<<<256u, 512, 9216u>>>(
+                    (float *)low->ptr,
+                    soa->scale_ptr,
+                    soa->quant_ptr,
+                    xq,
+                    xscale);
+        } else if (g_cuda_attn_output_a_shape8192 &&
+            group_dim == 8192u &&
+            rank == 512u &&
+            n_groups == 8u &&
+            blocks_a == 256u &&
+            use_dp4a) {
+            grouped_q8_0_a_preq_warp8_soa_shape8192_kernel<<<512u, 256>>>(
+                    (float *)low->ptr,
+                    soa->scale_ptr,
+                    soa->quant_ptr,
+                    xq,
+                    xscale);
+        } else if (g_cuda_attn_output_a_hwarp16 && blocks_a <= 256u && (rank % 16u) == 0) {
             dim3 hgrid(((unsigned)low_dim + 15u) / 16u, 1, 1);
             grouped_q8_0_a_preq_hwarp16_soa_kernel<<<hgrid, 256>>>(
                     (float *)low->ptr,
@@ -12694,7 +12807,31 @@ extern "C" int ds4_gpu_attention_output_low_q8_rope_tensor(
                                                    low_dim,
                                                    "attn_output_a");
     if (soa) {
-        if (g_cuda_attn_output_a_hwarp16 && blocks_a <= 256u && (rank % 16u) == 0) {
+        if (g_cuda_attn_output_a_cache_x16 &&
+            group_dim == 8192u &&
+            rank == 512u &&
+            n_groups == 8u &&
+            blocks_a == 256u &&
+            use_dp4a) {
+            grouped_q8_0_a_preq_warp16_soa_cached_x_shape8192_kernel<<<256u, 512, 9216u>>>(
+                    (float *)low->ptr,
+                    soa->scale_ptr,
+                    soa->quant_ptr,
+                    xq,
+                    xscale);
+        } else if (g_cuda_attn_output_a_shape8192 &&
+            group_dim == 8192u &&
+            rank == 512u &&
+            n_groups == 8u &&
+            blocks_a == 256u &&
+            use_dp4a) {
+            grouped_q8_0_a_preq_warp8_soa_shape8192_kernel<<<512u, 256>>>(
+                    (float *)low->ptr,
+                    soa->scale_ptr,
+                    soa->quant_ptr,
+                    xq,
+                    xscale);
+        } else if (g_cuda_attn_output_a_hwarp16 && blocks_a <= 256u && (rank % 16u) == 0) {
             dim3 hgrid(((unsigned)low_dim + 15u) / 16u, 1, 1);
             grouped_q8_0_a_preq_hwarp16_soa_kernel<<<hgrid, 256>>>(
                     (float *)low->ptr,
@@ -17083,6 +17220,33 @@ __global__ static void moe_down_f32_kernel(
     if (threadIdx.x == 0) down_out[(uint64_t)pair * out_dim + row] = partial[0];
 }
 
+static void cuda_set_moe_gate_cache_config_once(void) {
+    static int configured = 0;
+    if (!g_cuda_moe_gate_prefer_l1 || configured) return;
+    configured = 1;
+    cudaError_t err = cudaFuncSetCacheConfig(moe_gate_up_mid_decode_lut_qwarp32_kernel,
+                                             cudaFuncCachePreferL1);
+    if (err != cudaSuccess) {
+        fprintf(stderr, "ds4: CUDA MoE gate prefer-L1 config failed: %s\n",
+                cudaGetErrorString(err));
+        (void)cudaGetLastError();
+    }
+    err = cudaFuncSetCacheConfig(moe_gate_up_mid_decode_lut_qwarp32_noaux_kernel,
+                                 cudaFuncCachePreferL1);
+    if (err != cudaSuccess) {
+        fprintf(stderr, "ds4: CUDA MoE gate noaux prefer-L1 config failed: %s\n",
+                cudaGetErrorString(err));
+        (void)cudaGetLastError();
+    }
+    err = cudaFuncSetCacheConfig(moe_gate_up_mid_decode_lut_qwarp32_shape2048_kernel,
+                                 cudaFuncCachePreferL1);
+    if (err != cudaSuccess) {
+        fprintf(stderr, "ds4: CUDA MoE gate shape2048 prefer-L1 config failed: %s\n",
+                cudaGetErrorString(err));
+        (void)cudaGetLastError();
+    }
+}
+
 static int routed_moe_launch(
         ds4_gpu_tensor *out,
         ds4_gpu_tensor *gate,
@@ -17126,6 +17290,7 @@ static int routed_moe_launch(
     const int q4k_path = (gate_type == 12u && down_type == 12u);
     if (!q4k_path && (gate_type != 16u || down_type != 10u)) return 0;
     if (q4k_path && (n_tokens != 1u || n_expert != 6u)) return 0;
+    cuda_set_moe_gate_cache_config_once();
     if (g_cuda_moe_selected_trace && n_tokens == 1u && n_expert <= 16u) {
         int32_t selected_host[16];
         cudaError_t trace_err = cudaMemcpy(selected_host,

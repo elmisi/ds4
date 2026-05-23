@@ -31,6 +31,8 @@ BASE_UNSET_NAMES = {
     "DS4_CUDA_ATTENTION_OUTPUT_A_CUBLAS_MIN",
     "DS4_CUDA_ATTENTION_OUTPUT_B_CUBLAS_MIN",
     "DS4_CUDA_ATTENTION_OUTPUT_A_HWARP16",
+    "DS4_CUDA_ATTENTION_OUTPUT_A_SHAPE8192",
+    "DS4_CUDA_ATTENTION_OUTPUT_A_CACHE_X16",
     "DS4_CUDA_ATTN_Q_B_CUBLAS_DECODE",
     "DS4_CUDA_ATTN_Q_B_HWARP16",
     "DS4_CUDA_ATTN_Q_B_B32_SPECIAL",
@@ -67,6 +69,7 @@ BASE_UNSET_NAMES = {
     "DS4_CUDA_MOE_DECODE_GATE_MAXR48",
     "DS4_CUDA_MOE_DECODE_GATE_LDG",
     "DS4_CUDA_MOE_DECODE_GATE_SHAPE2048",
+    "DS4_CUDA_MOE_GATE_PREFER_L1",
     "DS4_CUDA_MOE_DECODE_GATE_SPAN",
     "DS4_CUDA_TOPK_CHUNK8192",
     "DS4_CUDA_WEIGHT_TENSOR_ALIGN_MB",
@@ -218,6 +221,16 @@ MATRIX = {
         "env": {**EXACT_FAST, **env(DS4_CUDA_ATTENTION_OUTPUT_A_HWARP16=1)},
         "status": "attention-output-A SoA half-warp reduction probe",
     },
+    "attn_a_shape8192": {
+        "category": "prototype",
+        "env": {**EXACT_FAST, **env(DS4_CUDA_ATTENTION_OUTPUT_A_SHAPE8192=1)},
+        "status": "exact-order DS4-shape attention-output-A SoA kernel",
+    },
+    "attn_a_cache_x16": {
+        "category": "prototype",
+        "env": {**EXACT_FAST, **env(DS4_CUDA_ATTENTION_OUTPUT_A_CACHE_X16=1)},
+        "status": "exact-order attention-output-A SoA kernel, 16 rows per CTA with shared x",
+    },
     "moe_h16": {
         "category": "diagnostic",
         "env": {**EXACT_FAST, **env(DS4_CUDA_MOE_DECODE_GATE_H16=1)},
@@ -286,6 +299,19 @@ MATRIX = {
         "env": {**EXACT_FAST, **env(DS4_CUDA_MOE_DECODE_GATE_SHAPE2048=1)},
         "status": "shape-specialized DS4 decode routed MoE gate/up kernel",
     },
+    "moe_gate_prefer_l1": {
+        "category": "prototype",
+        "env": {**EXACT_FAST, **env(DS4_CUDA_MOE_GATE_PREFER_L1=1)},
+        "status": "routed MoE gate/up kernel cache config prefers L1",
+    },
+    "moe_gate_shape2048_l1": {
+        "category": "prototype",
+        "env": {
+            **EXACT_FAST,
+            **env(DS4_CUDA_MOE_DECODE_GATE_SHAPE2048=1, DS4_CUDA_MOE_GATE_PREFER_L1=1),
+        },
+        "status": "shape-specialized routed MoE gate/up plus prefer-L1 cache config",
+    },
     "moe_down_shape4096": {
         "category": "prototype",
         "env": {**EXACT_FAST, **env(DS4_CUDA_MOE_DOWN_SUM6_SHAPE4096=1)},
@@ -312,6 +338,17 @@ MATRIX = {
             ),
         },
         "status": "shape-specialized routed gate/up plus shared gate/up kernels",
+    },
+    "shape_gate_attn_a": {
+        "category": "prototype",
+        "env": {
+            **EXACT_FAST,
+            **env(
+                DS4_CUDA_MOE_DECODE_GATE_SHAPE2048=1,
+                DS4_CUDA_ATTENTION_OUTPUT_A_SHAPE8192=1,
+            ),
+        },
+        "status": "shape-specialized routed gate/up plus attention-output-A SoA kernels",
     },
     "indexer_topk_chunk8192": {
         "category": "prototype",

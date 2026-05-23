@@ -74,8 +74,12 @@ kernel change creates a new reason to retest them.
 | `moe_gate_ldg` / `DS4_CUDA_MOE_DECODE_GATE_LDG=1` | Read-only-cache loads for routed gate/up weights were slower: 15.93 vs 16.15 t/s control. |
 | `moe_down_ldg` / `DS4_CUDA_MOE_DOWN_SUM6_LDG=1` | Read-only-cache loads for routed down weights were slower: 15.96 vs 16.15 t/s control. |
 | `moe_gate_shape2048` / `DS4_CUDA_MOE_DECODE_GATE_SHAPE2048=1` | Exact and byte-identical; small positive signal: 16.24 vs 16.05 t/s at 128 tokens and 16.22 vs 15.87 t/s at 256 tokens. Keep as a candidate to retest, not promoted alone. |
+| `moe_gate_prefer_l1` / `DS4_CUDA_MOE_GATE_PREFER_L1=1` | CUDA prefer-L1 cache config was slower: 16.02 vs 16.09 t/s control. Shape2048+L1 did not beat shape2048 alone. |
 | `moe_down_shape4096` / `DS4_CUDA_MOE_DOWN_SUM6_SHAPE4096=1` | Shape-specialized down-sum6 was neutral: 16.04 vs 16.05 t/s control. |
 | `shared_gate_up_shape2048` / `DS4_CUDA_SHARED_GATE_UP_SHAPE2048=1` | Shared gate/up shape specialization was too small: 16.07 vs 15.98 t/s control; combined with routed gate shape was only 16.03 vs 15.95 at 256 tokens. |
+| `attn_a_shape8192` / `DS4_CUDA_ATTENTION_OUTPUT_A_SHAPE8192=1` | Exact-order attention-output-A shape specialization lowered resources after removing unroll (`REG:36`), but 256-token run was slower: 15.95 vs 16.04. |
+| `attn_a_cache_x16` / `DS4_CUDA_ATTENTION_OUTPUT_A_CACHE_X16=1` | Full-warp 16-row shared-x attention-output-A probe was slower: 15.90 vs 15.94 and used `REG:64`. |
+| `shape_gate_attn_a` | Combining `moe_gate_shape2048` with `attn_a_shape8192` did not compound: 16.16 vs 16.18 for gate shape alone. |
 | `indexer_topk_chunk8192` / `DS4_CUDA_TOPK_CHUNK8192=1` | Long-context top-k chunking was negative: 13.36 vs 13.46 t/s at frontier 65536; `uint32_t` 8192 chunk also exceeded GB10 shared memory. |
 | `graph_no_presync` / `DS4_CUDA_GRAPH_DECODE_NO_SYNC=1` | Normal decode graph capture without pre-sync was slower: 16.03 vs 16.18 t/s same-run control. |
 | `weight_tensor_align2m` / `DS4_CUDA_WEIGHT_TENSOR_ALIGN_MB=2` | Entrpi-inspired 2 MiB tensor-base alignment in the local arena was slower: 15.95 vs 16.04 t/s control. |
@@ -103,6 +107,7 @@ Do not spend more time on these without a genuinely new design:
 | Full model copy / direct model / no FD cache / arena chunk tuning | Slower, failed, or operationally worse. |
 | Q8 block padding/alignment | Reads more bytes and was slower. |
 | Shared activation cache for grouped attention-output-A | Exact but slower. |
+| Attention-output-A shape specialization and 16-row shared-x shape | Did not beat the generic promoted SoA kernel; no compound gain with MoE shape. |
 | Narrow `attn_q_b` half-warp/SoA/specialized kernels | Did not beat the generic warp8 Q8 projection. |
 | HC-expand SoA tail, exact-shape specialization, and auxiliary-write removal | Did not beat the current generic/SoA mixed path. |
 | Long-context top-k chunk-size-only variants | 8192-row chunks reduced merge width but slowed decode at frontier 65536. |

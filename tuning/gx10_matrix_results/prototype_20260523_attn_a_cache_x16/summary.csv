@@ -1,0 +1,4 @@
+row,rows,ctx_first,ctx_last,gen_first,gen_8192,gen_last,gen_mean,gen_max,gen_ss_mean,prefill_mean,prefill_max
+attn_a_cache_x16,1,8192,8192,15.9,15.9,15.9,15.9,15.9,15.9,390.03,390.03
+attn_a_shape8192,1,8192,8192,16.04,16.04,16.04,16.04,16.04,16.04,387.92,387.92
+exact_fast,1,8192,8192,15.94,15.94,15.94,15.94,15.94,15.94,391.8,391.8
