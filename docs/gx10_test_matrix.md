@@ -170,6 +170,8 @@ door on hard but plausible kernel work.
 | `output_top1` | `DS4_CUDA_OUTPUT_TOP1=1` | exact but slower than full logits in A/B | diagnostic only |
 | `attn_b_cublas_min1` | `DS4_CUDA_ATTENTION_OUTPUT_B_CUBLAS_MIN=1` | did not improve refreshed profile | diagnostic only |
 | `attn_a_hwarp16` | `DS4_CUDA_ATTENTION_OUTPUT_A_HWARP16=1` | negative in 8192/128 smoke; changes reduction order | diagnostic only; do not promote |
+| `attn_a_shape8192` | `DS4_CUDA_ATTENTION_OUTPUT_A_SHAPE8192=1` | exact-order DS4-shape SoA kernel; no-unroll resource was `REG:36`, but 256-token run was negative: 15.95 vs 16.04 | diagnostic only; do not promote |
+| `attn_a_cache_x16` | `DS4_CUDA_ATTENTION_OUTPUT_A_CACHE_X16=1` | full-warp 16-row shared-x shape probe was slower: 15.90 vs 15.94 and `REG:64` | diagnostic only; do not promote |
 | `moe_h16` | `DS4_CUDA_MOE_DECODE_GATE_H16=1` | negative | re-test only after MoE kernel change |
 | `moe_noaux` | `DS4_CUDA_MOE_DECODE_GATE_NOAUX=1` | neutral/negative | re-test only after MoE kernel change |
 | `moe_pair2` | `DS4_CUDA_MOE_DECODE_GATE_PAIR2=1` | byte-identical but slower | re-test only after MoE kernel change |
@@ -183,10 +185,12 @@ door on hard but plausible kernel work.
 | `moe_down_ldg` | `DS4_CUDA_MOE_DOWN_SUM6_LDG=1` | read-only-cache loads for routed down weights were slower: 15.96 vs 16.15 t/s control | diagnostic only; do not promote |
 | `moe_ldg_weights` | both `*_LDG` flags | combined read-only-cache path was slower: 15.86 vs 16.15 t/s control | diagnostic only; do not promote |
 | `moe_gate_shape2048` | `DS4_CUDA_MOE_DECODE_GATE_SHAPE2048=1` | exact and byte-identical; small positive signal: 16.24 vs 16.05 at 128 tokens, 16.22 vs 15.87 at 256 tokens | candidate for retest/combination; not promoted alone |
+| `moe_gate_prefer_l1` | `DS4_CUDA_MOE_GATE_PREFER_L1=1` | CUDA prefer-L1 cache config was slower: 16.02 vs 16.09; shape2048+L1 did not improve shape2048 | diagnostic only; do not promote |
 | `moe_down_shape4096` | `DS4_CUDA_MOE_DOWN_SUM6_SHAPE4096=1` | neutral: 16.04 vs 16.05 t/s control | diagnostic only; do not promote |
 | `moe_shape_special` | both MoE shape flags | below gate: 16.18 vs 16.05 t/s control at 128 tokens; down shape diluted the gate-only signal | diagnostic only; do not promote |
 | `shared_gate_up_shape2048` | `DS4_CUDA_SHARED_GATE_UP_SHAPE2048=1` | too small: 16.07 vs 15.98 t/s control | diagnostic only; do not promote |
 | `shape_gate_shared` | routed gate shape + shared gate shape | too small in 256-token recheck: 16.03 vs 15.95 t/s control | diagnostic only; do not promote |
+| `shape_gate_attn_a` | routed gate shape + attention-output-A shape | did not compound: 16.16 vs 16.18 for routed gate shape alone | diagnostic only; do not promote |
 | `indexer_topk_chunk8192` | `DS4_CUDA_TOPK_CHUNK8192=1` | long-context top-k chunking negative: 13.36 vs 13.46 t/s at frontier 65536; `uint32_t` 8192 chunk exceeded shared memory | diagnostic only; do not promote |
 | `graph_no_presync` | `DS4_CUDA_GRAPH_DECODE_NO_SYNC=1` | normal decode graph capture without pre-sync was slower: 16.03 vs 16.18 t/s control | diagnostic only; do not promote |
 | `weight_tensor_align2m` | `DS4_CUDA_WEIGHT_TENSOR_ALIGN_MB=2` | 2 MiB tensor-base alignment in the local CUDA arena was slower: 15.95 vs 16.04 t/s control | diagnostic only; do not promote |

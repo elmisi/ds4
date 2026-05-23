@@ -5050,6 +5050,81 @@ Also run a longer prompt that exercises the indexer rope path (any prompt
 that pushes the model past the early raw-cache phase, e.g. the OOP-vs-FP
 one used during Phase 4b validation).
 
+### 2026-05-23 continuation - post-push cache-policy and attention-A shape probes
+
+After commit `8df127f` was pushed to `origin/gx10-cuda-graph-decode`, the next
+round deliberately avoided repeating the already-rejected MoE pack/LDG/maxreg/
+cache-x families. The first small probe tested whether the hot routed MoE
+gate/up kernel was sensitive to CUDA's L1/shared cache split:
+
+| Row | Env | Note |
+| --- | --- | --- |
+| `moe_gate_prefer_l1` | `DS4_CUDA_MOE_GATE_PREFER_L1=1` | `cudaFuncSetCacheConfig(..., cudaFuncCachePreferL1)` for routed gate/up kernels |
+| `moe_gate_shape2048_l1` | shape2048 + prefer-L1 | tests whether the only positive MoE shape signal compounds with L1 preference |
+
+Smoke:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast moe_gate_prefer_l1 \
+  moe_gate_shape2048 moe_gate_shape2048_l1 \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_moe_gate_l1 \
+  --summary tuning/gx10_matrix_results/prototype_20260523_moe_gate_l1/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_moe_gate_l1/summary.md
+```
+
+Result:
+
+| Row | 8192/128 gen t/s | Decision |
+| --- | ---: | --- |
+| `exact_fast` | **16.09** | control |
+| `moe_gate_prefer_l1` | **16.02** | negative |
+| `moe_gate_shape2048` | **16.22** | small positive |
+| `moe_gate_shape2048_l1` | **16.21** | no improvement over shape2048 |
+
+Resource usage from `cuobjdump --dump-resource-usage ds4_cuda.o` explains why
+the shape win is small: `moe_gate_up_mid_decode_lut_qwarp32_shape2048_kernel`
+uses `REG:63` vs `REG:64` for the generic kernel and fewer constant bytes
+(`CONSTANT[0]:420` vs `452`), but this does not open a new occupancy tier. The
+previous `maxr48` variant still spills (`STACK:16`), and prefer-L1 does not help.
+
+The next exact probe targeted `attn_output_a`, not MoE. It specialized the
+promoted SoA grouped Q8 kernel for the DS4 decode shape:
+
+- `group_dim=8192`;
+- `rank=512`;
+- `n_groups=8`;
+- `blocks=256`;
+- one-token decode, full-warp row reduction preserved.
+
+Rows:
+
+| Row | Env | Note |
+| --- | --- | --- |
+| `attn_a_shape8192` | `DS4_CUDA_ATTENTION_OUTPUT_A_SHAPE8192=1` | DS4-shape attention-output-A SoA kernel, same reduction order |
+| `attn_a_cache_x16` | `DS4_CUDA_ATTENTION_OUTPUT_A_CACHE_X16=1` | 16 rows per CTA, shared activation cache, still one full warp per row |
+| `shape_gate_attn_a` | `moe_gate_shape2048 + attn_a_shape8192` | compound test across two different hot kernels |
+
+The first `attn_a_shape8192` implementation unrolled the 8 block-steps and was
+worse: `REG:64` vs `REG:55` for the generic SoA kernel, and 16.08 vs 16.10 t/s.
+Removing the unroll dropped the specialized kernel to `REG:36`, but speed stayed
+noise-level:
+
+| Run | Row | 8192 gen t/s | Control | Decision |
+| --- | --- | ---: | ---: | --- |
+| 128-token retry | `attn_a_shape8192` | **16.04** | 15.91 | small/noisy positive |
+| 256-token compound | `attn_a_shape8192` | **15.95** | 16.04 | negative |
+| 256-token compound | `moe_gate_shape2048` | **16.18** | 16.04 | small positive |
+| 256-token compound | `shape_gate_attn_a` | **16.16** | 16.04 | below gate-only shape |
+| 128-token cache-x16 | `attn_a_cache_x16` | **15.90** | 15.94 | negative |
+
+`attn_a_cache_x16` also had a bad resource signal (`REG:64`), worse than the
+generic cached-x SoA kernel (`REG:44`) and the no-unroll shape kernel (`REG:36`).
+
+Decision: reject prefer-L1, attention-A shape, and attention-A cache-x16 as
+promotion candidates. Keep `moe_gate_shape2048` as the only exact small positive
+from this pass, still below the +3% speed gate and not enough by itself.
+
 ## Branch / commit map
 
 ```

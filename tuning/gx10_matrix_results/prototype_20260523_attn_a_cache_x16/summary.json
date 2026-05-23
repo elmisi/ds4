@@ -1,0 +1,44 @@
+[
+  {
+    "row": "attn_a_cache_x16",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 15.9,
+    "gen_8192": 15.9,
+    "gen_last": 15.9,
+    "gen_mean": 15.9,
+    "gen_max": 15.9,
+    "gen_ss_mean": 15.9,
+    "prefill_mean": 390.03,
+    "prefill_max": 390.03
+  },
+  {
+    "row": "attn_a_shape8192",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 16.04,
+    "gen_8192": 16.04,
+    "gen_last": 16.04,
+    "gen_mean": 16.04,
+    "gen_max": 16.04,
+    "gen_ss_mean": 16.04,
+    "prefill_mean": 387.92,
+    "prefill_max": 387.92
+  },
+  {
+    "row": "exact_fast",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 15.94,
+    "gen_8192": 15.94,
+    "gen_last": 15.94,
+    "gen_mean": 15.94,
+    "gen_max": 15.94,
+    "gen_ss_mean": 15.94,
+    "prefill_mean": 391.8,
+    "prefill_max": 391.8
+  }
+]
