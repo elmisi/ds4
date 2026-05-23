@@ -5884,6 +5884,65 @@ MMQ/MMVQ path is a candidate for promotion. Any future tensor-core route must be
 a real kernel/layout redesign, not another dispatcher switch to the imported
 generic MMQ/MMVQ calls.
 
+### 2026-05-23 continuation - external graph canonical-HC probe
+
+After the MMQ/MMVQ runtime pass, the fork scan was resumed before starting a
+new kernel attempt. Relevant external branches checked:
+
+- `berschmitt/ds4:codex/decode-launch-fragmentation`: its visible code path is
+  the Q/KV Q8 pair projection and Q norm + RoPE fusion line. Both are already
+  present here (`ds4_gpu_matmul_q8_0_pair_tensor` and
+  `ds4_gpu_head_rms_norm_rope_tail_tensor`), and the QKV pair specialization
+  was already tested/rejected.
+- `berschmitt/ds4:codex/hc-rms-mix-fusion`: superseded locally by the broader
+  HC pre-norm/mix fused decode path.
+- `berschmitt/ds4:codex/moe-decode-h16-lut` and
+  `codex/moe-decode-gate-pair2`: duplicate the already rejected MoE H16/pair2
+  family.
+- `ngc-shj/ds4:perf/q4-only`: Q4 decode direction, excluded for the current
+  full-quality target.
+- `ngc-shj/ds4:perf/batched-decode-poc`: batching/prefill/server direction, not
+  a single-request exact decode kernel win.
+- `ngc-shj/ds4:perf/cuda-graph-wip`: mostly superseded by the local graph
+  capture/update work, but it contained one small untested idea: with
+  `DS4_N_LAYER=43`, the decode loop swaps `cur_hc` / `after_ffn_hc` an odd
+  number of times, so successive token captures alternate the physical HC
+  pointer labels. A diagnostic flag was added locally to restore canonical
+  labels after a successful token:
+  `DS4_CUDA_GRAPH_CANONICAL_HC=1`.
+
+Build:
+
+```sh
+make -j$(nproc) cuda-spark
+```
+
+Result: success.
+
+Speed smoke:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast graph_canonical_hc \
+  --model /home/alessandro/projects/ds4/ds4flash.gguf \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_graph_canonical_hc \
+  --summary tuning/gx10_matrix_results/prototype_20260523_graph_canonical_hc/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_graph_canonical_hc/summary.md
+```
+
+Result:
+
+| Row | 8192/128 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **16.54** | 393.78 | control |
+| `graph_canonical_hc` | **16.35** | 390.98 | reject |
+
+Decision: reject for promotion. Canonical HC labels are quality-neutral in
+intent and may reduce pointer-argument drift, but the current path still
+recaptures and calls `cudaGraphExecUpdate` every token; this small pointer-label
+cleanup did not improve wall-clock. Do not repeat this unless the graph path is
+redesigned around device-resident arguments and skipped/no-op graph updates.
+
 ## Branch / commit map
 
 ```

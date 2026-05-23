@@ -15363,6 +15363,19 @@ static int cuda_graph_decode_no_pre_sync(void) {
     return cached;
 }
 
+static int cuda_graph_decode_canonical_hc(void) {
+    static int cached = -1;
+    if (cached < 0) cached = getenv("DS4_CUDA_GRAPH_CANONICAL_HC") != NULL ? 1 : 0;
+    return cached;
+}
+
+static void metal_graph_canonicalize_decode_hc(ds4_gpu_graph *g) {
+    if (!g || !cuda_graph_decode_canonical_hc() || !(DS4_N_LAYER & 1u)) return;
+    ds4_gpu_tensor *tmp = g->cur_hc;
+    g->cur_hc = g->after_ffn_hc;
+    g->after_ffn_hc = tmp;
+}
+
 static bool metal_graph_eval_token_raw_swa(
         ds4_gpu_graph *g,
         const ds4_model       *model,
@@ -15433,6 +15446,7 @@ static bool metal_graph_eval_token_raw_swa(
     }
     if (ok) ok = ds4_gpu_end_commands() != 0;
     const double t_done = profile ? now_sec() : 0.0;
+    if (ok) metal_graph_canonicalize_decode_hc(g);
 
     if (ok && logits) {
         ok = ds4_gpu_tensor_read(g->logits, 0, logits, (uint64_t)DS4_N_VOCAB * sizeof(float)) != 0;
@@ -15515,6 +15529,7 @@ static bool metal_graph_eval_token_raw_swa_top(
         ok = ds4_gpu_end_commands() != 0;
     }
     const double t_done = profile ? now_sec() : 0.0;
+    if (ok) metal_graph_canonicalize_decode_hc(g);
     if (ok) ok = ds4_gpu_tensor_read(g->comp_selected, 0, top_id, sizeof(*top_id)) != 0;
     if (ok && logits) {
         ok = ds4_gpu_tensor_read(g->logits, 0, logits, (uint64_t)DS4_N_VOCAB * sizeof(float)) != 0;

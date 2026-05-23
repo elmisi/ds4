@@ -101,6 +101,7 @@ kernel change creates a new reason to retest them.
 | `shape_gate_attn_a` | Combining `moe_gate_shape2048` with `attn_a_shape8192` did not compound: 16.16 vs 16.18 for gate shape alone. |
 | `indexer_topk_chunk8192` / `DS4_CUDA_TOPK_CHUNK8192=1` | Long-context top-k chunking was negative: 13.36 vs 13.46 t/s at frontier 65536; `uint32_t` 8192 chunk also exceeded GB10 shared memory. |
 | `graph_no_presync` / `DS4_CUDA_GRAPH_DECODE_NO_SYNC=1` | Normal decode graph capture without pre-sync was slower: 16.03 vs 16.18 t/s same-run control. |
+| `graph_canonical_hc` / `DS4_CUDA_GRAPH_CANONICAL_HC=1` | External graph-WIP idea: restore `cur_hc` / `after_ffn_hc` labels after odd-layer decode tokens. It was slower: 16.35 vs 16.54 t/s control. |
 | `weight_tensor_align2m` / `DS4_CUDA_WEIGHT_TENSOR_ALIGN_MB=2` | Entrpi-inspired 2 MiB tensor-base alignment in the local arena was slower: 15.95 vs 16.04 t/s control. |
 | `q8_batch1_cache_x` / `DS4_CUDA_Q8_BATCH1_CACHE_X=1` | Using cached-x warp8 for one-token blocks<=32 Q8 projections was neutral/negative: 16.09 vs 16.13 t/s control. |
 | `sample_cache_probs` / `DS4_SAMPLE_CACHE_PROBS=1` | Default sampled CLI output was byte-identical for seed 1, but throughput stayed 18.08 vs 18.08 t/s. |
@@ -132,6 +133,7 @@ Do not spend more time on these without a genuinely new design:
 | HC-expand SoA tail, exact-shape specialization, and auxiliary-write removal | Did not beat the current generic/SoA mixed path. |
 | Long-context top-k chunk-size-only variants | 8192-row chunks reduced merge width but slowed decode at frontier 65536. |
 | Normal decode graph pre-sync removal | Verifier no-pre-sync was already diagnostic; normal decode no-pre-sync was also slower. |
+| Decode graph HC-buffer canonicalization | Restoring `cur_hc` / `after_ffn_hc` labels after odd-layer tokens did not make the recapture/update graph path faster. |
 | Local arena tensor-base padding | 2 MiB per-tensor alignment did not improve current native CUDA kernels; leave MMQ/VMM as a separate port track. |
 | One-token Q8 cached-x routing for small block projections | Shared staging overhead did not beat the existing batch-warp path. |
 | Default sampler duplicate-`expf` avoidance | Exact sampled output, but no measured agent/CLI throughput gain. |

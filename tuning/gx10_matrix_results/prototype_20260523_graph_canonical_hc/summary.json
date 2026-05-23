@@ -1,0 +1,30 @@
+[
+  {
+    "row": "exact_fast",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 16.54,
+    "gen_8192": 16.54,
+    "gen_last": 16.54,
+    "gen_mean": 16.54,
+    "gen_max": 16.54,
+    "gen_ss_mean": 16.54,
+    "prefill_mean": 393.78,
+    "prefill_max": 393.78
+  },
+  {
+    "row": "graph_canonical_hc",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 16.35,
+    "gen_8192": 16.35,
+    "gen_last": 16.35,
+    "gen_mean": 16.35,
+    "gen_max": 16.35,
+    "gen_ss_mean": 16.35,
+    "prefill_mean": 390.98,
+    "prefill_max": 390.98
+  }
+]

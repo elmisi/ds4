@@ -21,6 +21,7 @@ DEFAULT_MTP_MODEL = "gguf/DeepSeek-V4-Flash-MTP-Q4K-Q8_0-F32.gguf"
 BASE_UNSET_NAMES = {
     "DS4_CUDA_GRAPH_DECODE",
     "DS4_CUDA_GRAPH_DECODE_NO_SYNC",
+    "DS4_CUDA_GRAPH_CANONICAL_HC",
     "DS4_CUDA_GRAPH_VERIFY",
     "DS4_CUDA_DIRECT_MODEL",
     "DS4_CUDA_OUTPUT_TOP1",
@@ -481,6 +482,11 @@ MATRIX = {
         "category": "prototype",
         "env": {**EXACT_FAST, **env(DS4_CUDA_GRAPH_DECODE_NO_SYNC=1)},
         "status": "normal decode graph capture without the pre-capture device synchronize",
+    },
+    "graph_canonical_hc": {
+        "category": "prototype",
+        "env": {**EXACT_FAST, **env(DS4_CUDA_GRAPH_CANONICAL_HC=1)},
+        "status": "restore cur_hc/after_ffn_hc labels after odd-layer decode tokens to reduce graph arg drift",
     },
     "weight_tensor_align2m": {
         "category": "prototype",
