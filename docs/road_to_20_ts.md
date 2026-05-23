@@ -5437,6 +5437,60 @@ is visible in the profile, replacing it with the warp8 reducer worsened
 end-to-end throughput and also changes reduction order, so it does not deserve
 a quality gate.
 
+### Decode-window Nsight profile
+
+The previous Nsight pass still included some startup/prefill-side work. A
+follow-up run delayed collection until the decode loop so the top rows reflect
+steady graph replay more closely:
+
+```sh
+DS4_CUDA_GRAPH_DECODE=1 DS4_CUDA_Q8_SOA_CACHE=1 \
+nsys profile --trace=cuda --sample=none --cpuctxsw=none \
+  --cuda-graph-trace=node --delay=22 --duration=6 --force-overwrite=true \
+  --output tuning/gx10_matrix_results/prototype_20260523_nsys_graph_decode_window/decode_window \
+  ./ds4 --cuda -m ds4flash.gguf --ctx 8192 -n 128 --temp 0 \
+  -p "Ecco una funzione"
+
+nsys stats --report cuda_gpu_kern_sum \
+  tuning/gx10_matrix_results/prototype_20260523_nsys_graph_decode_window/decode_window.nsys-rep \
+  > tuning/gx10_matrix_results/prototype_20260523_nsys_graph_decode_window/cuda_gpu_kern_sum.txt
+```
+
+The run printed `generation: 17.12 t/s`. As before, only the text summary is
+kept in git; `.nsys-rep` and `.sqlite` are generated artifacts.
+
+Top decode-window kernel families:
+
+| Kernel family | Time % | Instances | Avg |
+| --- | ---: | ---: | ---: |
+| `moe_gate_up_mid_decode_lut_qwarp32_kernel` | 18.7 | 4345 | 234.587 us |
+| `matmul_q8_0_hc_expand_preq_warp8_soa_kernel` | 12.4 | 4345 | 156.239 us |
+| `matmul_q8_0_preq_batch_warp8_kernel` (`attn_q_b`) | 12.3 | 4345 | 155.170 us |
+| `grouped_q8_0_a_preq_warp8_soa_kernel` | 12.1 | 4345 | 152.388 us |
+| `moe_down_sum6_qwarp32_kernel` | 8.8 | 4345 | 110.218 us |
+| `matmul_q8_0_pair_swiglu_preq_warp8_kernel` | 6.7 | 4345 | 84.352 us |
+| `attention_decode_mixed_kernel` | 5.5 | 4345 | 69.454 us |
+| `matmul_f16_pair_kernel` | 5.3 | 6262 | 45.878 us |
+| output full-logits `matmul_q8_0_preq_kernel` | 4.5 | 101 | 2.418 ms |
+| `matmul_q8_0_hc_expand_preq_warp8_kernel` | 3.5 | 4344 | 44.450 us |
+| `matmul_q8_0_pair_preq_warp8_kernel` | 2.8 | 4345 | 35.016 us |
+
+Interpretation:
+
+- MoE down is not the next target. It is only the fifth row in the true decode
+  window, and the branch has already tested row-major/native pack, meta-cache,
+  `__ldg`, row4, parallel, exact shape, and reduced-K direct variants.
+- The first four rows are the real frontier: routed MoE gate/up, HC-expand SoA,
+  `attn_q_b`, and attention-output-A SoA. Their simple shape/cache/register
+  probes are already documented as neutral or negative, so future work needs a
+  structural idea rather than another dimension-specialized wrapper.
+- The output head is visible but still a bad target for now: the warp8 output
+  route was slower and changed reduction order before it even reached a quality
+  gate.
+- The f16 pair path is now worth classifying, but not blindly optimizing: the
+  instance count does not match a single per-layer decode row, so first identify
+  which compressor/HC calls produce it before adding kernels.
+
 ## Branch / commit map
 
 ```

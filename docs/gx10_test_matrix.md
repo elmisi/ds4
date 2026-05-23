@@ -283,3 +283,18 @@ The fork scan reinforces this: public forks do not currently show a small,
 obvious, quality-preserving env toggle missing from this branch. The one major
 new CUDA direction is Entrpi's MMQ/layer-graph line, which is a porting project,
 not a matrix row.
+
+## Latest Decode-Window Profile
+
+A delayed Nsight Systems pass (`--delay=22 --duration=6`) on 2026-05-23 captured
+mostly steady graph decode. The committed artifact is
+`tuning/gx10_matrix_results/prototype_20260523_nsys_graph_decode_window/cuda_gpu_kern_sum.txt`.
+
+Top rows: routed MoE gate/up 18.7%, HC-expand SoA 12.4%, `attn_q_b` 12.3%,
+attention-output-A SoA 12.1%, MoE down 8.8%, shared gate/up 6.7%, attention
+5.5%, f16 pair 5.3%, output head 4.5%.
+
+Matrix implication: MoE down should stay closed unless a genuinely new
+structural idea appears. The simple down variants are already represented in
+the rejected rows above, while the current frontier is Q8 projection traffic and
+routed gate/up scheduling.
