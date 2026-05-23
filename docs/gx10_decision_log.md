@@ -76,6 +76,8 @@ kernel change creates a new reason to retest them.
 | `moe_gate_shape2048` / `DS4_CUDA_MOE_DECODE_GATE_SHAPE2048=1` | Exact and byte-identical; small positive signal: 16.24 vs 16.05 t/s at 128 tokens and 16.22 vs 15.87 t/s at 256 tokens. Keep as a candidate to retest, not promoted alone. |
 | `moe_gate_shape2048_conststride` / `DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_CONSTSTRIDE=1` | Exact and byte-identical; constant DS4 row/expert strides improved the shape probe slightly: 16.23 vs 16.09 at 128 tokens and 16.12 vs 15.80 at 256 tokens, still below the +3% gate. Keep as a minor candidate. |
 | `moe_gate_shape2048_constclamp` / `DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_CONSTCLAMP=1` | Hardcoded DS4 clamp on top of const-stride did not help: 15.97 vs 16.07 t/s control. |
+| `moe_gate_shape2048_splitup` / `DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_SPLITUP=1` | Gate-first/up-second scheduling kept the same resources as const-stride (`REG:64`) and was slower than control: 16.08 vs 16.14 t/s. |
+| `moe_gate_conststride_soa_b_forced` | Const-stride routed gate/up plus forced attention-output-B SoA did not compose: 15.95 vs 16.08 t/s control; `soa_b_forced` was 15.85 in the same run. |
 | `moe_gate_prefer_l1` / `DS4_CUDA_MOE_GATE_PREFER_L1=1` | CUDA prefer-L1 cache config was slower: 16.02 vs 16.09 t/s control. Shape2048+L1 did not beat shape2048 alone. |
 | `moe_down_shape4096` / `DS4_CUDA_MOE_DOWN_SUM6_SHAPE4096=1` | Shape-specialized down-sum6 was neutral: 16.04 vs 16.05 t/s control. |
 | `shared_gate_up_shape2048` / `DS4_CUDA_SHARED_GATE_UP_SHAPE2048=1` | Shared gate/up shape specialization was too small: 16.07 vs 15.98 t/s control; combined with routed gate shape was only 16.03 vs 15.95 at 256 tokens. |

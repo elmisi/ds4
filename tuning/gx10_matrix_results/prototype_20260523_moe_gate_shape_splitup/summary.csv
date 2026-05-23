@@ -1,0 +1,4 @@
+row,rows,ctx_first,ctx_last,gen_first,gen_8192,gen_last,gen_mean,gen_max,gen_ss_mean,prefill_mean,prefill_max
+exact_fast,1,8192,8192,16.14,16.14,16.14,16.14,16.14,16.14,395.19,395.19
+moe_gate_shape2048_conststride,1,8192,8192,16.0,16.0,16.0,16.0,16.0,16.0,390.56,390.56
+moe_gate_shape2048_splitup,1,8192,8192,16.08,16.08,16.08,16.08,16.08,16.08,389.96,389.96

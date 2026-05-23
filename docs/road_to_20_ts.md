@@ -5201,6 +5201,100 @@ and as a possible component for a later clean rebuild, but do not promote it
 alone. Reject `moe_gate_shape2048_constclamp`; hardcoding the clamp did not
 recover registers and was slower.
 
+### 2026-05-23 continuation - split gate/up scheduling, stage profile, and combo checks
+
+Before trying more MoE ideas, the branch was rechecked against the roadmap and
+the fork scan. MoE down remains closed for now: shape4096, metadata/cache,
+LDG, row/parallel/down-pack and native-pack lines were already neutral or
+negative. The only open MoE signal is still routed gate/up shape specialization.
+
+An extra non-graph stage profile was captured because
+`DS4_METAL_DECODE_STAGE_PROFILE=1` cannot run inside CUDA graph capture
+(`CUDA end commands failed: operation not permitted when stream is capturing`).
+The fallback run used the current exact path without graph capture:
+
+```sh
+DS4_CUDA_Q8_SOA_CACHE=1 DS4_METAL_DECODE_STAGE_PROFILE=1 \
+  ./ds4 --temp 0 -n 128 -p "Ecco una funzione" \
+  > tuning/gx10_matrix_results/prototype_20260523_stage_profile_current/stdout.txt \
+  2> tuning/gx10_matrix_results/prototype_20260523_stage_profile_current/stage.log
+```
+
+Aggregated stage time over 129 one-token decode layer samples:
+
+| Stage | Total ms | Mean ms |
+| --- | ---: | ---: |
+| `routed_moe` | 46.133 | 0.357620 |
+| `attn_output` | 41.920 | 0.324961 |
+| `q_path` | 27.220 | 0.211008 |
+| `shared_gate_up` | 11.879 | 0.092085 |
+| `compressor_indexer` | 10.016 | 0.077643 |
+| `attention` | 8.625 | 0.066860 |
+| `shared_down` | 6.736 | 0.052217 |
+| `router` | 3.573 | 0.027698 |
+
+This profile is not throughput-comparable to graph decode, but it confirms the
+same priority order: routed MoE, attention output, then Q path. MoE down is not
+the next target unless a later graph-safe profile contradicts this.
+
+The next exact probe split the shape2048 const-stride gate/up kernel so each
+row computes gate first and up second, rather than keeping both accumulators
+live together. The intent was to see whether scheduling pressure, not the
+weight stream itself, was hiding a small win while preserving the same
+per-path reduction order.
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast \
+  moe_gate_shape2048_conststride moe_gate_shape2048_splitup \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_moe_gate_shape_splitup \
+  --summary tuning/gx10_matrix_results/prototype_20260523_moe_gate_shape_splitup/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_moe_gate_shape_splitup/summary.md
+```
+
+Resource usage did not improve: the split-up kernel still used `REG:64`,
+`STACK:0`, `SHARED:6848`, `CONSTANT[0]:404`, the same as const-stride.
+
+| Row | 8192/128 gen t/s | Decision |
+| --- | ---: | --- |
+| `exact_fast` | **16.14** | control |
+| `moe_gate_shape2048_conststride` | **16.00** | noisy below control |
+| `moe_gate_shape2048_splitup` | **16.08** | negative; no resource win |
+
+Decision: reject `moe_gate_shape2048_splitup`. Do not spend more time on
+gate/up scheduling permutations unless a new profiler result shows a different
+resource bottleneck.
+
+One compound check tested whether the only small MoE gate/up candidate composes
+with the previously revisited `soa_b_forced` attention-output-B path:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast soa_b_forced \
+  moe_gate_shape2048_conststride moe_gate_conststride_soa_b_forced \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_conststride_soa_b_forced \
+  --summary tuning/gx10_matrix_results/prototype_20260523_conststride_soa_b_forced/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_conststride_soa_b_forced/summary.md
+```
+
+| Row | 8192/128 gen t/s | Decision |
+| --- | ---: | --- |
+| `exact_fast` | **16.08** | control |
+| `moe_gate_shape2048_conststride` | **16.11** | small/noisy positive |
+| `soa_b_forced` | **15.85** | negative in this run |
+| `moe_gate_conststride_soa_b_forced` | **15.95** | negative combo |
+
+Decision: reject the combo. `soa_b_forced` does not compose with routed
+gate/up const-stride in this state.
+
+External scan note: `cghart/ds4:cuda-gb10-q2-foundation` was fetched and read
+as an idea source. Its older CUDA matvec/prequant branch points at persistent
+Q8 scratch, prequantized matvecs, F16 reductions, and launch-depth/attention
+experiments, but most of those concepts overlap with the current branch's
+tmp-prequant, Q8 SoA, and graph decode work. No direct import was identified.
+Keep it as a reference when looking for structural Q8 projection ideas, not as
+an integration target.
+
 ## Branch / commit map
 
 ```
