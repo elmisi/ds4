@@ -170,6 +170,7 @@ static int g_cuda_shared_gate_up_noaux;
 static int g_cuda_shared_gate_up_shape2048;
 static int g_cuda_shared_gate_up_cache_x;
 static int g_cuda_shared_gate_up_dot2;
+static int g_cuda_shared_gate_up_pair_pack;
 static int g_cuda_no_warp_router_select;
 static int g_cuda_no_parallel_router_select;
 static int g_cuda_moe_no_decode_lut_gate;
@@ -244,6 +245,27 @@ struct cuda_q8_soa_range {
     int8_t *quant_ptr;
 };
 
+struct cuda_q8_pair_pack_range {
+    const void *host_base;
+    uint64_t gate_offset;
+    uint64_t up_offset;
+    uint64_t weight_bytes;
+    uint64_t in_dim;
+    uint64_t out_dim;
+    unsigned char *pack_ptr;
+};
+
+struct cuda_q8_pair_pending {
+    const void *host_base;
+    uint64_t gate_offset;
+    uint64_t up_offset;
+    uint64_t weight_bytes;
+    uint64_t in_dim;
+    uint64_t out_dim;
+    int has_gate;
+    int has_up;
+};
+
 static std::vector<cuda_model_range> g_model_ranges;
 static std::vector<cuda_model_arena> g_model_arenas;
 static std::unordered_map<uint64_t, size_t> g_model_range_by_offset;
@@ -253,10 +275,14 @@ static std::vector<cuda_q8_f32_range> g_q8_f32_ranges;
 static std::unordered_map<uint64_t, size_t> g_q8_f32_by_offset;
 static std::vector<cuda_q8_soa_range> g_q8_soa_ranges;
 static std::unordered_map<uint64_t, size_t> g_q8_soa_by_offset;
+static std::vector<cuda_q8_pair_pack_range> g_q8_pair_pack_ranges;
+static std::unordered_map<uint64_t, size_t> g_q8_pair_pack_by_gate_offset;
+static std::unordered_map<uint64_t, cuda_q8_pair_pending> g_q8_pair_pending_by_label;
 static uint64_t g_model_range_bytes;
 static uint64_t g_q8_f16_bytes;
 static uint64_t g_q8_f32_bytes;
 static uint64_t g_q8_soa_bytes;
+static uint64_t g_q8_pair_pack_bytes;
 static int g_q8_f16_disabled_after_oom;
 static int g_q8_f16_budget_notice_printed;
 static uint64_t g_model_load_progress_next;
@@ -292,6 +318,11 @@ __global__ static void q8_0_to_soa_kernel(
         __half *scale_out,
         int8_t *quant_out,
         const unsigned char *w,
+        uint64_t total_blocks);
+__global__ static void q8_0_gate_up_pair_pack68_kernel(
+        unsigned char *pack,
+        const unsigned char *gate_w,
+        const unsigned char *up_w,
         uint64_t total_blocks);
 
 static void *cuda_tmp_alloc(uint64_t bytes, const char *what) {
@@ -483,6 +514,16 @@ static void cuda_q8_soa_cache_release_all(void) {
     g_q8_soa_ranges.clear();
     g_q8_soa_by_offset.clear();
     g_q8_soa_bytes = 0;
+}
+
+static void cuda_q8_pair_pack_cache_release_all(void) {
+    for (const cuda_q8_pair_pack_range &r : g_q8_pair_pack_ranges) {
+        (void)cudaFree(r.pack_ptr);
+    }
+    g_q8_pair_pack_ranges.clear();
+    g_q8_pair_pack_by_gate_offset.clear();
+    g_q8_pair_pending_by_label.clear();
+    g_q8_pair_pack_bytes = 0;
 }
 
 static uint64_t cuda_parse_mib_env(const char *name, int *present) {
@@ -962,6 +1003,143 @@ static const cuda_q8_soa_range *cuda_q8_soa_ptr(
                 label ? label : "q8_0");
     }
     return &g_q8_soa_ranges.back();
+}
+
+static uint64_t cuda_q8_pair_label_key(const char *label, int *is_gate, int *is_up) {
+    if (is_gate) *is_gate = 0;
+    if (is_up) *is_up = 0;
+    if (!label) return 0;
+    const char *gate = strstr(label, "ffn_gate_shexp");
+    const char *up = strstr(label, "ffn_up_shexp");
+    const char *mark = NULL;
+    if (gate) {
+        mark = gate;
+        if (is_gate) *is_gate = 1;
+    } else if (up) {
+        mark = up;
+        if (is_up) *is_up = 1;
+    } else {
+        return 0;
+    }
+    uint64_t h = 1469598103934665603ull;
+    for (const char *p = label; p < mark; p++) {
+        h ^= (unsigned char)*p;
+        h *= 1099511628211ull;
+    }
+    return h ? h : 1u;
+}
+
+static const cuda_q8_pair_pack_range *cuda_q8_shared_gate_up_pair_pack_ptr(
+        const void *model_map,
+        uint64_t gate_offset,
+        uint64_t up_offset,
+        uint64_t weight_bytes,
+        uint64_t in_dim,
+        uint64_t out_dim) {
+    auto exact = g_q8_pair_pack_by_gate_offset.find(gate_offset);
+    if (exact != g_q8_pair_pack_by_gate_offset.end()) {
+        const cuda_q8_pair_pack_range &r = g_q8_pair_pack_ranges[exact->second];
+        if (r.host_base == model_map &&
+            r.up_offset == up_offset &&
+            r.weight_bytes == weight_bytes &&
+            r.in_dim == in_dim &&
+            r.out_dim == out_dim) {
+            return &r;
+        }
+    }
+    if (!g_cuda_shared_gate_up_pair_pack) return NULL;
+    const uint64_t blocks = (in_dim + 31u) / 32u;
+    if (blocks == 0 || out_dim > UINT64_MAX / blocks) return NULL;
+    const uint64_t total_blocks = out_dim * blocks;
+    if (weight_bytes != total_blocks * 34u ||
+        total_blocks > UINT64_MAX / 68u) {
+        return NULL;
+    }
+    const uint64_t pack_bytes = total_blocks * 68u;
+    const char *gate_w = cuda_model_range_ptr(model_map,
+                                               gate_offset,
+                                               weight_bytes,
+                                               "shared_gate_pair_pack");
+    const char *up_w = cuda_model_range_ptr(model_map,
+                                             up_offset,
+                                             weight_bytes,
+                                             "shared_up_pair_pack");
+    if (!gate_w || !up_w) return NULL;
+
+    unsigned char *pack = NULL;
+    cudaError_t err = cudaMalloc(&pack, (size_t)pack_bytes);
+    if (err != cudaSuccess) {
+        fprintf(stderr, "ds4: CUDA shared gate/up pair-pack alloc failed (%.2f MiB): %s\n",
+                (double)pack_bytes / 1048576.0,
+                cudaGetErrorString(err));
+        (void)cudaGetLastError();
+        return NULL;
+    }
+    q8_0_gate_up_pair_pack68_kernel<<<(total_blocks + 255u) / 256u, 256>>>(
+            pack,
+            (const unsigned char *)gate_w,
+            (const unsigned char *)up_w,
+            total_blocks);
+    if (!cuda_ok(cudaGetLastError(), "shared gate/up pair-pack launch")) {
+        (void)cudaFree(pack);
+        return NULL;
+    }
+    g_q8_pair_pack_ranges.push_back({
+        model_map,
+        gate_offset,
+        up_offset,
+        weight_bytes,
+        in_dim,
+        out_dim,
+        pack,
+    });
+    g_q8_pair_pack_by_gate_offset[gate_offset] = g_q8_pair_pack_ranges.size() - 1u;
+    g_q8_pair_pack_bytes += pack_bytes;
+    if (getenv("DS4_CUDA_WEIGHT_CACHE_VERBOSE")) {
+        fprintf(stderr,
+                "ds4: CUDA cached shared gate/up pair-pack %.2f MiB (total %.2f GiB)\n",
+                (double)pack_bytes / 1048576.0,
+                (double)g_q8_pair_pack_bytes / 1073741824.0);
+    }
+    return &g_q8_pair_pack_ranges.back();
+}
+
+static void cuda_q8_shared_gate_up_pair_pack_preload(
+        const void *model_map,
+        uint64_t offset,
+        uint64_t weight_bytes,
+        uint64_t in_dim,
+        uint64_t out_dim,
+        const char *label) {
+    if (!g_cuda_shared_gate_up_pair_pack) return;
+    int is_gate = 0;
+    int is_up = 0;
+    const uint64_t key = cuda_q8_pair_label_key(label, &is_gate, &is_up);
+    if (key == 0 || (!is_gate && !is_up)) return;
+    cuda_q8_pair_pending &p = g_q8_pair_pending_by_label[key];
+    if (p.host_base && p.host_base != model_map) {
+        p = {};
+    }
+    p.host_base = model_map;
+    p.weight_bytes = weight_bytes;
+    p.in_dim = in_dim;
+    p.out_dim = out_dim;
+    if (is_gate) {
+        p.gate_offset = offset;
+        p.has_gate = 1;
+    }
+    if (is_up) {
+        p.up_offset = offset;
+        p.has_up = 1;
+    }
+    if (p.has_gate && p.has_up) {
+        (void)cuda_q8_shared_gate_up_pair_pack_ptr(p.host_base,
+                                                   p.gate_offset,
+                                                   p.up_offset,
+                                                   p.weight_bytes,
+                                                   p.in_dim,
+                                                   p.out_dim);
+    }
 }
 
 static int cuda_ok(cudaError_t err, const char *what) {
@@ -1672,6 +1850,7 @@ extern "C" int ds4_gpu_init(void) {
     g_cuda_shared_gate_up_shape2048 = getenv("DS4_CUDA_SHARED_GATE_UP_SHAPE2048") != NULL;
     g_cuda_shared_gate_up_cache_x = getenv("DS4_CUDA_SHARED_GATE_UP_CACHE_X") != NULL;
     g_cuda_shared_gate_up_dot2 = getenv("DS4_CUDA_SHARED_GATE_UP_DOT2") != NULL;
+    g_cuda_shared_gate_up_pair_pack = getenv("DS4_CUDA_SHARED_GATE_UP_PAIR_PACK") != NULL;
     g_cuda_no_warp_router_select = getenv("DS4_CUDA_NO_WARP_ROUTER_SELECT") != NULL;
     g_cuda_no_parallel_router_select = getenv("DS4_CUDA_NO_PARALLEL_ROUTER_SELECT") != NULL;
     g_cuda_moe_no_decode_lut_gate = getenv("DS4_CUDA_MOE_NO_DECODE_LUT_GATE") != NULL;
@@ -1760,6 +1939,7 @@ extern "C" void ds4_gpu_cleanup(void) {
     cuda_model_range_release_all();
     cuda_q8_f16_cache_release_all();
     cuda_q8_soa_cache_release_all();
+    cuda_q8_pair_pack_cache_release_all();
     g_q8_f16_disabled_after_oom = 0;
     g_q8_f16_budget_notice_printed = 0;
     for (const cuda_q8_f32_range &r : g_q8_f32_ranges) {
@@ -2618,6 +2798,7 @@ extern "C" int ds4_gpu_set_model_map(const void *model_map, uint64_t model_size)
     cuda_model_range_release_all();
     cuda_q8_f16_cache_release_all();
     cuda_q8_soa_cache_release_all();
+    cuda_q8_pair_pack_cache_release_all();
     g_q8_f16_disabled_after_oom = 0;
     g_q8_f16_budget_notice_printed = 0;
     for (const cuda_q8_f32_range &r : g_q8_f32_ranges) {
@@ -2748,6 +2929,12 @@ extern "C" int ds4_gpu_cache_q8_f16_range(const void *model_map, uint64_t model_
     static int optional_q8_preload_disabled = 0;
     if (optional_q8_preload_disabled) return 1;
     const char *cache_label = label ? label : "q8_0";
+    cuda_q8_shared_gate_up_pair_pack_preload(model_map,
+                                             offset,
+                                             bytes,
+                                             in_dim,
+                                             out_dim,
+                                             cache_label);
     (void)cuda_q8_soa_ptr(model_map, offset, bytes, in_dim, out_dim, cache_label);
     const int want_f32_preload = getenv("DS4_CUDA_Q8_F32_PRELOAD") != NULL;
     const int want_f16_preload = getenv("DS4_CUDA_Q8_F16_PRELOAD") != NULL;
@@ -3199,6 +3386,34 @@ __device__ __forceinline__ static void dot_i8_block2_shared_x(
             const int32_t xv = load_i8x4_i32_aligned(x + i);
             acc0 = __dp4a(load_i8x4_i32_unaligned(w0 + i), xv, acc0);
             acc1 = __dp4a(load_i8x4_i32_unaligned(w1 + i), xv, acc1);
+        }
+    } else {
+        for (uint64_t i = 0; i < n; i++) {
+            const int32_t xv = (int32_t)x[i];
+            acc0 += (int32_t)w0[i] * xv;
+            acc1 += (int32_t)w1[i] * xv;
+        }
+    }
+    *dot0 = acc0;
+    *dot1 = acc1;
+}
+
+__device__ __forceinline__ static void dot_i8_block2_shared_x_weight_aligned(
+        const int8_t *x,
+        const int8_t *w0,
+        const int8_t *w1,
+        uint64_t n,
+        int use_dp4a,
+        int32_t *dot0,
+        int32_t *dot1) {
+    int32_t acc0 = 0;
+    int32_t acc1 = 0;
+    if (use_dp4a && n == 32u) {
+#pragma unroll
+        for (uint32_t i = 0; i < 32u; i += 4u) {
+            const int32_t xv = load_i8x4_i32_aligned(x + i);
+            acc0 = __dp4a(load_i8x4_i32_aligned(w0 + i), xv, acc0);
+            acc1 = __dp4a(load_i8x4_i32_aligned(w1 + i), xv, acc1);
         }
     } else {
         for (uint64_t i = 0; i < n; i++) {
@@ -4273,6 +4488,55 @@ __global__ static void matmul_q8_0_pair_swiglu_preq_warp8_dot2_kernel(
         int32_t g_dot = 0;
         int32_t u_dot = 0;
         dot_i8_block2_shared_x(xqb, g_qs, u_qs, bn, use_dp4a, &g_dot, &u_dot);
+        gate += __half2float(*g_scale_h) * xs * (float)g_dot;
+        up += __half2float(*u_scale_h) * xs * (float)u_dot;
+    }
+    gate = warp_sum_f32(gate);
+    up = warp_sum_f32(up);
+    if (lane == 0) {
+        gate_out[row] = gate;
+        up_out[row] = up;
+        float g = gate;
+        float u = up;
+        if (clamp > 1.0e-6f) {
+            g = fminf(g, clamp);
+            u = fminf(fmaxf(u, -clamp), clamp);
+        }
+        mid_out[row] = (g / (1.0f + expf(-g))) * u;
+    }
+}
+
+__global__ static void matmul_q8_0_pair_swiglu_preq_warp8_pack68_kernel(
+        float *gate_out,
+        float *up_out,
+        float *mid_out,
+        const unsigned char *pack,
+        const int8_t *xq,
+        const float *xscale,
+        uint64_t in_dim,
+        uint64_t out_dim,
+        uint64_t blocks,
+        float clamp,
+        int use_dp4a) {
+    uint64_t row = (uint64_t)blockIdx.x * 8u + (threadIdx.x >> 5u);
+    uint32_t lane = threadIdx.x & 31u;
+    if (row >= out_dim) return;
+    float gate = 0.0f;
+    float up = 0.0f;
+    const unsigned char *row_pack = pack + row * blocks * 68u;
+    for (uint64_t b = lane; b < blocks; b += 32u) {
+        uint64_t i0 = b * 32;
+        uint64_t bn = in_dim - i0 < 32 ? in_dim - i0 : 32;
+        const unsigned char *blk = row_pack + b * 68u;
+        const int8_t *xqb = xq + b * 32;
+        const float xs = xscale[b];
+        const __half *g_scale_h = (const __half *)(blk + 0u);
+        const __half *u_scale_h = (const __half *)(blk + 2u);
+        const int8_t *g_qs = (const int8_t *)(blk + 4u);
+        const int8_t *u_qs = (const int8_t *)(blk + 36u);
+        int32_t g_dot = 0;
+        int32_t u_dot = 0;
+        dot_i8_block2_shared_x_weight_aligned(xqb, g_qs, u_qs, bn, use_dp4a, &g_dot, &u_dot);
         gate += __half2float(*g_scale_h) * xs * (float)g_dot;
         up += __half2float(*u_scale_h) * xs * (float)u_dot;
     }
@@ -5435,6 +5699,25 @@ __global__ static void q8_0_to_soa_kernel(
 #pragma unroll
     for (uint32_t i = 0; i < 32u; i++) {
         quant_out[idx * 32u + i] = *(const int8_t *)(src + 2u + i);
+    }
+}
+
+__global__ static void q8_0_gate_up_pair_pack68_kernel(
+        unsigned char *pack,
+        const unsigned char *gate_w,
+        const unsigned char *up_w,
+        uint64_t total_blocks) {
+    const uint64_t idx = (uint64_t)blockIdx.x * blockDim.x + threadIdx.x;
+    if (idx >= total_blocks) return;
+    const unsigned char *gsrc = gate_w + idx * 34u;
+    const unsigned char *usrc = up_w + idx * 34u;
+    unsigned char *dst = pack + idx * 68u;
+    *(uint16_t *)(dst + 0u) = *(const uint16_t *)(gsrc + 0u);
+    *(uint16_t *)(dst + 2u) = *(const uint16_t *)(usrc + 0u);
+#pragma unroll
+    for (uint32_t i = 0; i < 32u; i++) {
+        *(int8_t *)(dst + 4u + i) = *(const int8_t *)(gsrc + 2u + i);
+        *(int8_t *)(dst + 36u + i) = *(const int8_t *)(usrc + 2u + i);
     }
 }
 
@@ -13307,6 +13590,30 @@ extern "C" int ds4_gpu_shared_gate_up_swiglu_q8_0_tensor(
                             clamp,
                             use_dp4a);
                     return cuda_ok(cudaGetLastError(), "shared gate/up swiglu soa launch");
+                }
+                if (g_cuda_shared_gate_up_pair_pack) {
+                    const cuda_q8_pair_pack_range *pair_pack =
+                        cuda_q8_shared_gate_up_pair_pack_ptr(model_map,
+                                                             gate_offset,
+                                                             up_offset,
+                                                             weight_bytes,
+                                                             in_dim,
+                                                             out_dim);
+                    if (pair_pack) {
+                        matmul_q8_0_pair_swiglu_preq_warp8_pack68_kernel<<<((unsigned)out_dim + 7u) / 8u, 256, 0, stream>>>(
+                                (float *)gate->ptr,
+                                (float *)up->ptr,
+                                (float *)mid->ptr,
+                                pair_pack->pack_ptr,
+                                xq,
+                                xscale,
+                                in_dim,
+                                out_dim,
+                                blocks,
+                                clamp,
+                                use_dp4a);
+                        return cuda_ok(cudaGetLastError(), "shared gate/up swiglu pair-pack launch");
+                    }
                 }
                 if (g_cuda_shared_gate_up_dot2) {
                     matmul_q8_0_pair_swiglu_preq_warp8_dot2_kernel<<<((unsigned)out_dim + 7u) / 8u, 256, 0, stream>>>(

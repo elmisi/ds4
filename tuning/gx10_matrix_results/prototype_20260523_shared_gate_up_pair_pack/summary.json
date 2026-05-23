@@ -1,0 +1,30 @@
+[
+  {
+    "row": "exact_fast",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 15.95,
+    "gen_8192": 15.95,
+    "gen_last": 15.95,
+    "gen_mean": 15.95,
+    "gen_max": 15.95,
+    "gen_ss_mean": 15.95,
+    "prefill_mean": 393.04,
+    "prefill_max": 393.04
+  },
+  {
+    "row": "shared_gate_up_pair_pack",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 15.38,
+    "gen_8192": 15.38,
+    "gen_last": 15.38,
+    "gen_mean": 15.38,
+    "gen_max": 15.38,
+    "gen_ss_mean": 15.38,
+    "prefill_mean": 388.87,
+    "prefill_max": 388.87
+  }
+]

@@ -64,6 +64,7 @@ BASE_UNSET_NAMES = {
     "DS4_CUDA_SHARED_GATE_UP_SHAPE2048",
     "DS4_CUDA_SHARED_GATE_UP_CACHE_X",
     "DS4_CUDA_SHARED_GATE_UP_DOT2",
+    "DS4_CUDA_SHARED_GATE_UP_PAIR_PACK",
     "DS4_CUDA_FFN_PARALLEL_SHARED",
     "DS4_CUDA_FFN_SHARED_FIRST",
     "DS4_CUDA_MOE_ACTIVE_EXPERTS",
@@ -417,6 +418,11 @@ MATRIX = {
         "env": {**EXACT_FAST, **env(DS4_CUDA_SHARED_GATE_UP_DOT2=1)},
         "status": "shared expert gate/up fused-SwiGLU with one activation load feeding both Q8 dots",
     },
+    "shared_gate_up_pair_pack": {
+        "category": "prototype",
+        "env": {**EXACT_FAST, **env(DS4_CUDA_SHARED_GATE_UP_PAIR_PACK=1)},
+        "status": "native paired/aligned Q8 pack for shared expert gate/up fused-SwiGLU",
+    },
     "indexer_topk_chunk8192": {
         "category": "prototype",
         "env": {**EXACT_FAST, **env(DS4_CUDA_TOPK_CHUNK8192=1)},
@@ -566,6 +572,7 @@ ROW_GROUPS = {
         "moe_shape_special",
         "shape_gate_shared",
         "shared_gate_up_dot2",
+        "shared_gate_up_pair_pack",
         "indexer_topk_chunk8192",
         "graph_no_presync",
         "weight_tensor_align2m",
