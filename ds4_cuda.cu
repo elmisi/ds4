@@ -140,6 +140,8 @@ static int g_cuda_q8_cublas_decode;
 static int g_cuda_attn_q_b_cublas_decode;
 static int g_cuda_attn_q_b_hwarp16;
 static int g_cuda_attn_q_b_b32_special;
+static int g_cuda_attn_qkv_pair_shape;
+static int g_cuda_attn_output_b_shape4096;
 static int g_cuda_attn_output_b_cublas_min;
 static int g_cuda_q8_qwarp_decode;
 static int g_cuda_hc_expand_f16;
@@ -1632,6 +1634,8 @@ extern "C" int ds4_gpu_init(void) {
     g_cuda_attn_q_b_cublas_decode = getenv("DS4_CUDA_ATTN_Q_B_CUBLAS_DECODE") != NULL;
     g_cuda_attn_q_b_hwarp16 = getenv("DS4_CUDA_ATTN_Q_B_HWARP16") != NULL;
     g_cuda_attn_q_b_b32_special = getenv("DS4_CUDA_ATTN_Q_B_B32_SPECIAL") != NULL;
+    g_cuda_attn_qkv_pair_shape = getenv("DS4_CUDA_ATTN_QKV_PAIR_SHAPE") != NULL;
+    g_cuda_attn_output_b_shape4096 = getenv("DS4_CUDA_ATTENTION_OUTPUT_B_SHAPE4096") != NULL;
     g_cuda_attn_output_b_cublas_min = 0;
     if (const char *env = getenv("DS4_CUDA_ATTENTION_OUTPUT_B_CUBLAS_MIN")) {
         const int v = atoi(env);
@@ -3418,6 +3422,30 @@ __global__ static void matmul_q8_0_preq_warp8_soa_cached_x_kernel(
     if (lane == 0) out[row] = acc;
 }
 
+__global__ static void matmul_q8_0_attn_output_b_shape4096_kernel(
+        float *out,
+        const unsigned char *w,
+        const int8_t *xq,
+        const float *xscale,
+        int use_dp4a) {
+    const uint64_t row = (uint64_t)blockIdx.x * 8u + (threadIdx.x >> 5u);
+    const uint32_t lane = threadIdx.x & 31u;
+    const unsigned char *wr = w + row * 128u * 34u;
+    float acc = 0.0f;
+#pragma unroll
+    for (uint32_t step = 0; step < 4u; step++) {
+        const uint32_t b = lane + step * 32u;
+        const unsigned char *blk = wr + (uint64_t)b * 34u;
+        const __half *scale_h = (const __half *)blk;
+        const int8_t *qs = (const int8_t *)(blk + 2u);
+        const int8_t *xqb = xq + (uint64_t)b * 32u;
+        const int dot = dot_i8_block(qs, xqb, 32u, use_dp4a);
+        acc += __half2float(*scale_h) * xscale[b] * (float)dot;
+    }
+    acc = warp_sum_f32(acc);
+    if (lane == 0) out[row] = acc;
+}
+
 __global__ static void q8_0_fill_synthetic_x_kernel(int8_t *xq, float *xscale, uint32_t blocks) {
     const uint32_t b = blockIdx.x;
     if (b >= blocks) return;
@@ -3979,6 +4007,46 @@ __global__ static void matmul_q8_0_pair_preq_warp8_soa_kernel(
     if (lane == 0) {
         if (row < out0_dim) out0[row] = acc0;
         if (row < out1_dim) out1[row] = acc1;
+    }
+}
+
+__global__ static void matmul_q8_0_pair_preq_warp8_qkv_shape_kernel(
+        float *q_out,
+        float *kv_out,
+        const unsigned char *q_w,
+        const unsigned char *kv_w,
+        const int8_t *xq,
+        const float *xscale,
+        int use_dp4a) {
+    const uint64_t row = (uint64_t)blockIdx.x * 8u + (threadIdx.x >> 5u);
+    const uint32_t lane = threadIdx.x & 31u;
+    const unsigned char *qwr = q_w + row * 128u * 34u;
+    const unsigned char *kvwr = row < 512u ? kv_w + row * 128u * 34u : NULL;
+    float qacc = 0.0f;
+    float kvacc = 0.0f;
+#pragma unroll
+    for (uint32_t step = 0; step < 4u; step++) {
+        const uint32_t b = lane + step * 32u;
+        const int8_t *xqb = xq + (uint64_t)b * 32u;
+        const float xs = xscale[b];
+        const unsigned char *qblk = qwr + (uint64_t)b * 34u;
+        const __half *q_scale_h = (const __half *)qblk;
+        const int8_t *q_qs = (const int8_t *)(qblk + 2u);
+        const int q_dot = dot_i8_block(q_qs, xqb, 32u, use_dp4a);
+        qacc += __half2float(*q_scale_h) * xs * (float)q_dot;
+        if (kvwr) {
+            const unsigned char *kvblk = kvwr + (uint64_t)b * 34u;
+            const __half *kv_scale_h = (const __half *)kvblk;
+            const int8_t *kv_qs = (const int8_t *)(kvblk + 2u);
+            const int kv_dot = dot_i8_block(kv_qs, xqb, 32u, use_dp4a);
+            kvacc += __half2float(*kv_scale_h) * xs * (float)kv_dot;
+        }
+    }
+    qacc = warp_sum_f32(qacc);
+    kvacc = warp_sum_f32(kvacc);
+    if (lane == 0) {
+        q_out[row] = qacc;
+        if (row < 512u) kv_out[row] = kvacc;
     }
 }
 
@@ -10415,6 +10483,20 @@ static int cuda_matmul_q8_0_tensor_labeled(ds4_gpu_tensor *out, const void *mode
                 use_dp4a);
         return cuda_ok(cudaGetLastError(), "matmul_q8_0 attn_q_b b32 special launch");
     }
+    if (g_cuda_attn_output_b_shape4096 &&
+        n_tok == 1 &&
+        in_dim == 4096u &&
+        out_dim == 4096u &&
+        blocks == 128u &&
+        cuda_q8_label_is_attention_output_b(label)) {
+        matmul_q8_0_attn_output_b_shape4096_kernel<<<512u, 256>>>(
+                (float *)out->ptr,
+                reinterpret_cast<const unsigned char *>(wptr),
+                xq,
+                xscale,
+                use_dp4a);
+        return cuda_ok(cudaGetLastError(), "matmul_q8_0 attn_output_b shape4096 launch");
+    }
     if (n_tok == 1 && cuda_q8_soa_generic_decode_enabled()) {
         const cuda_q8_soa_range *soa = cuda_q8_soa_ptr(model_map,
                                                        weight_offset,
@@ -10691,6 +10773,21 @@ extern "C" int ds4_gpu_matmul_q8_0_pair_tensor(
     dim3 qgrid((unsigned)blocks, 1, 1);
     quantize_q8_0_f32_kernel<<<qgrid, 32>>>(xq, xscale, (const float *)x->ptr, in_dim, blocks);
     if (!cuda_ok(cudaGetLastError(), "matmul_q8_0 pair quantize launch")) return 0;
+    if (g_cuda_attn_qkv_pair_shape &&
+        in_dim == 4096u &&
+        out0_dim == 1024u &&
+        out1_dim == 512u &&
+        blocks == 128u) {
+        matmul_q8_0_pair_preq_warp8_qkv_shape_kernel<<<128u, 256>>>(
+                (float *)out0->ptr,
+                (float *)out1->ptr,
+                reinterpret_cast<const unsigned char *>(w0),
+                reinterpret_cast<const unsigned char *>(w1),
+                xq,
+                xscale,
+                use_dp4a);
+        return cuda_ok(cudaGetLastError(), "matmul_q8_0 qkv pair shape launch");
+    }
     const uint64_t max_out = out0_dim > out1_dim ? out0_dim : out1_dim;
     const cuda_q8_soa_range *soa0 = cuda_q8_soa_ptr(model_map,
                                                     weight0_offset,

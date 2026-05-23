@@ -1,0 +1,4 @@
+row,rows,ctx_first,ctx_last,gen_first,gen_8192,gen_last,gen_mean,gen_max,gen_ss_mean,prefill_mean,prefill_max
+exact_fast,1,8192,8192,15.94,15.94,15.94,15.94,15.94,15.94,389.89,389.89
+soa_qkv,1,8192,8192,16.01,16.01,16.01,16.01,16.01,16.01,389.45,389.45
+soa_qkv_no_pair,1,8192,8192,15.7,15.7,15.7,15.7,15.7,15.7,388.75,388.75

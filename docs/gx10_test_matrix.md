@@ -163,6 +163,9 @@ door on hard but plausible kernel work.
 | `attn_qb_hwarp16` | `DS4_CUDA_ATTN_Q_B_HWARP16=1` | 15.92 vs 16.13 t/s same-run control; changes reduction shape | diagnostic only; do not promote |
 | `attn_qb_soa_hwarp16` | `DS4_CUDA_Q8_SOA_QB=1 DS4_CUDA_ATTN_Q_B_HWARP16=1` | 16.03 vs 16.13 t/s same-run control; changes reduction shape | diagnostic only; do not promote |
 | `attn_qb_b32_special` | `DS4_CUDA_ATTN_Q_B_B32_SPECIAL=1` | exact-order decode-shape specialization, 16.07 vs 16.12 t/s control | diagnostic only; do not promote |
+| `attn_qkv_pair_shape` | `DS4_CUDA_ATTN_QKV_PAIR_SHAPE=1` | exact-order QKV pair shape specialization, 16.07 vs 16.12 t/s control and higher register use | diagnostic only; do not promote |
+| `attn_b_shape4096` | `DS4_CUDA_ATTENTION_OUTPUT_B_SHAPE4096=1` | exact-order attention-output-B shape specialization, 15.90 vs 16.12 t/s control and higher register use | diagnostic only; do not promote |
+| `soa_qkv_no_pair` | `DS4_CUDA_Q8_SOA_QKV=1 DS4_METAL_DISABLE_QKV_PAIR_PROJ=1` | disabling the pair projection did not rescue QKV SoA: 15.70 vs 15.94 t/s control | diagnostic only; do not promote |
 | `hc_expand_nhc4_special` | `DS4_CUDA_HC_EXPAND_NHC4_SPECIAL=1` | exact-shape HC-expand specialization, 16.11 vs 16.14 t/s control | diagnostic only; do not promote |
 | `hc_expand_no_block_out` | `DS4_CUDA_HC_EXPAND_NO_BLOCK_OUT=1` | skips auxiliary `attn_out` store in fused HC-expand, 16.09 vs 16.17 t/s control | diagnostic only; do not promote |
 | `shared_gate_up_noaux` | `DS4_CUDA_SHARED_GATE_UP_NOAUX=1` | shared expert mid-only kernel, 16.01 vs 16.15 t/s control | diagnostic only; do not promote |

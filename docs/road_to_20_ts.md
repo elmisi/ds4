@@ -5295,6 +5295,92 @@ tmp-prequant, Q8 SoA, and graph decode work. No direct import was identified.
 Keep it as a reference when looking for structural Q8 projection ideas, not as
 an integration target.
 
+The next pass moved away from MoE entirely and targeted `q_path` /
+`attn_output`, because those were the two largest non-MoE buckets in the
+profile. The fork scan also clarified that one cghart idea named output
+Q8 warp-rows is already equivalent to this branch's current `warp8` Q8 decode
+kernel, so it was not repeated.
+
+First, `attn_q_a/attn_kv` pair projection was shape-specialized for the DS4
+decode dimensions (`4096 -> 1024` and `4096 -> 512`). This is not the old
+SoA-QKV route; it preserves the current AoS weight stream and only removes
+dynamic shape/stride checks from the already-promoted pair kernel.
+
+Resource usage:
+
+| Kernel | REG | STACK | SHARED | CONSTANT[0] |
+| --- | ---: | ---: | ---: | ---: |
+| generic `matmul_q8_0_pair_preq_warp8_kernel` | 62 | 0 | 0 | 436 |
+| `matmul_q8_0_pair_preq_warp8_qkv_shape_kernel` | 63 | 0 | 0 | 404 |
+
+Smoke:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast attn_qkv_pair_shape \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_attn_qkv_pair_shape \
+  --summary tuning/gx10_matrix_results/prototype_20260523_attn_qkv_pair_shape/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_attn_qkv_pair_shape/summary.md
+```
+
+| Row | 8192/128 gen t/s | Decision |
+| --- | ---: | --- |
+| `exact_fast` | **16.12** | control |
+| `attn_qkv_pair_shape` | **16.07** | negative |
+
+Decision: reject the QKV pair shape specialization. It raised register use and
+did not improve throughput.
+
+Second, `attn_output_b` was shape-specialized for the default AoS Q8 path
+(`4096 x 4096`, 128 Q8 blocks). This is distinct from the earlier
+`soa_b_forced` and cuBLAS/F16 probes.
+
+Resource usage:
+
+| Kernel | REG | STACK | SHARED | CONSTANT[0] |
+| --- | ---: | ---: | ---: | ---: |
+| generic `matmul_q8_0_preq_warp8_kernel` | 62 | 0 | 0 | 412 |
+| `matmul_q8_0_attn_output_b_shape4096_kernel` | 63 | 0 | 0 | 388 |
+
+Smoke:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast attn_b_shape4096 \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_attn_b_shape4096 \
+  --summary tuning/gx10_matrix_results/prototype_20260523_attn_b_shape4096/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_attn_b_shape4096/summary.md
+```
+
+| Row | 8192/128 gen t/s | Decision |
+| --- | ---: | --- |
+| `exact_fast` | **16.12** | control |
+| `attn_b_shape4096` | **15.90** | negative |
+
+Decision: reject attention-output-B shape specialization. The generic warp8
+kernel remains better.
+
+Finally, the old observation that `attn_q_a` and `attn_kv` SoA were individually
+micro-positive but regressed inside the fused pair route was checked directly by
+disabling the pair projection while enabling QKV SoA:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast soa_qkv soa_qkv_no_pair \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_soa_qkv_no_pair \
+  --summary tuning/gx10_matrix_results/prototype_20260523_soa_qkv_no_pair/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_soa_qkv_no_pair/summary.md
+```
+
+| Row | 8192/128 gen t/s | Decision |
+| --- | ---: | --- |
+| `exact_fast` | **15.94** | control |
+| `soa_qkv` | **16.01** | noisy/small, still below gate and historically negative |
+| `soa_qkv_no_pair` | **15.70** | negative |
+
+Decision: reject `soa_qkv_no_pair`. The pair projection remains worth keeping;
+the SoA-QKV line is still diagnostic only and not a promotion candidate.
+
 ## Branch / commit map
 
 ```
