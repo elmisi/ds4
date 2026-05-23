@@ -148,6 +148,7 @@ static int g_cuda_output_q8_warp8;
 static int g_cuda_q8_qwarp_decode;
 static int g_cuda_hc_expand_f16;
 static int g_cuda_hc_expand_cache_x;
+static int g_cuda_hc_expand_soa_ldg;
 static int g_cuda_hc_expand_nhc4_special;
 static int g_cuda_hc_expand_no_block_out;
 static int g_cuda_attn_output_a_cache_x;
@@ -1828,6 +1829,7 @@ extern "C" int ds4_gpu_init(void) {
     g_cuda_q8_qwarp_decode = getenv("DS4_CUDA_Q8_QWARP_DECODE") != NULL;
     g_cuda_hc_expand_f16 = getenv("DS4_CUDA_HC_EXPAND_F16") != NULL;
     g_cuda_hc_expand_cache_x = getenv("DS4_CUDA_HC_EXPAND_CACHE_X") != NULL;
+    g_cuda_hc_expand_soa_ldg = getenv("DS4_CUDA_HC_EXPAND_SOA_LDG") != NULL;
     g_cuda_hc_expand_nhc4_special = getenv("DS4_CUDA_HC_EXPAND_NHC4_SPECIAL") != NULL;
     g_cuda_hc_expand_no_block_out = getenv("DS4_CUDA_HC_EXPAND_NO_BLOCK_OUT") != NULL;
     g_cuda_attn_output_a_cache_x = getenv("DS4_CUDA_ATTENTION_OUTPUT_A_CACHE_X") != NULL;
@@ -3290,6 +3292,10 @@ __device__ __forceinline__ static int32_t load_i8x4_i32_aligned(const int8_t *p)
     return *(const int32_t *)p;
 }
 
+__device__ __forceinline__ static int32_t load_i8x4_i32_aligned_ldg(const int8_t *p) {
+    return __ldg((const int32_t *)p);
+}
+
 __device__ __forceinline__ static int32_t load_i8x4_i32_unaligned(const int8_t *p) {
     const uint8_t *u = (const uint8_t *)p;
     return (int32_t)((uint32_t)u[0] |
@@ -3649,6 +3655,24 @@ __device__ __forceinline__ static int32_t dot_i8_block_weight_aligned(
     }
     int32_t dot = 0;
     for (uint64_t i = 0; i < n; i++) dot += (int32_t)a[i] * (int32_t)b[i];
+    return dot;
+}
+
+__device__ __forceinline__ static int32_t dot_i8_block_weight_aligned_ldg(
+        const int8_t *a,
+        const int8_t *b,
+        uint64_t n,
+        int use_dp4a) {
+    if (use_dp4a && n == 32u) {
+        int32_t dot = 0;
+#pragma unroll
+        for (uint32_t i = 0; i < 32u; i += 4u) {
+            dot = __dp4a(load_i8x4_i32_aligned_ldg(a + i), load_i8x4_i32_aligned(b + i), dot);
+        }
+        return dot;
+    }
+    int32_t dot = 0;
+    for (uint64_t i = 0; i < n; i++) dot += (int32_t)__ldg(a + i) * (int32_t)b[i];
     return dot;
 }
 
@@ -4996,6 +5020,57 @@ __global__ static void matmul_q8_0_hc_expand_preq_warp8_soa_kernel(
         const int8_t *xqb = xq + b * 32u;
         int dot = dot_i8_block_weight_aligned(qs, xqb, bn, use_dp4a);
         acc += __half2float(sr[b]) * xscale[b] * (float)dot;
+    }
+    acc = warp_sum_f32(acc);
+    if (lane == 0) {
+        const uint32_t d = (uint32_t)row;
+        block_out[d] = acc;
+        float block_v = acc;
+        if (has_add) block_v += block_add[d];
+        const float *post = split + n_hc;
+        const float *comb = split + 2u * n_hc;
+        for (uint32_t dst_hc = 0; dst_hc < n_hc; dst_hc++) {
+            float hc_acc = block_v * post[dst_hc];
+            for (uint32_t src_hc = 0; src_hc < n_hc; src_hc++) {
+                const float comb_v = comb[dst_hc + (uint64_t)src_hc * n_hc];
+                const float res_v = residual_hc[(uint64_t)src_hc * n_embd + d];
+                hc_acc += comb_v * res_v;
+            }
+            out_hc[(uint64_t)dst_hc * n_embd + d] = hc_acc;
+        }
+    }
+}
+
+__global__ static void matmul_q8_0_hc_expand_preq_warp8_soa_ldg_kernel(
+        float *out_hc,
+        float *block_out,
+        const float *block_add,
+        const float *residual_hc,
+        const float *split,
+        const __half *wscale,
+        const int8_t *wq,
+        const int8_t *xq,
+        const float *xscale,
+        uint64_t in_dim,
+        uint64_t out_dim,
+        uint32_t n_embd,
+        uint32_t n_hc,
+        uint64_t blocks,
+        int has_add,
+        int use_dp4a) {
+    const uint64_t row = (uint64_t)blockIdx.x * 8u + (threadIdx.x >> 5u);
+    const uint32_t lane = threadIdx.x & 31u;
+    if (row >= out_dim) return;
+    const __half *sr = wscale + row * blocks;
+    const int8_t *qr = wq + row * blocks * 32u;
+    float acc = 0.0f;
+    for (uint64_t b = lane; b < blocks; b += 32u) {
+        const uint64_t i0 = b * 32u;
+        const uint64_t bn = in_dim - i0 < 32u ? in_dim - i0 : 32u;
+        const int8_t *qs = qr + b * 32u;
+        const int8_t *xqb = xq + b * 32u;
+        int dot = dot_i8_block_weight_aligned_ldg(qs, xqb, bn, use_dp4a);
+        acc += __half2float(__ldg(sr + b)) * xscale[b] * (float)dot;
     }
     acc = warp_sum_f32(acc);
     if (lane == 0) {
@@ -11441,7 +11516,25 @@ static int cuda_matmul_q8_0_hc_expand_tensor_labeled(
                                                    out_dim,
                                                    label ? label : "q8_0_hc_expand");
     if (soa) {
-        if (g_cuda_hc_expand_no_block_out && !block_add && n_hc == 4u && out_dim == (uint64_t)n_embd) {
+        if (g_cuda_hc_expand_soa_ldg) {
+            matmul_q8_0_hc_expand_preq_warp8_soa_ldg_kernel<<<((unsigned)out_dim + 7u) / 8u, 256>>>(
+                    (float *)out_hc->ptr,
+                    (float *)block_out->ptr,
+                    block_add ? (const float *)block_add->ptr : NULL,
+                    (const float *)residual_hc->ptr,
+                    (const float *)split->ptr,
+                    soa->scale_ptr,
+                    soa->quant_ptr,
+                    xq,
+                    xscale,
+                    in_dim,
+                    out_dim,
+                    n_embd,
+                    n_hc,
+                    blocks,
+                    block_add != NULL,
+                    use_dp4a);
+        } else if (g_cuda_hc_expand_no_block_out && !block_add && n_hc == 4u && out_dim == (uint64_t)n_embd) {
             matmul_q8_0_hc_expand_preq_warp8_soa_nhc4_no_block_out_kernel<<<((unsigned)out_dim + 7u) / 8u, 256>>>(
                     (float *)out_hc->ptr,
                     (const float *)residual_hc->ptr,
