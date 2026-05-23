@@ -1,0 +1,4 @@
+row,rows,ctx_first,ctx_last,gen_first,gen_8192,gen_last,gen_mean,gen_max,gen_ss_mean,prefill_mean,prefill_max
+exact_fast,1,8192,8192,16.12,16.12,16.12,16.12,16.12,16.12,393.71,393.71
+moe_gate_weight_cache,1,8192,8192,15.93,15.93,15.93,15.93,15.93,15.93,389.22,389.22
+moe_meta_cache,1,8192,8192,15.99,15.99,15.99,15.99,15.99,15.99,388.97,388.97

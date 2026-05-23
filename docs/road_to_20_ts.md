@@ -7,6 +7,10 @@ session can pick up without re-discovering anything.
 
 Branch: `gx10-cuda-graph-decode` (pushed to fork `origin`, never to upstream).
 
+For a compact promoted/rejected/diagnostic summary and clean-branch extraction
+plan, see `docs/gx10_decision_log.md`. This file remains the chronological
+source of truth for commands, artifacts, and rationale.
+
 ## TL;DR
 
 - **Current full-quality state**: ~17.8-18.1 t/s avg (8192 ctx, 64-128 gen)
@@ -3770,6 +3774,1215 @@ Anti-loop checkpoint:
   lane-contiguous access. Do not remove an exact island based only on argmax
   agreement; require shadow logit deltas to remain small relative to top
   margins and re-run the coding eval at `ctx=256000`.
+
+## 2026-05-22 continuation - rebase baseline, matrix, and fork scan
+
+Branch state:
+
+- Local branch `gx10-cuda-graph-decode` was rebased onto `origin/main` /
+  `upstream/main` at `8d57664`.
+- Current branch head during this pass: `dca0d8c`.
+- A separate upstream baseline worktree was created at
+  `/home/alessandro/projects/ds4-main-baseline`, also at `8d57664`.
+- `ds4-server` and `ds4-agent` were built in that baseline worktree.
+
+Manual agent baseline after the rebase:
+
+| Build | Agent throughput | Interpretation |
+| --- | ---: | --- |
+| `origin/main` worktree at `8d57664` | 14.6 t/s | upstream-after-rebase baseline, including native `ds4-agent` |
+| current branch, plain `ds4-agent` | 16.3 t/s | most GX10 CUDA optimizations are compiled in |
+| current branch, `ds4-agent-exact-fast` | 16.7 t/s | current branch plus graph decode and default Q8 SoA cache |
+
+Relative to the updated upstream worktree, the current branch is about
+**+11.6%** for plain `ds4-agent` and **+14.4%** for `ds4-agent-exact-fast`.
+This is the right comparison; comparing `ds4-agent` vs `ds4-agent-exact-fast`
+inside the same optimized branch only measures the final graph+SoA env delta.
+
+New local artifacts:
+
+- `ds4-agent-exact-fast`: quality-preserving agent launcher mirroring
+  `ds4-server-exact-fast`, with `DS4_CUDA_GRAPH_DECODE=1` and
+  `DS4_CUDA_Q8_SOA_CACHE=1`; default context is now `100000` to match
+  native `ds4-agent`.
+- `docs/gx10_test_matrix.md`: executable matrix, row definitions, promotion
+  rules, and systematic benchmark protocol.
+- `docs/gx10_fork_recon.md`: fork reconnaissance and external idea shortlist.
+- `docs/gx10_action_plan.md`: phased plan for measurement, exact-safe sweeps,
+  tradeoff rows, and next kernel work.
+- `tuning/gx10_matrix.py`: sanitized-env runner for row-level `bench`, `server`,
+  `eval`, plus `bench-suite`, `eval-suite`, and `summary`.
+
+Systematic benchmark commands established:
+
+```sh
+python3 tuning/gx10_matrix.py list
+python3 tuning/gx10_matrix.py bench-suite core \
+  --ctx-alloc 100000 --ctx-start 8192 --ctx-max 8192 --gen-tokens 128
+python3 tuning/gx10_matrix.py summary
+python3 tuning/gx10_matrix.py eval exact_fast --ctx 100000 --canary --repeat 1
+```
+
+Expanded exact sweep, only after the core pass is recorded:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact \
+  --ctx-alloc 100000 --ctx-start 2048 --ctx-max 65536 \
+  --gen-tokens 128
+```
+
+Promotion rule from this point forward:
+
+1. Speed smoke must beat `exact_fast` by at least 1-2%.
+2. Candidate must pass the coding canary with no new failures.
+3. Candidate must pass repeated coding gate (`repeat=3`) before promotion.
+4. Every executed benchmark must be appended to this file with command,
+   context, artifact path, speed, quality result, decision, and next action.
+
+Fork reconnaissance summary:
+
+- GitHub returned 930 public forks; 66 were prefiltered by recent push,
+  stars/forks, or non-`main` default branch.
+- Relevant branch refs were fetched under `refs/remotes/scan/*` only.
+- No external branch revealed a small quality-preserving env toggle missing
+  from this branch.
+- Most public work clusters into Apple M5/Metal prefill, ROCm/HIP backend work,
+  MTP/speculative proof work, memory/distribution work, and steering/agent
+  features.
+
+Entrpi branch check:
+
+- Source: `Entrpi/ds4:mmq-step-A-full-layer-graphs`.
+- Interesting ideas: vendored llama.cpp `cuda/mmq` / `mmvq`, per-layer CUDA
+  graph replay, VMM weight arena, and MTP proof harness.
+- GB10 numbers committed in that branch do **not** exceed our current
+  exact-fast path:
+
+| Entrpi artifact | GB10 generation result |
+| --- | ---: |
+| `speed-bench/gb10_spark.csv`, `ctx=2048` | 14.15 t/s |
+| `speed-bench/gb10_spark.csv`, `ctx=8192` | 13.74 t/s |
+| `speed-bench/gb10_spark.csv`, `ctx=65536` | 11.70 t/s |
+| `speed-bench/gb10_spark.csv`, sweep mean | 12.80 t/s |
+| README short prompt headline | 15.81 t/s |
+| README long prompt headline | 13.56 t/s |
+| MTP microbench prime prompt, optimized MTP | 16.21 t/s |
+| `gb10_exact_mtp.csv`, sweep mean | 12.62 t/s |
+
+Decision: mine Entrpi for design ideas only. Do not integrate it into this
+branch now. If revisited, do it as a dedicated port branch with the same
+logprob/coding gates as `exact_fast`.
+
+Action plan:
+
+1. Run and record the `core` matrix at `ctx_alloc=100000`, `ctx=8192`,
+   `gen_tokens=128`.
+2. Run the expanded `exact` sweep only if core results are stable.
+3. Reject existing env rows that fail to beat `exact_fast` by 1-2%.
+4. Keep reduced-K and MTP rows as research/tradeoff rows only.
+5. Start new kernel work only after current measurements are in this document.
+   Priorities remain Q8 projection reads and full-K routed MoE gate/up/down.
+
+### 2026-05-22 continuation - core and exact matrix results
+
+Core matrix command:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite core \
+  --ctx-alloc 100000 --ctx-start 8192 --ctx-max 8192 --gen-tokens 128
+```
+
+Core artifacts were copied to:
+
+```text
+tuning/gx10_matrix_results/core_20260522_1537/
+```
+
+Core result at `ctx_alloc=100000`, `ctx=8192`, `gen_tokens=128`:
+
+| Row | Gen t/s | Decision |
+| --- | ---: | --- |
+| `plain` | 15.87 | branch baseline |
+| `graph` | 15.72 | graph-only is not the speed source |
+| `soa` | 16.07 | SoA is the useful exact-safe component |
+| `exact_fast` | 16.05 | operational baseline; effectively tied with SoA in this CLI bench |
+
+Expanded exact sweep command:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact \
+  --ctx-alloc 100000 --ctx-start 2048 --ctx-max 65536 \
+  --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/exact_20260522_1540 \
+  --summary tuning/gx10_matrix_results/exact_20260522_1540/summary.csv \
+  --markdown tuning/gx10_matrix_results/exact_20260522_1540/summary.md
+```
+
+The sweep produced 32 context points per row, from 2048 to 65536 in 2048-token
+steps. Main artifact:
+
+```text
+tuning/gx10_matrix_results/exact_20260522_1540/summary.md
+```
+
+Exact sweep summary, sorted by mean generation throughput. Deltas are relative
+to `exact_fast`.
+
+| Row | Mean t/s | @8192 t/s | @65536 t/s | Mean delta |
+| --- | ---: | ---: | ---: | ---: |
+| `soa_b_forced` | 15.046 | 16.17 | 13.66 | +0.98% |
+| `soa_shared` | 14.964 | 16.04 | 13.60 | +0.42% |
+| `soa_qb` | 14.908 | 16.05 | 13.54 | +0.05% |
+| `moe_h16` | 14.907 | 16.07 | 13.53 | +0.04% |
+| `exact_fast` | 14.901 | 16.06 | 13.53 | baseline |
+| `soa_qkv` | 14.869 | 16.04 | 13.47 | -0.21% |
+| `moe_noaux` | 14.861 | 16.01 | 13.49 | -0.26% |
+| `soa` | 14.856 | 15.98 | 13.51 | -0.30% |
+| `attn_b_cublas_min1` | 14.853 | 16.00 | 13.48 | -0.32% |
+| `output_top1` | 14.850 | 16.00 | 13.50 | -0.34% |
+| `soa_cache_x` | 14.817 | 15.97 | 13.45 | -0.56% |
+| `moe_fused_midq` | 14.746 | 15.87 | 13.43 | -1.04% |
+| `moe_pair2` | 14.656 | 15.76 | 13.33 | -1.64% |
+| `plain` | 14.653 | 15.78 | 13.32 | -1.66% |
+| `graph` | 14.602 | 15.73 | 13.26 | -2.00% |
+
+Decision:
+
+- `soa_b_forced` is the only exact row that beat `exact_fast` across the sweep,
+  but the gain is small: **+0.98% mean**, **+0.68% at 8192**, and **+0.96% at
+  65536**. This is below the 1-2% promotion threshold. Do not promote it yet.
+  If we want to chase this small default improvement, first repeat only
+  `exact_fast` vs `soa_b_forced`, then run the canary coding gate if the repeat
+  still clears at least 1%.
+- `soa_shared` is not worth promoting: it is only **+0.42% mean**, slightly
+  below `exact_fast` at 8192, and already had stored-logprob drift risk.
+- `soa_qb`, `moe_h16`, and other near-baseline rows are noise-level results,
+  not candidates.
+- `graph` alone, `output_top1`, cuBLAS attention-output-B, broad SoA variants,
+  and the existing MoE micro-toggles are confirmed neutral or negative in this
+  post-rebase matrix.
+- The matrix did not reveal an env-row path to full-quality 20 t/s.
+
+Next action:
+
+1. Optionally repeat `exact_fast` vs `soa_b_forced` if we want to pursue a
+   sub-1% wrapper/default change.
+2. Do not restart the broad native-pack work as originally phrased here. The
+   roadmap already contains byte-verified routed packs plus real compute tests,
+   and the naive row-major / block-paired layouts were slower once used by the
+   actual dot-product kernels.
+3. The remaining implementation work must be narrower: preserve the current
+   qwarp lane-contiguous weight stream while reducing real memory traffic or
+   doing a targeted attention-output/Q8 projection kernel redesign that is not
+   another SoA/cuBLAS/cache-X toggle.
+
+### 2026-05-22 continuation - proposal recheck and residency probes
+
+The two proposed next directions were rechecked against the earlier roadmap.
+This changed the recommendation:
+
+- **Native routed-expert pack, as a broad item, was already explored.** The log
+  already contains `DS4_CUDA_ROUTED_PACK_SMOKE`, row-major gate/down packs,
+  gate/up block-paired packs, raw-read benches, and compute-equivalence
+  benches. The important negative result is the real compute path: block-paired
+  gate/up was byte-exact but **0.466x** the current separate layout, a K=6
+  multi-expert shared-xq/LUT kernel was **0.681x**, and row-major down compute
+  was **0.859x**. The lesson is not "pack experts"; it is "do not break the
+  current qwarp block stream."
+- **Targeted Q8 projection was also mostly explored at the toggle/layout level.**
+  The branch already tested output top1, Q8 cuBLAS/F16, attention-output-B
+  cuBLAS, activation cache-X, Q8 aligned padding, SoA A/B, SoA QB, SoA QKV,
+  SoA shared, and SoA batch2 probes. The only promoted exact path remains
+  default attention-output A/B SoA. A future Q8 projection attempt must be a
+  new kernel shape, not another broad cache toggle.
+
+One genuinely under-covered family remained: **model/weight residency and CUDA
+allocation placement**. These probes were run at `ctx_alloc=100000`,
+`ctx=8192`, `gen_tokens=128`, same prompt as the exact matrix.
+
+Full model copy probe:
+
+```sh
+DS4_CUDA_COPY_MODEL=1 \
+DS4_CUDA_GRAPH_DECODE=1 \
+DS4_CUDA_Q8_SOA_CACHE=1 \
+./ds4-bench --cuda -m ds4flash.gguf \
+  --prompt-file speed-bench/promessi_sposi.txt \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 \
+  --gen-tokens 128 \
+  --csv tuning/gx10_matrix_results/model_residency_20260522/copy_model_exact_fast_bench.csv
+```
+
+Result:
+
+- Startup copied **80.76 GiB** of model image to device memory and took
+  **457.539s**.
+- Benchmark result: **15.75 t/s**, prefill **223.08 t/s**.
+- Adjacent/default exact-fast controls were around **16.05-16.06 t/s** on the
+  same primitive bench.
+
+Decision: reject. A single device-owned full-image base is slower at steady
+decode and has unacceptable startup cost. `DS4_CUDA_COPY_MODEL_CHUNKED` was not
+run after this because it changes upload mechanics, not the steady-state
+device-owned pointer layout that already failed the speed gate.
+
+Arena placement probe:
+
+```sh
+DS4_CUDA_WEIGHT_ARENA_CHUNK_MB=<chunk> \
+DS4_CUDA_GRAPH_DECODE=1 \
+DS4_CUDA_Q8_SOA_CACHE=1 \
+./ds4-bench --cuda -m ds4flash.gguf \
+  --prompt-file speed-bench/promessi_sposi.txt \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 \
+  --gen-tokens 128 \
+  --csv tuning/gx10_matrix_results/arena_20260522/<chunk>_exact_fast_bench.csv
+```
+
+Results:
+
+| Weight arena chunk | Gen t/s | Result |
+| --- | ---: | --- |
+| default | 16.06 | control |
+| 1024 MiB | n/a | failed startup cache at tensor span 116 with OOM |
+| 4096 MiB | 15.80 | slower |
+| 8192 MiB | 15.88 | slower |
+
+Decision: keep the default arena chunk. The default placement is already better
+than larger arenas, and smaller arenas can fail the complete 80.76 GiB cache.
+
+Direct/no-FD residency probes:
+
+| Probe | Result | Decision |
+| --- | --- | --- |
+| `DS4_CUDA_DIRECT_MODEL=1` with graph+SoA | no usable CSV; after a long run, decode failed during CUDA graph capture with `attention_output_low_q8_rope` reporting a previous capture error | reject for exact-fast graph path |
+| `DS4_CUDA_NO_FD_CACHE=1` with graph+SoA | no CSV; did not finish within a 300s timeout while preparing/running the same 8192/128 bench | reject; worse operationally before any speed gate |
+
+Overall decision from the recheck:
+
+- The earlier "native routed-expert pack" proposal was too broad and repeated
+  work already documented in this file.
+- The residency/allocation probes close another tempting outside-the-box family:
+  full model copy, arena chunk tuning, direct model pointers, and non-FD cache
+  placement do not move toward 20 t/s.
+- The remaining credible full-quality path is new kernel work with a stricter
+  design target: keep exact logits, keep full K=6, keep memory under control,
+  preserve the qwarp-friendly streams that existing kernels depend on, and cut
+  actual per-token weight traffic or per-row work in the hot routed-MoE and
+  attention-output/Q8 projection kernels.
+
+### 2026-05-22 continuation - quality gates and timebox
+
+The next full-quality push will use `ds4-eval` as an explicit capability gate
+in addition to deterministic logprob checks and the coding eval. `ds4-eval` is
+not a leaderboard score, but it is useful here because it exercises GPQA
+Diamond, audited SuperGPQA, AIME2025, and COMPSEC prompts through the same local
+inference path.
+
+Runner support was added to `tuning/gx10_matrix.py`:
+
+```sh
+python3 tuning/gx10_matrix.py ds-eval exact_fast \
+  --questions 4 --tokens 1024 --nothink --seed 1
+
+python3 tuning/gx10_matrix.py ds-eval-suite exact_fast <candidate-row> \
+  --questions 12 --tokens 4096 --think --seed 1
+
+python3 tuning/gx10_matrix.py ds-eval-suite exact_fast <candidate-row> \
+  --questions 92 --tokens 16000 --think --seed 1
+```
+
+Promotion gates from this point:
+
+1. Speed smoke: candidate must beat `exact_fast` by at least **+3%** on the
+   8192/128 primitive bench before expensive quality runs.
+2. Deterministic exactness: for kernels intended to be exact, logprob/token
+   output must not diverge.
+3. Coding canary: no new failures versus same-run `exact_fast`.
+4. `ds4-eval` smoke: 12 questions, thinking mode, no pass-count regression
+   versus same-run `exact_fast`.
+5. Long gate: full 92-question `ds4-eval` only after the candidate passes all
+   earlier gates; no pass-count regression versus same-run `exact_fast`.
+
+Best-effort stop condition:
+
+- Try at most two targeted kernel prototypes, or about one short working day of
+  implementation/profiling.
+- Stop earlier if neither prototype clears the +3% speed smoke.
+- Park any faster prototype that fails deterministic exactness, coding canary,
+  or `ds4-eval` smoke.
+- Do not spend the long 92-question `ds4-eval` run on rows that have not already
+  passed the cheaper filters.
+
+Baseline smoke executed:
+
+```sh
+python3 tuning/gx10_matrix.py ds-eval exact_fast \
+  --questions 4 --tokens 1024 --nothink --seed 1 --timeout-sec 900
+```
+
+Result:
+
+- Artifact: `tuning/gx10_matrix_results/exact_fast_ds4_eval.txt`
+- Context auto-sized to **1337 tokens**.
+- Result: **4/4 passed**.
+- Runtime: under one minute after the model cache startup.
+
+### 2026-05-22 continuation - exact MoE metadata-cache prototypes
+
+After rechecking the roadmap, the next exact kernel attempt deliberately avoided
+the already-failed broad routed-pack, H16/noaux/pair2/fused-midq, row4 down, and
+Q8 toggle families. The tested idea was narrower: keep the current
+qwarp-friendly weight stream and only remove redundant tiny metadata loads.
+
+Two opt-in diagnostic flags were added:
+
+| Row | Env | Intent |
+| --- | --- | --- |
+| `moe_down_meta_cache` | `DS4_CUDA_MOE_DOWN_SUM6_META_CACHE=1` | Load the six selected experts once into shared memory in the exact K=6 down-sum kernel. |
+| `moe_gate_weight_cache` | `DS4_CUDA_MOE_DECODE_GATE_WEIGHT_CACHE=1` | Load the route weight once into shared memory per gate/up CTA instead of reloading it for every output row. |
+| `moe_meta_cache` | both flags | Combined diagnostic row. |
+
+Build and smoke:
+
+```sh
+make -j$(nproc) cuda-spark
+
+python3 tuning/gx10_matrix.py bench-suite exact_fast moe_down_meta_cache \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260522_moe_meta \
+  --summary tuning/gx10_matrix_results/prototype_20260522_moe_meta/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260522_moe_meta/summary.md \
+  --stop-on-fail
+
+python3 tuning/gx10_matrix.py bench-suite exact_fast moe_gate_weight_cache moe_meta_cache \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260522_moe_weight_cache \
+  --summary tuning/gx10_matrix_results/prototype_20260522_moe_weight_cache/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260522_moe_weight_cache/summary.md \
+  --stop-on-fail
+```
+
+Results:
+
+| Row | 8192/128 gen t/s | Same-run control | Decision |
+| --- | ---: | ---: | --- |
+| `moe_down_meta_cache` | **16.14** | 16.05 | Tiny/noisy +0.6%; below +3% speed gate. Do not promote. |
+| `moe_gate_weight_cache` | **15.93** | 16.12 | Negative. Do not promote. |
+| `moe_meta_cache` | **15.99** | 16.12 | Negative. Do not promote. |
+
+Takeaway: this exact metadata-cache family is closed for now. The existing MoE
+kernels are not bottlenecked by selected-expert or route-weight scalar loads;
+the extra shared memory/synchronization is neutral to negative. The flags remain
+as opt-in diagnostics so the result is reproducible, but they should not be
+included in `ds4-agent-exact-fast` or any quality-gate suite unless the kernel
+body changes substantially.
+
+### 2026-05-22 continuation - IQ2/Q2 dot codegen probe
+
+The next non-layout probe targeted the real gate/up dot body instead of metadata:
+`dev_dot_iq2_xxs_q8_K_block_lut` was temporarily rewritten to force inlining,
+unroll the fixed 8-step block loop, and replace the local `w[8]` array with
+explicit scalar temporaries. A matching force-inline/unroll cleanup was then
+tried for the Q2 down dot.
+
+This was exact in intent and did not change model weights, active experts,
+kernel layout, or accumulation order at source level. It was still treated as a
+quality-risk candidate because CUDA codegen/register allocation can move enough
+floating-point detail to change generation.
+
+Speed smoke looked tempting:
+
+| Build | Artifact | 8192/128 gen t/s |
+| --- | --- | ---: |
+| IQ2 codegen run 1 | `prototype_20260522_iq2_codegen/exact_fast_bench.csv` | **16.28** |
+| IQ2 codegen run 2 | `prototype_20260522_iq2_codegen/exact_fast_repeat2_bench.csv` | **16.44** |
+| IQ2+Q2 codegen | `prototype_20260522_iq2_q2_codegen/exact_fast_bench.csv` | **16.28** |
+
+But the cheap `ds4-eval` gate caught a regression:
+
+```sh
+python3 tuning/gx10_matrix.py ds-eval exact_fast \
+  --questions 4 --tokens 1024 --nothink --seed 1 --timeout-sec 900 \
+  --label exact_fast_codegen_smoke \
+  --out-dir tuning/gx10_matrix_results/prototype_20260522_iq2_q2_codegen
+```
+
+Result: **3/4 passed**. The SuperGPQA grass-pellet case changed from the prior
+correct `C` answer to `G`.
+
+The codegen changes were then removed and the same smoke was repeated:
+
+```sh
+python3 tuning/gx10_matrix.py ds-eval exact_fast \
+  --questions 4 --tokens 1024 --nothink --seed 1 --timeout-sec 900 \
+  --label exact_fast_after_codegen_revert_smoke \
+  --out-dir tuning/gx10_matrix_results/prototype_20260522_iq2_q2_codegen
+```
+
+Result after revert: **4/4 passed**. A post-revert 8192/128 speed smoke measured
+**15.96 t/s**, consistent with the previous exact-fast noise band.
+
+Decision: reject the IQ2/Q2 codegen rewrite despite the apparent +1-2% speed
+signal. It is a useful negative result: source-level "same order" is not enough
+for this target; any codegen-level dot change needs deterministic logprob/coding
+checks immediately, before chasing speed.
+
+### 2026-05-22 continuation - attention-output-A half-warp probe
+
+Because the MoE history already rules out many full-K micro-shapes, the next
+probe deliberately avoided routed MoE. The candidate targeted
+`attn_output_a`, whose promoted path is the SoA Q8 grouped projection. The idea
+was to use 16 lanes per low-row instead of 32 lanes, doubling rows per CTA and
+reducing CTA count while keeping the same SoA weight layout.
+
+Implemented diagnostic row:
+
+| Row | Env | Note |
+| --- | --- | --- |
+| `attn_a_hwarp16` | `DS4_CUDA_ATTENTION_OUTPUT_A_HWARP16=1` | Uses a half-warp grouped `attn_output_a` SoA kernel. |
+
+This is not source-order identical to the default full-warp kernel: each row's
+dot-product blocks are partitioned across 16 lanes instead of 32, so the
+floating-point reduction order changes. For that reason the speed gate had to be
+clearly positive before spending any quality budget.
+
+Smoke:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast attn_a_hwarp16 \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260522_attn_a_hwarp16 \
+  --summary tuning/gx10_matrix_results/prototype_20260522_attn_a_hwarp16/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260522_attn_a_hwarp16/summary.md \
+  --stop-on-fail
+```
+
+Result:
+
+| Row | 8192/128 gen t/s | Decision |
+| --- | ---: | --- |
+| `exact_fast` | **16.16** | control |
+| `attn_a_hwarp16` | **16.08** | negative; no quality gate |
+
+Decision: reject the half-warp attention-output-A variant. It is a useful
+non-MoE negative: reducing CTA count is not enough, and changing the reduction
+shape is not justified without a speed win.
+
+### 2026-05-23 continuation - corrected exact-fast profile and HC-expand SoA probe
+
+After the upstream refresh and branch rebase, the current exact-fast path was
+profiled again before opening a new kernel direction.
+
+Built-in stage/MoE profile command:
+
+```sh
+DS4_CUDA_Q8_SOA_CACHE=1 \
+DS4_METAL_DECODE_STAGE_PROFILE=1 \
+DS4_CUDA_MOE_PROFILE=1 \
+./ds4 --cuda -m ds4flash.gguf --ctx 100000 --nothink --temp 0 -n 4 \
+  -p "Write a Python function merge_intervals(intervals) that merges overlapping intervals."
+```
+
+`DS4_CUDA_GRAPH_DECODE=1` is intentionally absent here because the MoE profiler
+uses CUDA events and cannot run inside graph capture.
+
+Fresh decode stage totals:
+
+| Stage | Total | Per generated token |
+| --- | ---: | ---: |
+| `routed_moe` | 48.056 ms | 16.019 ms |
+| `attn_output` | 41.359 ms | 13.786 ms |
+| `q_path` | 27.290 ms | 9.097 ms |
+| `shared_gate_up` | 11.766 ms | 3.922 ms |
+| `compressor_indexer` | 10.797 ms | 3.599 ms |
+| `attention` | 8.380 ms | 2.793 ms |
+| `shared_down` | 6.671 ms | 2.224 ms |
+
+Filtered decode-only MoE split (`tokens=1` lines only):
+
+```text
+calls=129 pairs=774
+xq=0.610 sort=0.130 gateup=30.937 midq=0.541 down=14.534 sum=0.129 total=46.766 ms
+per generated token: gateup=10.312 ms, down=4.845 ms, total=15.589 ms
+```
+
+This matches the earlier profile: routed MoE gate/up, attention output, and
+`attn_q_b`/Q path are still the real decode budget.
+
+A corrected Nsight Systems decode-node trace was then captured:
+
+```sh
+DS4_CUDA_GRAPH_DECODE=1 \
+DS4_CUDA_Q8_SOA_CACHE=1 \
+nsys profile --trace=cuda --cuda-graph-trace=node \
+  --output=tuning/gx10_matrix_results/profile_20260523_exact_fast/exact_fast_graph_soa_node_decode \
+  --force-overwrite=true \
+  ./ds4 --cuda -m ds4flash.gguf --ctx 100000 --nothink --temp 0 -n 64 \
+    -p "Write a Python function merge_intervals(intervals) that merges overlapping intervals."
+```
+
+Important tooling note: Nsight's default CUDA graph trace granularity is
+`graph`; that hides decode child kernels and mostly shows preload/prefill work.
+Use `--cuda-graph-trace=node` for kernel-level decode attribution.
+
+Top exact-fast decode-node kernels:
+
+| Kernel | Time share | Total | Instances | Median |
+| --- | ---: | ---: | ---: | ---: |
+| `moe_gate_up_mid_decode_lut_qwarp32_kernel` | 16.1% | 633.659 ms | 2709 | 231.680 us |
+| `matmul_q8_0_hc_expand_preq_warp8_soa_kernel` | 10.8% | 423.387 ms | 2709 | 155.712 us |
+| `matmul_q8_0_preq_batch_warp8_kernel` | 10.8% | 422.425 ms | 2709 | 155.808 us |
+| `grouped_q8_0_a_preq_warp8_soa_kernel` | 10.5% | 411.996 ms | 2709 | 151.488 us |
+| `moe_down_sum6_qwarp32_kernel` | 7.5% | 296.216 ms | 2709 | 108.768 us |
+| `matmul_q8_0_pair_swiglu_preq_warp8_kernel` | 5.7% | 224.497 ms | 2709 | 82.592 us |
+| `attention_decode_mixed_kernel` | 4.4% | 171.723 ms | 2709 | 57.152 us |
+| `matmul_q8_0_hc_expand_preq_warp8_kernel` | 3.0% | 119.195 ms | 2709 | 43.552 us |
+
+The un-SoA `hc_expand` tail suggested one narrow, not-yet-isolated probe:
+cache and route only HC-expand Q8 tensors beyond the default attention-output
+A/B cache, without enabling broad `DS4_CUDA_Q8_SOA_SHARED=1`.
+
+Implemented diagnostic row:
+
+| Row | Env | Note |
+| --- | --- | --- |
+| `soa_hc_expand` | `DS4_CUDA_Q8_SOA_HC_EXPAND=1` | Allows SoA cache/routing for `*_hc_expand`; preloads `ffn_down_shexp` so graph capture does not allocate at decode time. |
+
+The first implementation allowed the runtime label `shared_down_hc_expand` but
+not the preload label `ffn_down_shexp`, causing CUDA graph capture to fail with
+`operation failed due to a previous error during capture`. The flag now also
+permits the original shared-down preload label.
+
+Speed smoke:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast soa_hc_expand \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_soa_hc_expand_retry \
+  --summary tuning/gx10_matrix_results/prototype_20260523_soa_hc_expand_retry/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_soa_hc_expand_retry/summary.md \
+  --stop-on-fail
+```
+
+Result:
+
+| Row | 8192/128 gen t/s | Decision |
+| --- | ---: | --- |
+| `exact_fast` | **16.06** | control |
+| `soa_hc_expand` | **16.01** | negative; no quality gate |
+
+Decision: reject `soa_hc_expand` for promotion. The remaining interleaved
+HC-expand tail is too small, and the extra cache/routing does not improve
+end-to-end decode. Keep the flag as a diagnostic in the research branch only.
+
+Because the corrected node trace also showed `attn_q_b` as the largest
+remaining non-SoA Q8 projection, the existing `soa_qb` row was rechecked once
+on the current post-upstream branch rather than assumed from old data:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast soa_qb \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/recheck_20260523_soa_qb \
+  --summary tuning/gx10_matrix_results/recheck_20260523_soa_qb/summary.csv \
+  --markdown tuning/gx10_matrix_results/recheck_20260523_soa_qb/summary.md \
+  --stop-on-fail
+```
+
+Result:
+
+| Row | 8192/128 gen t/s | Decision |
+| --- | ---: | --- |
+| `exact_fast` | **16.06** | control |
+| `soa_qb` | **16.00** | negative; confirms prior neutral/negative full-decode result |
+
+Decision: do not keep chasing `attn_q_b` through the existing SoA toggle. Any
+future `attn_q_b` attempt must be a new kernel shape with a clear speed gate,
+not another cache-selection rerun.
+
+### 2026-05-23 continuation - non-repeating hot-kernel probes
+
+The next pass stayed on the corrected decode-node profile and tested only
+paths that were not already covered by the earlier MoE pack/H16/no-aux,
+Q8 alignment, broad SoA, F16/cuBLAS, and cache-x experiments.
+
+#### `attn_q_b` kernel-shape variants
+
+`attn_q_b` remained visible as `matmul_q8_0_preq_batch_warp8_kernel` in the
+node trace. Three narrow variants were tried:
+
+| Row | Env | Intent |
+| --- | --- | --- |
+| `attn_qb_hwarp16` | `DS4_CUDA_ATTN_Q_B_HWARP16=1` | half-warp CTA shape for the interleaved Q8 path |
+| `attn_qb_soa_hwarp16` | `DS4_CUDA_Q8_SOA_QB=1 DS4_CUDA_ATTN_Q_B_HWARP16=1` | same shape on a SoA Q/B cache |
+| `attn_qb_b32_special` | `DS4_CUDA_ATTN_Q_B_B32_SPECIAL=1` | exact-order specialization for the decode shape `in=1024,out=32768,blocks=32` |
+
+Speed smokes:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast attn_qb_hwarp16 attn_qb_soa_hwarp16 \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_attn_qb_hwarp16 \
+  --summary tuning/gx10_matrix_results/prototype_20260523_attn_qb_hwarp16/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_attn_qb_hwarp16/summary.md \
+  --stop-on-fail
+
+python3 tuning/gx10_matrix.py bench-suite exact_fast attn_qb_b32_special \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_attn_qb_b32_special \
+  --summary tuning/gx10_matrix_results/prototype_20260523_attn_qb_b32_special/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_attn_qb_b32_special/summary.md \
+  --stop-on-fail
+```
+
+Results:
+
+| Row | Same-run control | 8192/128 gen t/s | Decision |
+| --- | ---: | ---: | --- |
+| `attn_qb_hwarp16` | 16.13 | **15.92** | negative; no quality gate |
+| `attn_qb_soa_hwarp16` | 16.13 | **16.03** | negative; no quality gate |
+| `attn_qb_b32_special` | 16.12 | **16.07** | negative; no quality gate |
+
+Decision: reject this family for promotion. The half-warp variants also change
+reduction shape; the exact-order `blocks=32` specialization avoided that issue
+but still did not beat the generic warp8 kernel.
+
+#### HC-expand exact-shape specialization
+
+The SoA HC-expand tail probe was negative, so the next HC-expand attempt avoided
+extra residency and instead specialized the exact decode shape where
+`n_hc == 4` and `out_dim == n_embd`.
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast hc_expand_nhc4_special \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_hc_expand_nhc4_special \
+  --summary tuning/gx10_matrix_results/prototype_20260523_hc_expand_nhc4_special/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_hc_expand_nhc4_special/summary.md \
+  --stop-on-fail
+```
+
+Result:
+
+| Row | 8192/128 gen t/s | Decision |
+| --- | ---: | --- |
+| `exact_fast` | **16.14** | control |
+| `hc_expand_nhc4_special` | **16.11** | negative; no quality gate |
+
+Decision: reject. The specialized store/indexing path did not move end-to-end
+decode enough to justify carrying it forward.
+
+#### MoE LUT/template variants
+
+Because the largest decode-node kernel remained
+`moe_gate_up_mid_decode_lut_qwarp32_kernel`, two small variants were tested
+without repeating the already-failed native packs, H16, MoE no-aux, pair2,
+fused-midq, metadata-cache, row4, or parallel-down paths:
+
+| Row | Env | Intent |
+| --- | --- | --- |
+| `moe_span128_template` | `DS4_CUDA_MOE_DECODE_GATE_SPAN128_TEMPLATE=1` | force an explicit `span<128>` template instead of relying on the existing branch |
+| `moe_global_lut` | `DS4_CUDA_MOE_DECODE_GATE_GLOBAL_LUT=1` | avoid per-CTA shared IQ2 LUT copies and read the constant/global LUTs directly |
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast moe_span128_template moe_global_lut \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_moe_lut_micro \
+  --summary tuning/gx10_matrix_results/prototype_20260523_moe_lut_micro/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_moe_lut_micro/summary.md \
+  --stop-on-fail
+```
+
+Results:
+
+| Row | 8192/128 gen t/s | Decision |
+| --- | ---: | --- |
+| `exact_fast` | **16.16** | control |
+| `moe_span128_template` | **16.00** | negative; no quality gate |
+| `moe_global_lut` | **13.89** | strongly negative; no quality gate |
+
+Decision: reject. The explicit span template did not help, and keeping the IQ2
+LUTs in shared memory is clearly better than reading the global tables in the
+hot MoE gate/up loop.
+
+#### Shared expert no-aux write probe
+
+The earlier no-aux result applied to routed MoE gate/up. A separate
+shared-expert probe was still worth one cheap smoke because the normal shared
+path consumes only `shared_mid`; `shared_gate` and `shared_up` are mainly
+debug-visible outputs. The flag keeps the same dot products and SwiGLU formula
+but skips writing the auxiliary gate/up tensors:
+
+| Row | Env | Intent |
+| --- | --- | --- |
+| `shared_gate_up_noaux` | `DS4_CUDA_SHARED_GATE_UP_NOAUX=1` | compute only `shared_mid` in the fused shared expert gate/up kernel |
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast shared_gate_up_noaux \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_shared_gate_up_noaux \
+  --summary tuning/gx10_matrix_results/prototype_20260523_shared_gate_up_noaux/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_shared_gate_up_noaux/summary.md \
+  --stop-on-fail
+```
+
+Result:
+
+| Row | 8192/128 gen t/s | Decision |
+| --- | ---: | --- |
+| `exact_fast` | **16.15** | control |
+| `shared_gate_up_noaux` | **16.01** | negative; no quality gate |
+
+Decision: reject. Skipping two small float stores per row does not offset the
+same dot-product work and does not help full decode.
+
+#### HC-expand auxiliary `block_out` write removal
+
+The fused attention-output-B HC-expand path writes both `after_attn_hc` and the
+intermediate `attn_out` vector. In the normal no-directional-steering path,
+`attn_out` is only debug-visible after the fused kernel. A diagnostic
+`DS4_CUDA_HC_EXPAND_NO_BLOCK_OUT=1` variant was added for the no-add, `n_hc=4`
+shape so the kernel writes only `after_attn_hc`.
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast hc_expand_no_block_out \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_hc_expand_no_block_out \
+  --summary tuning/gx10_matrix_results/prototype_20260523_hc_expand_no_block_out/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_hc_expand_no_block_out/summary.md \
+  --stop-on-fail
+```
+
+Result:
+
+| Row | 8192/128 gen t/s | Decision |
+| --- | ---: | --- |
+| `exact_fast` | **16.17** | control |
+| `hc_expand_no_block_out` | **16.09** | negative; no quality gate |
+
+Decision: reject. Removing the auxiliary vector store does not matter while the
+dot-product and weight stream dominate.
+
+#### Routed MoE gate/up register-pressure probe
+
+The dominant routed MoE gate/up kernel uses 64 registers/thread. A first
+attempt to force `__launch_bounds__(256,5)` was invalid on the GB10 target:
+ptxas reported the requested threads per SM out of range and ignored the
+constraint. That is recorded here so it is not repeated.
+
+A second diagnostic variant used `__maxnreg__(48)`:
+
+| Row | Env | Resource delta |
+| --- | --- | --- |
+| `moe_gate_maxr48` | `DS4_CUDA_MOE_DECODE_GATE_MAXR48=1` | `REG:64 STACK:0` -> `REG:48 STACK:16` for `moe_gate_up_mid_decode_lut_qwarp32` |
+
+Speed smokes:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast moe_gate_maxr48 \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_moe_gate_maxr48 \
+  --summary tuning/gx10_matrix_results/prototype_20260523_moe_gate_maxr48/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_moe_gate_maxr48/summary.md \
+  --stop-on-fail
+
+python3 tuning/gx10_matrix.py bench-suite exact_fast moe_gate_maxr48 \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_moe_gate_maxr48_r2 \
+  --summary tuning/gx10_matrix_results/prototype_20260523_moe_gate_maxr48_r2/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_moe_gate_maxr48_r2/summary.md \
+  --stop-on-fail
+```
+
+Results:
+
+| Run | `exact_fast` | `moe_gate_maxr48` | Decision |
+| --- | ---: | ---: | --- |
+| r1 | 16.09 | **16.18** | small positive, below gate |
+| r2 | 16.10 | **16.03** | negative |
+
+Decision: reject for promotion. Register capping is not a stable speed win and
+introduces stack traffic; it does not deserve quality runs.
+
+#### Long-context indexer top-k chunking
+
+Because the MoE/Q8/MTP histories already rule out the obvious micro-shapes, the
+next exact probe targeted the ratio-4 compressor/indexer top-k path at a long
+frontier. This is not expected to close the whole 20 t/s gap, but it is a real
+decode component at `ctx=100000` and had not yet been tested as a chunk-size
+A/B.
+
+The default chunked top-k path sorts 4096 score rows per chunk, then merges
+`n_chunks * 512` candidates. A diagnostic
+`DS4_CUDA_TOPK_CHUNK8192=1` variant was added to use 8192-row chunks when
+`n_comp < 65535`, reducing the number of chunks and final candidates for the
+100k/250k compressed-context regime. The first direct `uint32_t` 8192 variant
+did not compile on GB10:
+
+```text
+ptxas error: uses too much shared data (0x10000 bytes, 0xc000 max)
+```
+
+The tested variant therefore stores chunk-local candidate indices as `uint16_t`
+in shared memory and writes the usual `uint32_t` candidate scratch output.
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast indexer_topk_chunk8192 \
+  --ctx-start 65536 --ctx-max 65536 --ctx-alloc 100000 --gen-tokens 64 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_indexer_topk_chunk8192 \
+  --summary tuning/gx10_matrix_results/prototype_20260523_indexer_topk_chunk8192/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_indexer_topk_chunk8192/summary.md \
+  --stop-on-fail
+```
+
+Result:
+
+| Row | 65536/64 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **13.46** | 337.40 | control |
+| `indexer_topk_chunk8192` | **13.36** | 333.03 | negative; no quality gate |
+
+Decision: reject for promotion. The larger chunk reduces merge width but makes
+the per-chunk sort heavier enough to lose decode throughput. Do not continue
+with chunk-size-only top-k variants unless a later indexer redesign changes the
+sort/merge algorithm.
+
+#### Shared FFN scheduling probes
+
+The next exact-safe probe targeted ordering and overlap inside the decode FFN
+section. This was deliberately different from the earlier shared-expert
+aux-write and MoE-kernel shape probes: the math kernels stayed full K=6 and
+quality-preserving, while only the scheduling around shared gate/up and routed
+MoE changed.
+
+Two diagnostic rows were added:
+
+- `DS4_CUDA_FFN_PARALLEL_SHARED=1`: launches shared gate/up/SwiGLU on a second
+  non-blocking CUDA stream after `ffn_norm`, runs router/routed MoE on the main
+  stream, then waits before shared-down.
+- `DS4_CUDA_FFN_SHARED_FIRST=1`: runs shared gate/up/SwiGLU immediately after
+  `ffn_norm`, before router/routed MoE, to test whether cache/wavefront locality
+  improves without using a second stream.
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast ffn_parallel_shared \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_ffn_parallel_shared \
+  --summary tuning/gx10_matrix_results/prototype_20260523_ffn_parallel_shared/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_ffn_parallel_shared/summary.md \
+  --stop-on-fail
+
+python3 tuning/gx10_matrix.py bench-suite exact_fast ffn_shared_first \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_ffn_shared_first \
+  --summary tuning/gx10_matrix_results/prototype_20260523_ffn_shared_first/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_ffn_shared_first/summary.md \
+  --stop-on-fail
+```
+
+Results:
+
+| Row | 8192/128 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` control for parallel run | **16.14** | 393.98 | control |
+| `ffn_parallel_shared` | **15.26** | 391.04 | negative |
+| `exact_fast` control for shared-first run | **16.14** | 391.39 | control |
+| `ffn_shared_first` | failed | n/a | graph-capture unsafe |
+
+The shared-first row failed during decode graph capture with:
+
+```text
+ds4: CUDA synchronize failed: operation not permitted when stream is capturing
+ds4: Metal synchronize after graph eval failure also failed
+ds4-bench: decode at frontier 8192 failed: cuda decode failed
+```
+
+Decision: reject both rows. The second stream does not expose useful overlap on
+GB10; the added event and memory scheduling pressure loses roughly 5.5% versus
+the same-run control. The shared-first ordering is not graph-capture safe in the
+current fused path. Do not spend more time on FFN ordering/overlap unless a
+future kernel redesign removes the capture-time synchronization or changes the
+shared/routed dependency graph.
+
+#### Normal decode graph no-pre-sync
+
+The MTP verifier history had already tested `ds4_gpu_graph_capture_begin_no_sync`
+for verifier graph capture, but the normal decode graph path still used
+`ds4_gpu_graph_capture_begin()` and therefore paid a pre-capture
+`cudaDeviceSynchronize()`. Since normal graph decode synchronizes at the end of
+each token before logits readback, a narrow exact-safe probe added
+`DS4_CUDA_GRAPH_DECODE_NO_SYNC=1` to use the no-pre-sync capture begin only for
+normal decode graph capture.
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast graph_no_presync \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_graph_no_presync \
+  --summary tuning/gx10_matrix_results/prototype_20260523_graph_no_presync/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_graph_no_presync/summary.md \
+  --stop-on-fail
+```
+
+Result:
+
+| Row | 8192/128 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **16.18** | 392.54 | control |
+| `graph_no_presync` | **16.03** | 391.36 | negative; no quality gate |
+
+Decision: reject for promotion. The pre-capture sync is not the limiting cost
+for normal decode graph mode on this path, and removing it does not expose
+hidden overlap.
+
+#### Weight tensor 2 MiB alignment
+
+Entrpi's CUDA/MMQ branch notes that per-tensor 2 MiB virtual placement can
+matter for its MMQ/VMM path, but that full implementation is invasive and has a
+documented reduction-order caveat. As a small exact-fast-compatible probe, the
+local CUDA fd-cache arena gained `DS4_CUDA_WEIGHT_TENSOR_ALIGN_MB=2`, which
+keeps the existing allocator and bytes but aligns each cached tensor base within
+the device arena to 2 MiB.
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast weight_tensor_align2m \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_weight_tensor_align2m \
+  --summary tuning/gx10_matrix_results/prototype_20260523_weight_tensor_align2m/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_weight_tensor_align2m/summary.md \
+  --stop-on-fail
+```
+
+Result:
+
+| Row | 8192/128 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **16.04** | 392.32 | control |
+| `weight_tensor_align2m` | **15.95** | 391.36 | negative; no quality gate |
+
+Decision: reject for promotion. The simplified placement idea does not transfer
+into the current native warp8/qwarp kernels. Do not continue weight placement
+padding inside this allocator; a real MMQ/VMM evaluation should be isolated on a
+dedicated port branch.
+
+#### Q8 batch1 cached-x projection path
+
+`attn_q_b` remains visible in the refreshed profile as
+`matmul_q8_0_preq_batch_warp8_kernel` for the `n_tok=1, blocks=32` Q8 decode
+shape. A narrow exact-order probe added `DS4_CUDA_Q8_BATCH1_CACHE_X=1` to route
+that shape through the existing warp8 `cached_x` kernel, copying the one-token
+`xq`/scale blocks into shared memory once per CTA before the eight output-row
+warps consume them.
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast q8_batch1_cache_x \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_q8_batch1_cache_x \
+  --summary tuning/gx10_matrix_results/prototype_20260523_q8_batch1_cache_x/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_q8_batch1_cache_x/summary.md \
+  --stop-on-fail
+```
+
+Result:
+
+| Row | 8192/128 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **16.13** | 393.16 | control |
+| `q8_batch1_cache_x` | **16.09** | 390.52 | negative; no quality gate |
+
+Decision: reject for promotion. The extra shared-memory staging does not pay
+for the one-token small-block projection shape, matching the broader lesson from
+the previous cache-x experiments.
+
+#### Default sampler probability cache
+
+The user's agent measurements include default sampled decoding, not only the
+greedy `ds4-bench` path. The default sampler uses `temperature=1`,
+`top_p=1`, `min_p=0.05`, scans the full vocabulary to compute probabilities,
+and previously recomputed `expf` during the final sampling pass. A CPU-side
+diagnostic flag, `DS4_SAMPLE_CACHE_PROBS=1`, now stores the first pass
+probabilities in a thread-local buffer and reuses them for the random draw.
+
+This is exact for a fixed seed because it samples from the same stored
+single-precision probabilities the first pass computed.
+
+```sh
+python3 tuning/gx10_matrix.py run exact_fast bash -lc './ds4 --cuda \
+  -m ds4flash.gguf --ctx 100000 --tokens 128 --seed 1 \
+  --temp 1 --top-p 1 --min-p 0.05 --nothink \
+  -p "Write a long technical explanation of CUDA optimization strategies in 20 paragraphs." \
+  > tuning/gx10_matrix_results/prototype_20260523_sample_cache_probs/exact_fast.out \
+  2> tuning/gx10_matrix_results/prototype_20260523_sample_cache_probs/exact_fast.log'
+
+python3 tuning/gx10_matrix.py run sample_cache_probs bash -lc './ds4 --cuda \
+  -m ds4flash.gguf --ctx 100000 --tokens 128 --seed 1 \
+  --temp 1 --top-p 1 --min-p 0.05 --nothink \
+  -p "Write a long technical explanation of CUDA optimization strategies in 20 paragraphs." \
+  > tuning/gx10_matrix_results/prototype_20260523_sample_cache_probs/sample_cache_probs.out \
+  2> tuning/gx10_matrix_results/prototype_20260523_sample_cache_probs/sample_cache_probs.log'
+```
+
+Result:
+
+| Row | CLI sampled generation t/s | Output compare | Decision |
+| --- | ---: | --- | --- |
+| `exact_fast` | **18.08** | control | control |
+| `sample_cache_probs` | **18.08** | `cmp=0` | neutral; no promotion |
+
+Decision: leave diagnostic-only. The default agent sampling CPU path is not the
+current throughput limiter.
+
+#### MoE read-only-cache load probes
+
+The next exact idea did not repeat the native pack or row-span history. It kept
+the current qwarp-friendly memory stream and changed only model-weight load
+opcodes in the hot routed MoE dot products:
+
+| Row | Env delta | Purpose |
+| --- | --- | --- |
+| `moe_gate_ldg` | `DS4_CUDA_MOE_DECODE_GATE_LDG=1` | use `__ldg` for routed gate/up IQ2 weight fields |
+| `moe_down_ldg` | `DS4_CUDA_MOE_DOWN_SUM6_LDG=1` | use `__ldg` for routed down Q2 weight fields |
+| `moe_ldg_weights` | both flags | combined read-only-cache probe |
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast moe_gate_ldg moe_down_ldg moe_ldg_weights \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_moe_ldg_weights \
+  --summary tuning/gx10_matrix_results/prototype_20260523_moe_ldg_weights/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_moe_ldg_weights/summary.md \
+  --stop-on-fail
+```
+
+Result:
+
+| Row | 8192/128 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **16.15** | 394.01 | control |
+| `moe_gate_ldg` | **15.93** | 391.37 | negative |
+| `moe_down_ldg` | **15.96** | 389.57 | negative |
+| `moe_ldg_weights` | **15.86** | 389.23 | negative |
+
+Decision: reject read-only-cache load variants for promotion. On GB10 these
+loads do not beat the normal model-cache path for the current kernels.
+
+#### DS4 shape-specialized MoE kernels
+
+The shape-specialization probe was different from H16/noaux/span/pair2. It kept
+the same lane assignment, the same qwarp reduction order, and the same model
+layout, but removed runtime genericity for the actual DS4 decode shapes:
+
+- routed gate/up: `n_tokens=1`, K=6, `xq_blocks=16`, `expert_mid_dim=2048`;
+- routed down: K=6, `midq_blocks=8`, `out_dim=4096`;
+- shared gate/up: Q8 `4096 -> 2048`, 128 Q8_0 blocks.
+
+Rows added:
+
+| Row | Env delta |
+| --- | --- |
+| `moe_gate_shape2048` | `DS4_CUDA_MOE_DECODE_GATE_SHAPE2048=1` |
+| `moe_down_shape4096` | `DS4_CUDA_MOE_DOWN_SUM6_SHAPE4096=1` |
+| `moe_shape_special` | both routed MoE shape flags |
+| `shared_gate_up_shape2048` | `DS4_CUDA_SHARED_GATE_UP_SHAPE2048=1` |
+| `shape_gate_shared` | routed gate shape + shared gate shape |
+
+First 128-token sweep:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast moe_gate_shape2048 moe_down_shape4096 moe_shape_special \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_moe_shape_special \
+  --summary tuning/gx10_matrix_results/prototype_20260523_moe_shape_special/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_moe_shape_special/summary.md \
+  --stop-on-fail
+```
+
+| Row | 8192/128 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **16.05** | 393.71 | control |
+| `moe_gate_shape2048` | **16.24** | 390.59 | small positive |
+| `moe_down_shape4096` | **16.04** | 389.60 | neutral |
+| `moe_shape_special` | **16.18** | 388.56 | below gate |
+
+Longer gate-only recheck:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast moe_gate_shape2048 \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 256 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_moe_gate_shape2048_256 \
+  --summary tuning/gx10_matrix_results/prototype_20260523_moe_gate_shape2048_256/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_moe_gate_shape2048_256/summary.md \
+  --stop-on-fail
+```
+
+| Row | 8192/256 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **15.87** | 390.17 | control |
+| `moe_gate_shape2048` | **16.22** | 389.30 | small positive, +2.2% |
+
+Bit-equivalence check:
+
+```sh
+env DS4_CUDA_GRAPH_DECODE=1 DS4_CUDA_Q8_SOA_CACHE=1 ./ds4 --cuda \
+  -m ds4flash.gguf --ctx 100000 \
+  --dump-logprobs tuning/gx10_matrix_results/prototype_20260523_moe_gate_shape2048_quality/exact_fast.json \
+  --logprobs-top-k 5 --temp 0 -n 32 --nothink \
+  -p 'Quanti anni ha la repubblica italiana?'
+
+env DS4_CUDA_GRAPH_DECODE=1 DS4_CUDA_Q8_SOA_CACHE=1 \
+  DS4_CUDA_MOE_DECODE_GATE_SHAPE2048=1 ./ds4 --cuda \
+  -m ds4flash.gguf --ctx 100000 \
+  --dump-logprobs tuning/gx10_matrix_results/prototype_20260523_moe_gate_shape2048_quality/moe_gate_shape2048.json \
+  --logprobs-top-k 5 --temp 0 -n 32 --nothink \
+  -p 'Quanti anni ha la repubblica italiana?'
+```
+
+`cmp` returned **0** for both JSON logprobs and generated stdout.
+
+Shared-shape check:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast shared_gate_up_shape2048 \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_shared_gate_up_shape2048 \
+  --summary tuning/gx10_matrix_results/prototype_20260523_shared_gate_up_shape2048/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_shared_gate_up_shape2048/summary.md \
+  --stop-on-fail
+```
+
+| Row | 8192/128 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **15.98** | 392.00 | control |
+| `shared_gate_up_shape2048` | **16.07** | 389.26 | too small |
+
+Combined routed-gate + shared-gate shape recheck:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast shape_gate_shared \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 256 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260523_shape_gate_shared_256 \
+  --summary tuning/gx10_matrix_results/prototype_20260523_shape_gate_shared_256/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260523_shape_gate_shared_256/summary.md \
+  --stop-on-fail
+```
+
+| Row | 8192/256 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **15.95** | 390.08 | control |
+| `shape_gate_shared` | **16.03** | 388.06 | below gate |
+
+Decision: keep `moe_gate_shape2048` as an exact minor candidate because it is
+byte-identical and repeated positive, but do not promote it alone. It is below
+the +3% cheap gate and does not move the branch meaningfully toward 20 t/s by
+itself. Reject the down-shape, shared-shape, combined shape, and `__ldg` rows
+for promotion.
+
+Net effect of this pass: the plausible narrow variants around `attn_q_b`,
+HC-expand, MoE LUT handling, shared expert aux writes, MoE register pressure,
+long-context top-k chunk sizing, FFN shared/routed scheduling, and normal
+decode graph pre-sync, plus the small Entrpi-inspired tensor-base alignment
+probe, batch1 Q8 cached-x routing, default sampling CPU probability reuse,
+read-only-cache MoE loads, and DS4 shape-specialized MoE/shared kernels are now
+covered. Only routed gate/up shape specialization produced a repeatable exact
+positive, and it remains a small candidate rather than a promoted default.
 
 ## Reproducing the measurements
 

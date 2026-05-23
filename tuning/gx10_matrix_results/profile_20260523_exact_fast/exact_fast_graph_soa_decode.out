@@ -1,0 +1,17 @@
+Here's a Python function that merges overlapping intervals:
+
+```python
+def merge_intervals(intervals):
+    """
+    Merge overlapping intervals.
+    
+    Args:
+        intervals: List of intervals, where each interval is a list [start, end]
+    
+    Returns:
+        List of merged intervals sorted by start time
+Collecting data...
+Generating '/tmp/nsys-report-947d.qdstrm'
+[1/1] [0%                          ] exact_fast_graph_soa_decode.nsys-rep[1/1] [0%                          ] exact_fast_graph_soa_decode.nsys-rep[1/1] [===22%                      ] exact_fast_graph_soa_decode.nsys-rep[1/1] [==18%                       ] exact_fast_graph_soa_decode.nsys-rep[1/1] [=15%                        ] exact_fast_graph_soa_decode.nsys-rep[1/1] [13%                         ] exact_fast_graph_soa_decode.nsys-rep[1/1] [11%                         ] exact_fast_graph_soa_decode.nsys-rep[1/1] [===22%                      ] exact_fast_graph_soa_decode.nsys-rep[1/1] [==20%                       ] exact_fast_graph_soa_decode.nsys-rep[1/1] [==18%                       ] exact_fast_graph_soa_decode.nsys-rep[1/1] [=16%                        ] exact_fast_graph_soa_decode.nsys-rep[1/1] [===24%                      ] exact_fast_graph_soa_decode.nsys-rep[1/1] [======33%                   ] exact_fast_graph_soa_decode.nsys-rep[1/1] [========42%                 ] exact_fast_graph_soa_decode.nsys-rep[1/1] [===========51%              ] exact_fast_graph_soa_decode.nsys-rep[1/1] [=============59%            ] exact_fast_graph_soa_decode.nsys-rep[1/1] [================68%         ] exact_fast_graph_soa_decode.nsys-rep[1/1] [==================77%       ] exact_fast_graph_soa_decode.nsys-rep[1/1] [====================85%     ] exact_fast_graph_soa_decode.nsys-rep[1/1] [=======================94%  ] exact_fast_graph_soa_decode.nsys-rep[1/1] [========================97% ] exact_fast_graph_soa_decode.nsys-rep[1/1] [========================100%] exact_fast_graph_soa_decode.nsys-rep[1/1] [========================100%] exact_fast_graph_soa_decode.nsys-rep
+Generated:
+	/home/alessandro/projects/ds4/tuning/gx10_matrix_results/profile_20260523_exact_fast/exact_fast_graph_soa_decode.nsys-rep

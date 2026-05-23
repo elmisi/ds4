@@ -1,0 +1,58 @@
+[
+  {
+    "row": "exact_fast",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 16.05,
+    "gen_8192": 16.05,
+    "gen_last": 16.05,
+    "gen_mean": 16.05,
+    "gen_max": 16.05,
+    "gen_ss_mean": 16.05,
+    "prefill_mean": 388.15,
+    "prefill_max": 388.15
+  },
+  {
+    "row": "graph",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 15.72,
+    "gen_8192": 15.72,
+    "gen_last": 15.72,
+    "gen_mean": 15.72,
+    "gen_max": 15.72,
+    "gen_ss_mean": 15.72,
+    "prefill_mean": 390.33,
+    "prefill_max": 390.33
+  },
+  {
+    "row": "plain",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 15.87,
+    "gen_8192": 15.87,
+    "gen_last": 15.87,
+    "gen_mean": 15.87,
+    "gen_max": 15.87,
+    "gen_ss_mean": 15.87,
+    "prefill_mean": 392.29,
+    "prefill_max": 392.29
+  },
+  {
+    "row": "soa",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 16.07,
+    "gen_8192": 16.07,
+    "gen_last": 16.07,
+    "gen_mean": 16.07,
+    "gen_max": 16.07,
+    "gen_ss_mean": 16.07,
+    "prefill_mean": 388.55,
+    "prefill_max": 388.55
+  }
+]

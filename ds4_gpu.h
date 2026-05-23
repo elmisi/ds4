@@ -244,6 +244,11 @@ int ds4_gpu_shared_gate_up_swiglu_q8_0_tensor(
         const ds4_gpu_tensor *x,
         float                   clamp);
 
+int ds4_gpu_ffn_parallel_shared_begin(void);
+int ds4_gpu_ffn_parallel_shared_end(void);
+int ds4_gpu_ffn_parallel_shared_wait(void);
+void ds4_gpu_ffn_parallel_shared_abort(void);
+
 int ds4_gpu_matmul_f16_tensor(
         ds4_gpu_tensor       *out,
         const void             *model_map,

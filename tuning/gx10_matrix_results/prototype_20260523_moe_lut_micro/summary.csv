@@ -1,0 +1,4 @@
+row,rows,ctx_first,ctx_last,gen_first,gen_8192,gen_last,gen_mean,gen_max,gen_ss_mean,prefill_mean,prefill_max
+exact_fast,1,8192,8192,16.16,16.16,16.16,16.16,16.16,16.16,393.61,393.61
+moe_global_lut,1,8192,8192,13.89,13.89,13.89,13.89,13.89,13.89,389.23,389.23
+moe_span128_template,1,8192,8192,16.0,16.0,16.0,16.0,16.0,16.0,391.18,391.18

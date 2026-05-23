@@ -1,0 +1,30 @@
+[
+  {
+    "row": "attn_a_hwarp16",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 16.08,
+    "gen_8192": 16.08,
+    "gen_last": 16.08,
+    "gen_mean": 16.08,
+    "gen_max": 16.08,
+    "gen_ss_mean": 16.08,
+    "prefill_mean": 390.82,
+    "prefill_max": 390.82
+  },
+  {
+    "row": "exact_fast",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 16.16,
+    "gen_8192": 16.16,
+    "gen_last": 16.16,
+    "gen_mean": 16.16,
+    "gen_max": 16.16,
+    "gen_ss_mean": 16.16,
+    "prefill_mean": 394.29,
+    "prefill_max": 394.29
+  }
+]

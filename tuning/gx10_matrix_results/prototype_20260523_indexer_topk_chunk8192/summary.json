@@ -1,0 +1,30 @@
+[
+  {
+    "row": "exact_fast",
+    "rows": 1,
+    "ctx_first": 65536,
+    "ctx_last": 65536,
+    "gen_first": 13.46,
+    "gen_8192": null,
+    "gen_last": 13.46,
+    "gen_mean": 13.46,
+    "gen_max": 13.46,
+    "gen_ss_mean": 13.46,
+    "prefill_mean": 337.4,
+    "prefill_max": 337.4
+  },
+  {
+    "row": "indexer_topk_chunk8192",
+    "rows": 1,
+    "ctx_first": 65536,
+    "ctx_last": 65536,
+    "gen_first": 13.36,
+    "gen_8192": null,
+    "gen_last": 13.36,
+    "gen_mean": 13.36,
+    "gen_max": 13.36,
+    "gen_ss_mean": 13.36,
+    "prefill_mean": 333.03,
+    "prefill_max": 333.03
+  }
+]

@@ -1,0 +1,30 @@
+[
+  {
+    "row": "attn_qb_b32_special",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 16.07,
+    "gen_8192": 16.07,
+    "gen_last": 16.07,
+    "gen_mean": 16.07,
+    "gen_max": 16.07,
+    "gen_ss_mean": 16.07,
+    "prefill_mean": 391.06,
+    "prefill_max": 391.06
+  },
+  {
+    "row": "exact_fast",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 16.12,
+    "gen_8192": 16.12,
+    "gen_last": 16.12,
+    "gen_mean": 16.12,
+    "gen_max": 16.12,
+    "gen_ss_mean": 16.12,
+    "prefill_mean": 391.9,
+    "prefill_max": 391.9
+  }
+]
