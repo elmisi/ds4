@@ -5965,10 +5965,48 @@ python3 tuning/gx10_matrix.py ds-eval-suite exact_fast \
 | `exact_fast` | **4/4** |
 | `shape_gate_attn_qb_soa_b32` | **4/4** |
 
-Decision: keep `shape_gate_attn_qb_soa_b32` as the first recent exact-intent
-combo candidate that actually composes. Do not promote it yet: it needs a wider
-quality gate because the logprob JSON is not byte-identical, and it needs a
-larger speed gate because the gain is still well below the 20 t/s target.
+Wider quality gates rejected the row:
+
+```sh
+python3 tuning/gx10_matrix.py ds-eval-suite exact_fast \
+  shape_gate_attn_qb_soa_b32 \
+  --questions 12 --tokens 1024 --nothink --seed 1 --timeout-sec 1800 \
+  --label-prefix attn_qb_soa_b32_12q_nothink_ \
+  --out-dir tuning/gx10_matrix_results/prototype_20260524_attn_qb_soa_b32_eval_12q_nothink \
+  --extra "--hard-limit-reply-budget 256 --soft-limit-reply-budget 512"
+```
+
+Both rows scored **11/12** at 1024 generated tokens and failed the same
+budget-limited AIME geometry question (`AIME2025/aime2025-02`), so this run was
+not discriminating.
+
+```sh
+python3 tuning/gx10_matrix.py ds-eval-suite exact_fast \
+  shape_gate_attn_qb_soa_b32 \
+  --questions 12 --tokens 2048 --nothink --seed 1 --timeout-sec 2400 \
+  --label-prefix attn_qb_soa_b32_12q_nothink_2048_ \
+  --out-dir tuning/gx10_matrix_results/prototype_20260524_attn_qb_soa_b32_eval_12q_nothink_2048 \
+  --extra "--hard-limit-reply-budget 512 --soft-limit-reply-budget 1024"
+```
+
+At 2048 generated tokens, `exact_fast` scored **12/12** while
+`shape_gate_attn_qb_soa_b32` scored **11/12**. The miss was
+`AIME2025/aime2025-16`: the candidate saturated the 2048-token budget and gave
+`600` instead of the expected `468`. This is a real quality regression relative
+to the same-run control.
+
+A 12-question `--think --tokens 2048` attempt was also started, but it was
+aborted before the candidate row because `exact_fast` itself was already
+budget-saturating and failing early questions under that harness. The partial
+trace is kept in
+`tuning/gx10_matrix_results/prototype_20260524_attn_qb_soa_b32_eval_12q_think/`
+as a methodology note, not as a candidate comparison.
+
+Decision: reject `shape_gate_attn_qb_soa_b32` despite the repeatable
+~0.1-0.3 t/s speed signal. The selected-token 32-step canary was not sufficient:
+the non-byte-identical Q/B SoA blocks=32 path can alter long reasoning. Do not
+promote or repeat this exact combo unless the `attn_q_b` kernel is made
+byte-identical or the quality failure is explained by a separate fixed bug.
 
 ## Branch / commit map
 
