@@ -6315,6 +6315,263 @@ parallelism costs more than the saved `q` reads. Do not run larger row counts
 or a 100k follow-up for this family unless a different attention layout changes
 the cost model.
 
+### 2026-05-24 closeout plan - remaining full-quality roads
+
+The remaining work is now explicitly bounded. These are the five roads to close
+in order, without reopening already rejected variants:
+
+| Order | Road | Scope | Stop condition |
+| ---: | --- | --- | --- |
+| 1 | Fused indexer score + top-k | Ratio-4 long-context indexer, avoiding score-buffer write plus separate top-k where possible | Close when a same-snapshot A/B either fails greedy equivalence or fails the speed gate |
+| 2 | Native Q8 projection redesign | Real redesign of Q8 projection kernels/layout, not MMQ/MMVQ wrappers, qwarp row-count tweaks, cuBLAS swaps, or cache-x repeats | Close when a concrete layout/kernel probe fails speed or exactness |
+| 3 | Routed MoE gate/up structural redesign | Reduce real routed-MoE gate/up traffic without reduced-K, metadata caches, LDG, row-major/block-pair/native-pack repeats, or shape-only variants | Close when a concrete structural probe fails speed or exactness |
+| 4 | Compose minor exact candidates | Re-evaluate only the already speed-positive exact minor candidates, especially `moe_gate_shape2048_conststride + compressor_lazy_ratio4`, on the current branch | Close when composition fails the speed gate or becomes quality-risky |
+| 5 | Nsight 100k graph-active profile | Capture the real graph path at the user's `ctx=100000` operating point to find any non-obvious remaining hotspot | Close when the profile either identifies a new target or confirms no new credible kernel target remains |
+
+No upstream PR is to be opened from this branch. If one of these roads produces
+a real winning candidate, the intended upstream path is still a fresh branch
+from current `upstream/main` with only the winning code extracted.
+
+### 2026-05-24 road 1 - packed indexer score/top-k
+
+Implemented a guarded diagnostic row:
+
+| Row | Flag | Shape |
+| --- | --- | --- |
+| `indexer_score_topk_fused` | `DS4_CUDA_INDEXER_SCORE_TOPK_FUSED=1` | one-token ratio-4 indexer score writes packed sortable keys and top-k consumes those keys directly, skipping the public `indexer_scores` tensor |
+
+This is not a row-count q-reuse repeat. It keeps the same per-row arithmetic
+order as `indexer_score_one_direct_kernel`, but changes the boundary between
+score and top-k so the top-k path no longer reloads the public score tensor.
+The implementation is deliberately behind an env flag and limited to
+`top_k=512`, `n_head=64`, `head_dim=128`, `n_comp<=32768`.
+
+Same-snapshot A/B gate:
+
+```sh
+python3 tuning/gx10_matrix.py run soa -- ./ds4-bench --cuda \
+  -m /home/alessandro/projects/ds4/ds4flash.gguf \
+  --prompt-file speed-bench/promessi_sposi.txt \
+  --ctx-start 65536 --ctx-max 65536 --ctx-alloc 100000 --gen-tokens 32 \
+  --ab-env DS4_CUDA_INDEXER_SCORE_TOPK_FUSED=1 \
+  --csv tuning/gx10_matrix_results/prototype_20260524_indexer_score_topk_fused_ab/soa_64k.csv
+```
+
+| Mode | 64k/32 gen t/s | `gen_token_hash` | `last_token` |
+| --- | ---: | --- | ---: |
+| baseline `soa` | 13.42 | `eeeeb0dbc1342c82` | 9 |
+| same-snapshot fused | 13.60 | `eeeeb0dbc1342c82` | 9 |
+
+Graph path benchmarks:
+
+| Row | Context | gen t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | 65536 | 13.57 | control |
+| `indexer_score_topk_fused` | 65536 | 13.67 | positive, +0.10 t/s |
+| `exact_fast` | 100000 | 12.64 | control |
+| `indexer_score_topk_fused` | 100000 | 12.70 | positive, +0.06 t/s |
+
+Decision: keep as a small exact candidate. This does not solve the remaining
+gap to 20 t/s, but it is the first full-quality candidate in this closeout pass
+that survives both a same-snapshot equivalence gate and graph-path speed
+checks. Do not spend more time micro-tuning this road before the other four
+roads have been closed.
+
+### 2026-05-24 road 2 - native Q8 B8 interleave for `attn_q_b`
+
+The Q8 history rules out broad SoA, cache-x, cuBLAS/F16, shape-only kernels,
+half/quarter-warp row-count tweaks, direct-Q8 attention-output-A, output-head
+warp8, and MMQ/MMVQ wrappers. The concrete remaining Q8 layout question was
+whether the row-major Q8/SoA layout is wasting memory coalescing across the
+eight warps in the `attn_q_b` one-token projection.
+
+Implemented diagnostic row:
+
+| Row | Flag | Shape |
+| --- | --- | --- |
+| `q8_b8_attn_qb` | `DS4_CUDA_Q8_B8_INTERLEAVE=1` | preload a native 8-row interleaved Q8 cache for tensors labelled `attn_q_b` with shape `1024 -> 32768`, then route one-token decode through `matmul_q8_0_preq_warp8_b8_kernel` |
+
+The pack layout is `[row_tile/8][block][row_in_tile][32 quant bytes]` plus the
+matching half scales, so all eight warps in the CTA read contiguous row data for
+the same Q8 block. This is a real duplicated native Q8 layout, not a dispatcher
+toggle.
+
+Proxy command:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast q8_b8_attn_qb \
+  --ctx-start 65536 --ctx-max 65536 --ctx-alloc 100000 --gen-tokens 64 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260524_q8_b8_attn_qb \
+  --summary tuning/gx10_matrix_results/prototype_20260524_q8_b8_attn_qb/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260524_q8_b8_attn_qb/summary.md
+```
+
+| Row | 64k/64 gen t/s | Decision |
+| --- | ---: | --- |
+| `exact_fast` | **13.59** | control |
+| `q8_b8_attn_qb` | 13.41 | negative |
+
+Decision: reject this native Q8 interleaved `attn_q_b` layout. The added native
+coalescing does not offset the extra cache/layout path and kernel behavior.
+This closes the targeted Q8 projection redesign for `attn_q_b`; do not repeat
+the same 8-row interleave for already-tested Q8 shape-only/cache-x families
+unless a later profile proves a different Q8 tensor has become dominant.
+
+### 2026-05-24 road 3 - routed MoE selected-expert order
+
+The MoE history already rules out reduced-K for full-quality work, metadata
+caches, read-only-cache load toggles, row-major/block-pair/native-pack repeats,
+shape-only rewrites, and MoE down repeats. The concrete remaining structural
+question tested here was whether the six selected experts should be visited in
+expert-id order after top-k, improving routed weight locality without changing
+which experts are selected.
+
+Implemented diagnostic row:
+
+| Row | Flag | Scope |
+| --- | --- | --- |
+| `moe_sort_selected` | `DS4_CUDA_MOE_SORT_SELECTED=1` | sort the selected six experts and their normalized weights by expert id before routed gate/up/down consumption |
+
+Proxy command:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast moe_sort_selected \
+  --ctx-start 65536 --ctx-max 65536 --ctx-alloc 100000 --gen-tokens 64 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260524_moe_sort_selected \
+  --summary tuning/gx10_matrix_results/prototype_20260524_moe_sort_selected/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260524_moe_sort_selected/summary.md
+```
+
+| Row | 64k/64 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **13.57** | 334.84 | control |
+| `moe_sort_selected` | 13.47 | 332.52 | negative |
+
+Decision: reject. This does not reduce routed-MoE cost on GB10 and it would
+also risk quality drift because it changes the floating-point accumulation
+order downstream. No quality gate was run because the speed gate already
+failed.
+
+### 2026-05-24 road 4 - current-branch exact-minor composition
+
+The old best minor composition,
+`moe_gate_shape2048_conststride + compressor_lazy_ratio4`, lives on the
+side branch `gx10-mmqv-port`, not on the current closeout branch. Because the
+compressor scheduling family was already closed as marginal/negative outside
+that exact compound, it was not re-imported for another repeat probe. The
+current branch has two speed-positive minor rows available for composition:
+
+- `moe_gate_shape2048_conststride`;
+- `indexer_score_topk_fused`.
+
+A current-branch compound row was added:
+
+| Row | Env |
+| --- | --- |
+| `moe_conststride_indexer_score_topk_fused` | `DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_CONSTSTRIDE=1 DS4_CUDA_INDEXER_SCORE_TOPK_FUSED=1` |
+
+64k graph-path benchmark:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast \
+  moe_gate_shape2048_conststride indexer_score_topk_fused \
+  moe_conststride_indexer_score_topk_fused \
+  --ctx-start 65536 --ctx-max 65536 --ctx-alloc 100000 --gen-tokens 64 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260524_exact_minor_current_combo \
+  --summary tuning/gx10_matrix_results/prototype_20260524_exact_minor_current_combo/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260524_exact_minor_current_combo/summary.md
+```
+
+| Row | 64k/64 gen t/s | Prefill t/s |
+| --- | ---: | ---: |
+| `exact_fast` | **13.47** | 334.56 |
+| `moe_gate_shape2048_conststride` | 13.57 | 332.64 |
+| `indexer_score_topk_fused` | 13.68 | 331.79 |
+| `moe_conststride_indexer_score_topk_fused` | **13.79** | 332.41 |
+
+100k recheck:
+
+| Row | 100k/64 gen t/s | Prefill t/s |
+| --- | ---: | ---: |
+| `exact_fast` | **12.53** | 308.24 |
+| `moe_conststride_indexer_score_topk_fused` | **12.79** | 307.94 |
+
+However, same-snapshot gates on the current branch failed:
+
+| Gate | Baseline hash/token | Candidate hash/token | Decision |
+| --- | --- | --- | --- |
+| `soa + conststride` vs `soa + conststride + indexer_score_topk_fused` | `d191b4c19b5f7eb4` / 7269 | `d800523f3e395ea1` / 1200 | reject compound |
+| `soa` vs `soa + conststride` | `6db863a4cb43e71d` / 3994 | `eeeeb0dbc1342c82` / 9 | reject const-stride on this branch |
+
+Decision: reject Road 4 for full-quality promotion on the current branch. The
+speed signal is real, including at `ctx=100000`, but the present const-stride
+implementation is no longer hash-equivalent under the current upstream code and
+therefore cannot be carried into the final full-quality set. Keep
+`indexer_score_topk_fused` alone as the surviving exact minor candidate.
+
+### 2026-05-24 road 5 - 100k graph-active Nsight profile
+
+Captured a graph-active Nsight Systems window at the user's operating point,
+`ctx=100000`, with graph decode and Q8 SoA enabled:
+
+```sh
+DS4_CUDA_GRAPH_DECODE=1 DS4_CUDA_Q8_SOA_CACHE=1 \
+nsys profile --trace=cuda --sample=none --cpuctxsw=none \
+  --cuda-graph-trace=node --delay=342 --duration=10 --force-overwrite=true \
+  --output tuning/gx10_matrix_results/prototype_20260524_nsys_ctx100k_graph_decode/ctx100k_graph_decode_window \
+  ./ds4-bench --cuda -m /home/alessandro/projects/ds4/ds4flash.gguf \
+  --prompt-file speed-bench/promessi_sposi.txt \
+  --ctx-start 100000 --ctx-max 100000 --ctx-alloc 100200 \
+  --gen-tokens 128 \
+  --csv tuning/gx10_matrix_results/prototype_20260524_nsys_ctx100k_graph_decode/bench.csv
+
+nsys stats --report cuda_gpu_kern_sum \
+  tuning/gx10_matrix_results/prototype_20260524_nsys_ctx100k_graph_decode/ctx100k_graph_decode_window.nsys-rep \
+  > tuning/gx10_matrix_results/prototype_20260524_nsys_ctx100k_graph_decode/cuda_gpu_kern_sum.txt
+```
+
+The `bench.csv` contains only the header because the timed Nsight window was
+used as a decode profiler rather than as a completed throughput run. The kernel
+summary is the artifact to keep; `.nsys-rep` and `.sqlite` are generated local
+artifacts and should not be committed.
+
+Top kernel families in the captured 100k graph-active window:
+
+| Kernel family | Time % | Instances | Avg |
+| --- | ---: | ---: | ---: |
+| `attention_decode_mixed_kernel` | **11.5** | 2012 | 506.626 us |
+| `moe_gate_up_mid_decode_lut_qwarp32_kernel` | 10.4 | 3932 | 235.800 us |
+| `indexer_score_one_direct_kernel` | 7.1 | 1920 | 326.782 us |
+| `matmul_q8_0_hc_expand_preq_warp8_soa_kernel` | 6.9 | 3932 | 156.854 us |
+| `matmul_q8_0_preq_batch_warp8_kernel` (`attn_q_b`) | 6.9 | 3933 | 155.024 us |
+| `grouped_q8_0_a_preq_warp8_soa_kernel` | 6.8 | 3932 | 153.370 us |
+| `moe_down_sum6_qwarp32_kernel` | 4.9 | 3932 | 110.593 us |
+| graph-captured prefill spillover `moe_gate_up_mid_expert_tile8_rowspan_kernel` | 4.3 | 11 | 34.907 ms |
+| graph-captured prefill spillover `indexer_scores_wmma128_kernel` | 4.3 | 6 | 63.134 ms |
+| `attention_indexed_mixed_kernel` | 4.0 | 1920 | 183.192 us |
+| `matmul_q8_0_pair_swiglu_preq_warp8_kernel` | 3.7 | 3932 | 83.540 us |
+| output full-logits `matmul_q8_0_preq_kernel` | 2.6 | 92 | 2.466 ms |
+| `indexer_topk_chunk_pow2_kernel<4096>` | 2.4 | 1926 | 110.318 us |
+
+Interpretation:
+
+- The top steady decode costs remain distributed across long-context attention,
+  routed MoE gate/down, indexer score/top-k, and Q8 projections.
+- The profile does not reveal a fresh isolated flag-sized target. It mostly
+  reconfirms families already beaten in this closeout or the previous matrix:
+  attention q-reuse/head variants, top-k chunking, MoE gate/down rewrites, Q8
+  projection reshapes, and output-head warp variants.
+- The only surviving full-quality code candidate from this closeout is
+  `indexer_score_topk_fused`, which attacks part of the indexer score/top-k
+  stack but is a small +0.06 to +0.10 t/s class improvement, not the missing
+  jump to 20 t/s.
+
+Decision: close Road 5. The 100k profile gives no new credible non-repeated
+implementation route for this branch. A future clean-branch attempt should not
+start from another env-flag composition pass; it would need a real rewrite of
+one dominant family, with `attention_decode_mixed_kernel` or the remaining
+indexer score/top-k/attention stack as the most profile-justified options.
+
 ## Branch / commit map
 
 ```

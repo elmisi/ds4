@@ -1465,6 +1465,7 @@ static bool accelerator_cache_model_tensors(ds4_backend backend, const ds4_model
     if (!accelerator_cache_model_tensor_spans(m, &cached)) return false;
     if (getenv("DS4_CUDA_Q8_F16_PRELOAD") != NULL ||
         getenv("DS4_CUDA_Q8_F32_PRELOAD") != NULL ||
+        getenv("DS4_CUDA_Q8_B8_INTERLEAVE") != NULL ||
         getenv("DS4_CUDA_Q8_SOA_CACHE") != NULL) {
         for (uint64_t i = 0; i < m->n_tensors; i++) {
             const ds4_tensor *t = &m->tensors[i];
@@ -11805,15 +11806,32 @@ static bool metal_graph_encode_decode_layer(
                                                                     g->layer_n_index_comp[il],
                                                                     &decode_index_stage_t0);
                 }
-                if (ok) ok = ds4_gpu_indexer_score_one_tensor(g->indexer_scores,
-                                                                g->indexer_q,
-                                                                g->indexer_weights,
-                                                                g->layer_index_comp_cache[il],
-                                                                g->layer_n_index_comp[il],
-                                                                DS4_N_INDEXER_HEAD,
-                                                                DS4_N_INDEXER_HEAD_DIM,
-                                                                index_scale) != 0;
-                if (ok) {
+                const bool indexer_score_topk_fused =
+                    getenv("DS4_CUDA_INDEXER_SCORE_TOPK_FUSED") != NULL &&
+                    decode_top_k == DS4_N_INDEXER_TOP_K &&
+                    g->layer_n_index_comp[il] <= 32768u &&
+                    !metal_graph_debug_wants("indexer_scores", il, pos);
+                if (ok && indexer_score_topk_fused) {
+                    ok = ds4_gpu_indexer_score_topk_fused_tensor(g->comp_selected,
+                                                                  g->indexer_q,
+                                                                  g->indexer_weights,
+                                                                  g->layer_index_comp_cache[il],
+                                                                  g->layer_n_index_comp[il],
+                                                                  DS4_N_INDEXER_HEAD,
+                                                                  DS4_N_INDEXER_HEAD_DIM,
+                                                                  index_scale,
+                                                                  decode_top_k) != 0;
+                } else if (ok) {
+                    ok = ds4_gpu_indexer_score_one_tensor(g->indexer_scores,
+                                                          g->indexer_q,
+                                                          g->indexer_weights,
+                                                          g->layer_index_comp_cache[il],
+                                                          g->layer_n_index_comp[il],
+                                                          DS4_N_INDEXER_HEAD,
+                                                          DS4_N_INDEXER_HEAD_DIM,
+                                                          index_scale) != 0;
+                }
+                if (ok && !indexer_score_topk_fused) {
                     metal_graph_debug_dump_tensor("indexer_scores",
                                                   g->indexer_scores,
                                                   g->layer_n_index_comp[il],
@@ -11821,18 +11839,22 @@ static bool metal_graph_encode_decode_layer(
                                                   pos);
                 }
                 if (ok && decode_index_stage_profile) {
-                    ok = metal_graph_indexer_stage_profile_boundary("decode_score",
+                    ok = metal_graph_indexer_stage_profile_boundary(indexer_score_topk_fused
+                                                                        ? "decode_score_topk_fused"
+                                                                        : "decode_score",
                                                                     il,
                                                                     pos,
                                                                     1,
                                                                     g->layer_n_index_comp[il],
                                                                     &decode_index_stage_t0);
                 }
-                if (ok) ok = ds4_gpu_indexer_topk_tensor(g->comp_selected,
-                                                           g->indexer_scores,
-                                                           g->layer_n_index_comp[il],
-                                                           1,
-                                                           decode_top_k) != 0;
+                if (ok && !indexer_score_topk_fused) {
+                    ok = ds4_gpu_indexer_topk_tensor(g->comp_selected,
+                                                     g->indexer_scores,
+                                                     g->layer_n_index_comp[il],
+                                                     1,
+                                                     decode_top_k) != 0;
+                }
                 if (ok) {
                     metal_graph_debug_dump_i32_tensor("indexer_topk",
                                                       g->comp_selected,
@@ -11840,7 +11862,7 @@ static bool metal_graph_encode_decode_layer(
                                                       il,
                                                       pos);
                 }
-                if (ok && decode_index_stage_profile) {
+                if (ok && decode_index_stage_profile && !indexer_score_topk_fused) {
                     ok = metal_graph_indexer_stage_profile_boundary("decode_topk",
                                                                     il,
                                                                     pos,

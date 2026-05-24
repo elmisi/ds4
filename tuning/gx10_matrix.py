@@ -30,6 +30,8 @@ BASE_UNSET_NAMES = {
     "DS4_CUDA_F16_PAIR_FAST_REDUCE",
     "DS4_CUDA_Q8_CUBLAS_DECODE",
     "DS4_CUDA_Q8_BATCH1_CACHE_X",
+    "DS4_CUDA_Q8_B8_INTERLEAVE",
+    "DS4_CUDA_Q8_B8_CACHE_MB",
     "DS4_CUDA_ATTENTION_OUTPUT_A_CUBLAS_MIN",
     "DS4_CUDA_ATTENTION_OUTPUT_B_CUBLAS_MIN",
     "DS4_CUDA_ATTENTION_OUTPUT_B_SHAPE4096",
@@ -87,6 +89,7 @@ BASE_UNSET_NAMES = {
     "DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_CONSTCLAMP",
     "DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_SPLITUP",
     "DS4_CUDA_MOE_GATE_PREFER_L1",
+    "DS4_CUDA_MOE_SORT_SELECTED",
     "DS4_CUDA_MOE_DECODE_GATE_SPAN",
     "DS4_CUDA_DECODE_ATTENTION_QREUSE2",
     "DS4_CUDA_DECODE_ATTENTION_QREUSE4",
@@ -94,6 +97,7 @@ BASE_UNSET_NAMES = {
     "DS4_CUDA_INDEXER_DIRECT_ONE_QREUSE4",
     "DS4_CUDA_INDEXER_DIRECT_ONE_QREUSE8",
     "DS4_CUDA_INDEXER_DIRECT_ONE_QREUSE16",
+    "DS4_CUDA_INDEXER_SCORE_TOPK_FUSED",
     "DS4_CUDA_TOPK_CHUNK8192",
     "DS4_CUDA_WEIGHT_TENSOR_ALIGN_MB",
     "DS4_CUDA_MOE_DOWN_SUM6_PARALLEL",
@@ -380,7 +384,7 @@ MATRIX = {
     "moe_gate_shape2048_conststride": {
         "category": "prototype",
         "env": {**EXACT_FAST, **env(DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_CONSTSTRIDE=1)},
-        "status": "shape2048 routed MoE gate/up with DS4 constant strides",
+        "status": "shape2048 routed MoE gate/up with DS4 constant strides; current-branch same-snapshot hash gate failed at 64k/32",
     },
     "moe_gate_shape2048_dot2": {
         "category": "prototype",
@@ -509,6 +513,22 @@ MATRIX = {
         "env": {**EXACT_FAST, **env(DS4_CUDA_DECODE_ATTENTION_QREUSE4=1)},
         "status": "one-token ratio-128 attention dot computes four rows per thread and reuses q loads",
     },
+    "indexer_score_topk_fused": {
+        "category": "prototype",
+        "env": {**EXACT_FAST, **env(DS4_CUDA_INDEXER_SCORE_TOPK_FUSED=1)},
+        "status": "one-token indexer score writes packed top-k keys and skips the public score tensor",
+    },
+    "moe_conststride_indexer_score_topk_fused": {
+        "category": "prototype",
+        "env": {
+            **EXACT_FAST,
+            **env(
+                DS4_CUDA_MOE_DECODE_GATE_SHAPE2048_CONSTSTRIDE=1,
+                DS4_CUDA_INDEXER_SCORE_TOPK_FUSED=1,
+            ),
+        },
+        "status": "speed-positive compound, but current-branch same-snapshot hash gate failed; not full-quality",
+    },
     "graph_no_presync": {
         "category": "prototype",
         "env": {**EXACT_FAST, **env(DS4_CUDA_GRAPH_DECODE_NO_SYNC=1)},
@@ -523,6 +543,11 @@ MATRIX = {
         "category": "prototype",
         "env": {**EXACT_FAST, **env(DS4_CUDA_Q8_BATCH1_CACHE_X=1)},
         "status": "use cached-x warp8 kernel for n_tok=1 Q8 projections with <=32 blocks",
+    },
+    "q8_b8_attn_qb": {
+        "category": "prototype",
+        "env": {**EXACT_FAST, **env(DS4_CUDA_Q8_B8_INTERLEAVE=1)},
+        "status": "native 8-row interleaved Q8 cache for the one-token attn_q_b projection",
     },
     "f16_pair_fast_reduce": {
         "category": "prototype",
@@ -559,6 +584,11 @@ MATRIX = {
             ),
         },
         "status": "combined exact MoE metadata caches",
+    },
+    "moe_sort_selected": {
+        "category": "prototype",
+        "env": {**EXACT_FAST, **env(DS4_CUDA_MOE_SORT_SELECTED=1)},
+        "status": "sort the six routed experts by expert id after top-k to test routed weight locality",
     },
     "k3_renorm": {
         "category": "quality-tradeoff",
@@ -666,13 +696,17 @@ ROW_GROUPS = {
         "indexer_qreuse16",
         "attention_qreuse2",
         "attention_qreuse4",
+        "indexer_score_topk_fused",
+        "moe_conststride_indexer_score_topk_fused",
         "graph_no_presync",
         "weight_tensor_align2m",
         "q8_batch1_cache_x",
+        "q8_b8_attn_qb",
         "sample_cache_probs",
         "ffn_parallel_shared",
         "ffn_shared_first",
         "moe_meta_cache",
+        "moe_sort_selected",
     ],
     "tradeoff": ["k3_renorm", "k2_renorm", "k6_0_2_k3_renorm"],
     "mtp": ["mtp_quality", "mtp_attn_b_soa_batch2"],
