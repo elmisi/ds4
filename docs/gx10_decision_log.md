@@ -120,6 +120,7 @@ kernel change creates a new reason to retest them.
 | `shape_gate_attn_qb_soa_b32` | Routed MoE const-stride plus SoA `attn_q_b` blocks=32 specialization composed better than either alone: 16.21 vs 16.04 at 256 tokens, repeat 16.18 vs 15.85. Rejected on 12q no-think 2048: `exact_fast` 12/12, combo 11/12, missed `AIME2025/aime2025-16` with `600` vs `468` after budget saturation. |
 | `indexer_topk_chunk8192` / `DS4_CUDA_TOPK_CHUNK8192=1` | Long-context top-k chunking was negative: 13.36 vs 13.46 t/s at frontier 65536; `uint32_t` 8192 chunk also exceeded GB10 shared memory. |
 | `indexer_qreuse2/4/8/16` / `DS4_CUDA_INDEXER_DIRECT_ONE_QREUSE*=1` | Long-context indexer-score q-reuse was speed-positive but below gate: best row `qreuse8` measured 13.69 vs 13.56 at 64k and 12.73 vs 12.47 at 100k, while `qreuse16` was neutral. Long-context hash/tensor dumps were not stable enough to prove full-quality equivalence. Keep diagnostic only; do not repeat row-count variants standalone. |
+| `attention_qreuse2/4` / `DS4_CUDA_DECODE_ATTENTION_QREUSE*=1` | Ratio-128 attention dot q-reuse kept per-row `d=0..511` order but lost row-level parallelism: 13.49/13.48 vs 13.52 t/s at 64k. Reject; do not run larger row counts. |
 | `graph_no_presync` / `DS4_CUDA_GRAPH_DECODE_NO_SYNC=1` | Normal decode graph capture without pre-sync was slower: 16.03 vs 16.18 t/s same-run control. |
 | `weight_tensor_align2m` / `DS4_CUDA_WEIGHT_TENSOR_ALIGN_MB=2` | Entrpi-inspired 2 MiB tensor-base alignment in the local arena was slower: 15.95 vs 16.04 t/s control. |
 | `q8_batch1_cache_x` / `DS4_CUDA_Q8_BATCH1_CACHE_X=1` | Using cached-x warp8 for one-token blocks<=32 Q8 projections was neutral/negative: 16.09 vs 16.13 t/s control. |
@@ -151,6 +152,7 @@ Do not spend more time on these without a genuinely new design:
 | HC-expand SoA tail, exact-shape specialization, and auxiliary-write removal | Did not beat the current generic/SoA mixed path. |
 | Long-context top-k chunk-size-only variants | 8192-row chunks reduced merge width but slowed decode at frontier 65536. |
 | Long-context indexer q-reuse row-count variants | `qreuse8` is a small diagnostic positive, but below gate and not yet quality-proven; `qreuse16` shows the row-count family saturates. |
+| Ratio-128 attention dot q-reuse row-count variants | Exact-shaped row grouping was slower at 64k; saved `q` traffic does not compensate for lost parallelism. |
 | Normal decode graph pre-sync removal | Verifier no-pre-sync was already diagnostic; normal decode no-pre-sync was also slower. |
 | Local arena tensor-base padding | 2 MiB per-tensor alignment did not improve current native CUDA kernels; leave MMQ/VMM as a separate port track. |
 | One-token Q8 cached-x routing for small block projections | Shared staging overhead did not beat the existing batch-warp path. |

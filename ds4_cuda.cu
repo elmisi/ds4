@@ -355,6 +355,13 @@ static int cuda_attention_score_buffer_fits(uint32_t n_comp) {
     return n_comp <= DS4_CUDA_ATTENTION_SCORE_CAP - DS4_CUDA_ATTENTION_RAW_SCORE_CAP;
 }
 
+static uint32_t cuda_attention_decode_dot_mode(void) {
+    if (getenv("DS4_CUDA_DECODE_PARALLEL_ATTENTION_DOT") != NULL) return 1u;
+    if (getenv("DS4_CUDA_DECODE_ATTENTION_QREUSE4") != NULL) return 4u;
+    if (getenv("DS4_CUDA_DECODE_ATTENTION_QREUSE2") != NULL) return 2u;
+    return 0u;
+}
+
 static uint32_t cuda_attention_decode_heads8_rows(void) {
     const char *env = getenv("DS4_CUDA_DECODE_HEADS8_ROWS");
     if (!env || !*env) return 4u;
@@ -7605,7 +7612,7 @@ __global__ static void attention_decode_mixed_kernel(
     __shared__ uint32_t raw_first_idx;
     float scale = rsqrtf((float)head_dim);
     const bool use_parallel_one_dot =
-        parallel_one_dot != 0u &&
+        parallel_one_dot == 1u &&
         n_tokens == 1u &&
         head_dim == 512u &&
         use_comp_mask == 0u;
@@ -7637,8 +7644,50 @@ __global__ static void attention_decode_mixed_kernel(
     }
     __syncthreads();
     uint32_t n_score = raw_count + visible_comp;
+    const uint32_t qreuse_rows =
+        (parallel_one_dot == 2u || parallel_one_dot == 4u) ? parallel_one_dot : 0u;
+    const bool use_attention_qreuse =
+        qreuse_rows != 0u &&
+        n_tokens == 1u &&
+        head_dim == 512u &&
+        use_comp_mask == 0u &&
+        n_score >= 768u;
     float local_max = sinks[h];
-    if (visible_comp == 0 || (n_tokens == 1u && !use_parallel_one_dot)) {
+    if (use_attention_qreuse) {
+        for (uint32_t row0 = threadIdx.x * qreuse_rows;
+             row0 < n_score;
+             row0 += blockDim.x * qreuse_rows) {
+            const float *kv[4] = {NULL, NULL, NULL, NULL};
+            float dot[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+#pragma unroll
+            for (uint32_t rr = 0; rr < 4u; rr++) {
+                const uint32_t row = row0 + rr;
+                if (rr < qreuse_rows && row < n_score) {
+                    if (row < raw_count) {
+                        kv[rr] = raw_kv + (uint64_t)raw_rows[row] * head_dim;
+                    } else {
+                        kv[rr] = comp_kv + (uint64_t)(row - raw_count) * head_dim;
+                    }
+                }
+            }
+            for (uint32_t d = 0; d < head_dim; d++) {
+                const float qv = qh[d];
+#pragma unroll
+                for (uint32_t rr = 0; rr < 4u; rr++) {
+                    if (rr < qreuse_rows && kv[rr]) dot[rr] += qv * kv[rr][d];
+                }
+            }
+#pragma unroll
+            for (uint32_t rr = 0; rr < 4u; rr++) {
+                const uint32_t row = row0 + rr;
+                if (rr < qreuse_rows && row < n_score) {
+                    const float s = dot[rr] * scale;
+                    scores[row] = s;
+                    local_max = fmaxf(local_max, s);
+                }
+            }
+        }
+    } else if (visible_comp == 0 || (n_tokens == 1u && !use_parallel_one_dot)) {
         for (uint32_t r = threadIdx.x; r < raw_count; r += blockDim.x) {
             const float *kvrow = raw_kv + (uint64_t)raw_rows[r] * head_dim;
             float dot = 0.0f;
@@ -12791,7 +12840,7 @@ extern "C" int ds4_gpu_attention_decode_heads_tensor(
                                                  use_mask,
                                                  1, 0, n_raw, raw_cap, raw_start, n_comp,
                                                  0, 0, n_head, head_dim,
-                                                 getenv("DS4_CUDA_DECODE_PARALLEL_ATTENTION_DOT") != NULL ? 1u : 0u);
+                                                 cuda_attention_decode_dot_mode());
     return cuda_ok(cudaGetLastError(), "attention decode launch");
 }
 extern "C" int ds4_gpu_attention_prefill_raw_heads_tensor(ds4_gpu_tensor *heads, const void *model_map, uint64_t model_size, uint64_t sinks_offset, const ds4_gpu_tensor *q, const ds4_gpu_tensor *raw_kv, uint32_t n_tokens, uint32_t window, uint32_t n_head, uint32_t head_dim) {
@@ -12973,7 +13022,7 @@ static int attention_decode_batch_launch(
                                                  use_comp_mask ? (const float *)comp_mask->ptr : NULL,
                                                  use_comp_mask, n_tokens, pos0, n_raw, raw_cap,
                                                  raw_start, n_comp, window, ratio, n_head, head_dim,
-                                                 getenv("DS4_CUDA_DECODE_PARALLEL_ATTENTION_DOT") != NULL ? 1u : 0u);
+                                                 cuda_attention_decode_dot_mode());
     return cuda_ok(cudaGetLastError(), "attention decode batch launch");
 }
 

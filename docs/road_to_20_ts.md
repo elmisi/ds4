@@ -6251,6 +6251,48 @@ stable enough to prove full-quality equivalence. Do not repeat q-reuse row
 counts as a standalone idea; a future revisit would need a deterministic
 long-context gate or a stronger indexer redesign that clears the speed gate.
 
+### 2026-05-24 continuation - ratio-128 attention dot q-reuse
+
+After the indexer q-reuse probe, the next target was the other half of the
+100k profile: long-context ratio-128 attention. This was not a repeat of the
+rejected `DS4_CUDA_DECODE_PARALLEL_ATTENTION_DOT=1` path, which split each dot
+across lanes and changed the reduction order. The new diagnostic kept one
+thread responsible for each row's full `d=0..511` sum, but let that thread
+compute 2 or 4 rows at a time so the same `q` load could feed multiple
+compressed rows.
+
+Implemented diagnostic rows:
+
+| Row | Flag | Intended exactness shape |
+| --- | --- | --- |
+| `attention_qreuse2` | `DS4_CUDA_DECODE_ATTENTION_QREUSE2=1` | two attention score rows per thread, same per-row `d` order |
+| `attention_qreuse4` | `DS4_CUDA_DECODE_ATTENTION_QREUSE4=1` | four attention score rows per thread, same per-row `d` order |
+
+Proxy command:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast \
+  attention_qreuse2 attention_qreuse4 \
+  --ctx-start 65536 --ctx-max 65536 --ctx-alloc 100000 --gen-tokens 64 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260524_attention_qreuse \
+  --summary tuning/gx10_matrix_results/prototype_20260524_attention_qreuse/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260524_attention_qreuse/summary.md
+```
+
+Result:
+
+| Row | 64k/64 gen t/s | Decision |
+| --- | ---: | --- |
+| `exact_fast` | **13.52** | control |
+| `attention_qreuse2` | 13.49 | negative |
+| `attention_qreuse4` | 13.48 | negative |
+
+Decision: reject attention dot q-reuse. Keeping the exact per-row accumulation
+order avoids the known parallel-dot quality hazard, but the reduced row-level
+parallelism costs more than the saved `q` reads. Do not run larger row counts
+or a 100k follow-up for this family unless a different attention layout changes
+the cost model.
+
 ## Branch / commit map
 
 ```
