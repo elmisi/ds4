@@ -445,7 +445,7 @@ int main(int argc, char **argv) {
             return 1;
         }
     }
-    fprintf(out, "ctx_tokens,prefill_tokens,prefill_tps,gen_tokens,gen_tps,kvcache_bytes\n");
+    fprintf(out, "ctx_tokens,prefill_tokens,prefill_tps,gen_tokens,gen_tps,kvcache_bytes,gen_token_hash,last_token\n");
     fflush(out);
 
     const int eos = ds4_token_eos(engine);
@@ -482,6 +482,8 @@ int main(int argc, char **argv) {
             break;
         }
 
+        uint64_t gen_hash = 1469598103934665603ull;
+        int last_token = -1;
         const double gen_t0 = bench_now_sec();
         for (int i = 0; i < cfg.gen_tokens; i++) {
             if (ds4_session_pos(session) + 1 >= ds4_session_ctx(session)) {
@@ -500,6 +502,9 @@ int main(int argc, char **argv) {
                 rc = 1;
                 break;
             }
+            gen_hash ^= (uint32_t)token;
+            gen_hash *= 1099511628211ull;
+            last_token = token;
         }
         const double gen_t1 = bench_now_sec();
         if (rc != 0) break;
@@ -512,13 +517,15 @@ int main(int argc, char **argv) {
 
         const double gen_sec = gen_t1 - gen_t0;
         fprintf(out,
-                "%d,%d,%.2f,%d,%.2f,%llu\n",
+                "%d,%d,%.2f,%d,%.2f,%llu,%016llx,%d\n",
                 frontier,
                 prefill_tokens,
                 prefill_sec > 0.0 ? (double)prefill_tokens / prefill_sec : 0.0,
                 cfg.gen_tokens,
                 gen_sec > 0.0 ? (double)cfg.gen_tokens / gen_sec : 0.0,
-                (unsigned long long)snap.len);
+                (unsigned long long)snap.len,
+                (unsigned long long)gen_hash,
+                last_token);
         fflush(out);
 
         previous = frontier;

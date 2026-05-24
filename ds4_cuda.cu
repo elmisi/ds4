@@ -9548,6 +9548,77 @@ __global__ static void indexer_score_one_direct_pair2_kernel(
     if (local_tid == 0 && in_range) scores[c] = active ? total : -INFINITY;
 }
 
+template <uint32_t ROWS>
+__global__ static void indexer_score_one_direct_qreuse_kernel(
+        float *scores,
+        const float *q,
+        const float *weights,
+        const float *index_comp,
+        uint32_t n_comp,
+        uint32_t pos0,
+        uint32_t ratio,
+        float scale,
+        int causal) {
+    const uint32_t c0 = blockIdx.x * ROWS;
+    const uint32_t tid = threadIdx.x;
+    const uint32_t lane = tid & 31u;
+    const uint32_t warp = tid >> 5u;
+    if (tid >= 128u) return;
+
+    uint32_t visible = n_comp;
+    if (causal) {
+        visible = ratio ? (pos0 + 1u) / ratio : n_comp;
+    }
+
+    __shared__ float krow[ROWS * 128u];
+    __shared__ float partial[ROWS * 4u];
+    for (uint32_t i = tid; i < ROWS * 128u; i += blockDim.x) {
+        const uint32_t row = i >> 7u;
+        const uint32_t d = i & 127u;
+        const uint32_t c = c0 + row;
+        const bool active = c < n_comp && c < visible;
+        krow[i] = active ? index_comp[(uint64_t)c * 128u + d] : 0.0f;
+    }
+    __syncthreads();
+
+    float total[ROWS];
+#pragma unroll
+    for (uint32_t row = 0; row < ROWS; row++) total[row] = 0.0f;
+
+    for (uint32_t h0 = 0; h0 < 64u; h0 += 4u) {
+        const uint32_t h = h0 + warp;
+        const float4 qv = ((const float4 *)(q + (uint64_t)h * 128u))[lane];
+        float dot[ROWS];
+#pragma unroll
+        for (uint32_t row = 0; row < ROWS; row++) {
+            const float4 kv = ((const float4 *)(krow + row * 128u))[lane];
+            dot[row] = qv.x * kv.x + qv.y * kv.y + qv.z * kv.z + qv.w * kv.w;
+            dot[row] = warp_sum_f32(dot[row]);
+            if (lane == 0) {
+                partial[row * 4u + warp] = fmaxf(dot[row], 0.0f) * weights[h] * scale;
+            }
+        }
+        __syncthreads();
+        if (tid == 0) {
+#pragma unroll
+            for (uint32_t row = 0; row < ROWS; row++) {
+                const float *p = partial + row * 4u;
+                total[row] += p[0] + p[1] + p[2] + p[3];
+            }
+        }
+        __syncthreads();
+    }
+    if (tid == 0) {
+#pragma unroll
+        for (uint32_t row = 0; row < ROWS; row++) {
+            const uint32_t c = c0 + row;
+            if (c < n_comp) {
+                scores[c] = c < visible ? total[row] : -INFINITY;
+            }
+        }
+    }
+}
+
 __global__ static void indexer_scores_wmma_kernel(
         float *scores,
         const float *q,
@@ -10721,6 +10792,42 @@ static int indexer_scores_launch(
     if (causal && ratio == 0) return 0;
     if (n_tokens == 1u && head_dim == 128u && n_head == 64u &&
         getenv("DS4_CUDA_NO_INDEXER_DIRECT_ONE") == NULL) {
+        if (getenv("DS4_CUDA_INDEXER_DIRECT_ONE_QREUSE16") != NULL) {
+            indexer_score_one_direct_qreuse_kernel<16><<<(n_comp + 15u) / 16u, 128>>>(
+                    (float *)scores->ptr,
+                    (const float *)q->ptr,
+                    (const float *)weights->ptr,
+                    (const float *)index_comp->ptr,
+                    n_comp, pos0, ratio, scale, causal ? 1 : 0);
+            return cuda_ok(cudaGetLastError(), "indexer score one qreuse16 launch");
+        }
+        if (getenv("DS4_CUDA_INDEXER_DIRECT_ONE_QREUSE8") != NULL) {
+            indexer_score_one_direct_qreuse_kernel<8><<<(n_comp + 7u) / 8u, 128>>>(
+                    (float *)scores->ptr,
+                    (const float *)q->ptr,
+                    (const float *)weights->ptr,
+                    (const float *)index_comp->ptr,
+                    n_comp, pos0, ratio, scale, causal ? 1 : 0);
+            return cuda_ok(cudaGetLastError(), "indexer score one qreuse8 launch");
+        }
+        if (getenv("DS4_CUDA_INDEXER_DIRECT_ONE_QREUSE4") != NULL) {
+            indexer_score_one_direct_qreuse_kernel<4><<<(n_comp + 3u) / 4u, 128>>>(
+                    (float *)scores->ptr,
+                    (const float *)q->ptr,
+                    (const float *)weights->ptr,
+                    (const float *)index_comp->ptr,
+                    n_comp, pos0, ratio, scale, causal ? 1 : 0);
+            return cuda_ok(cudaGetLastError(), "indexer score one qreuse4 launch");
+        }
+        if (getenv("DS4_CUDA_INDEXER_DIRECT_ONE_QREUSE2") != NULL) {
+            indexer_score_one_direct_qreuse_kernel<2><<<(n_comp + 1u) / 2u, 128>>>(
+                    (float *)scores->ptr,
+                    (const float *)q->ptr,
+                    (const float *)weights->ptr,
+                    (const float *)index_comp->ptr,
+                    n_comp, pos0, ratio, scale, causal ? 1 : 0);
+            return cuda_ok(cudaGetLastError(), "indexer score one qreuse2 launch");
+        }
         if (getenv("DS4_CUDA_INDEXER_DIRECT_ONE_PAIR2") != NULL) {
             indexer_score_one_direct_pair2_kernel<<<(n_comp + 1u) / 2u, 256>>>(
                     (float *)scores->ptr,

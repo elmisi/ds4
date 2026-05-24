@@ -6065,6 +6065,192 @@ quantization launch and low-vector read are smaller than the cost of the
 direct-Q8 attention-output-A idea unless it is redesigned around a different
 CTA decomposition that does not repeat the failed cache-x/shape-wrapper rows.
 
+### 2026-05-24 anti-loop sync - `gx10-mmqv-port` side track
+
+The side worktree `/home/alessandro/projects/ds4-mmqv-port` was used to test
+whether a narrow Entrpi-style MMQ/MMVQ import could replace one of the current
+single-token decode kernels. Its detailed notes live in
+`docs/gx10_mmqv_port.md` on that branch, but the conclusions are important for
+this roadmap because they close several tempting repeats.
+
+Imported scaffold:
+
+- vendored `cuda/mmq/` from `Entrpi/ds4:mmq-step-A-full-layer-graphs`;
+- linked the scaffold into the CUDA Spark build;
+- kept runtime calls behind opt-in env flags;
+- deliberately excluded layer graphs, VMM, MTP, and broad dispatcher policy
+  changes until a narrow call proved useful.
+
+Measured 8192/128 decode probes against same-run `exact_fast`:
+
+| Row | Control | Candidate | Decision |
+| --- | ---: | ---: | --- |
+| `DS4_CUDA_MMQ_Q8_DENSE_VEC_ATTN_Q_B=1` | 16.02 | 9.65 | reject |
+| `DS4_CUDA_MMQ_Q8_DENSE_VEC_ATTN_Q_B=1 DS4_CUDA_MMQ_Q81_PERSISTENT=1` | 15.95 | 15.72 | reject |
+| `DS4_CUDA_MMQ_MOE_GATE_UP=1` | 15.96 | 2.59 | reject |
+| `DS4_CUDA_MMVQ_MOE_GATE_UP=1 DS4_CUDA_MMQ_Q81_PERSISTENT=1` | 16.37 | 10.15 | reject |
+
+Decision: do not broaden the generic MMQ/MMVQ dispatcher. The imported calls
+are useful reference material, but a future tensor-core route has to be a
+native kernel/layout redesign for this model's single-token path. Wrapping the
+vendored dense-vector or routed-MoE calls is closed.
+
+The same side track also closed these repeats:
+
+| Probe | Result | Decision |
+| --- | --- | --- |
+| `attn_qb_rowpair` | 16.28 vs 16.48 | reject |
+| unsafe graph-exec reuse | 17.10 vs 16.48 | diagnostic only; quality/safety unsafe |
+| cghart-style F16 vec8 | 16.24, with isolated single/pair variants around 16.06-16.07 | reject |
+| attention output A/B fusion | 16.16 vs 16.23 | reject |
+| compressor lazy side-stream overlap | 16.02 vs 16.04 | reject |
+| `moe_gate_shape2048_conststride + compressor_lazy_ratio4` | 16.39 vs 16.04 at 128, 16.42 vs 16.09 at 256 | exact but only a minor clean-branch candidate |
+| explicit `sm_121` build | slower and non-byte-identical | reject |
+| explicit `sm_120` build | slower | reject |
+| remove `-g -lineinfo` | neutral/slower | reject |
+| `-Xptxas -dlcm=cg` | 3.53 t/s | reject |
+| CUDA device LTO | 16.05 and slower startup/prefill | reject |
+
+Current implication: the remaining work should not repeat generic MMQ/MMVQ
+wrappers, Q8 quarter-warp reshapes, F16 vec8 dispatch, attention A/B fusion,
+build-flag tuning, unsafe graph reuse, or compressor scheduling as standalone
+ideas. The next credible path needs a fresh profile-driven target or a real
+layout/kernel redesign that reduces routed-MoE or Q8 projection weight traffic
+without changing model quality.
+
+### 2026-05-24 continuation - 100k profile and indexer q-reuse probe
+
+Because the user's real operating point is `ctx=100000`, a fresh long-context
+profile was run before adding another kernel. A first attempt to use
+`DS4_METAL_DECODE_STAGE_PROFILE=1` on `exact_fast` failed because stage
+profiling synchronizes while CUDA graph capture is active:
+
+```text
+ds4: CUDA end commands failed: operation not permitted when stream is capturing
+ds4-bench: decode at frontier 100000 failed: cuda decode failed
+```
+
+The same profile was then run on the `soa` row, preserving the main kernels but
+disabling graph capture for the diagnostic synchronization:
+
+```sh
+python3 tuning/gx10_matrix.py run soa -- \
+  env DS4_METAL_DECODE_STAGE_PROFILE=1 ./ds4-bench --cuda \
+  -m /home/alessandro/projects/ds4/ds4flash.gguf \
+  --prompt-file speed-bench/promessi_sposi.txt \
+  --ctx-start 100000 --ctx-max 100000 --ctx-alloc 100002 \
+  --gen-tokens 1 \
+  --csv tuning/gx10_matrix_results/stage_profile_20260524_exact_fast_ctx100k/decode_stage_no_graph.csv
+```
+
+The non-graph profile is not a throughput number, but excluding the layer-0
+first-use outlier it showed the long-context frontier clearly:
+
+| Decode stage | Stack over layers 1-42 |
+| --- | ---: |
+| `attention` | **15.835 ms** |
+| `compressor_indexer` | **15.472 ms** |
+| `routed_moe` | **15.221 ms** |
+| `attn_output` | **13.789 ms** |
+| `q_path` | **9.427 ms** |
+
+This points back to the ratio-4 indexer score/attention path at long context,
+but without repeating the already rejected top-k chunk-size, heads8 attention,
+parallel-dot, or pair2 experiments.
+
+The new hypothesis was to reduce `indexer_score_one_direct_kernel`'s repeated
+loads of the same one-token `q` vector. The default kernel scores one
+compressed row per CTA. New diagnostic rows score multiple compressed rows per
+CTA, keep each row's per-head dot/reduction order, and reuse the same `q`
+loads inside the CTA:
+
+| Row | Flag |
+| --- | --- |
+| `indexer_qreuse2` | `DS4_CUDA_INDEXER_DIRECT_ONE_QREUSE2=1` |
+| `indexer_qreuse4` | `DS4_CUDA_INDEXER_DIRECT_ONE_QREUSE4=1` |
+| `indexer_qreuse8` | `DS4_CUDA_INDEXER_DIRECT_ONE_QREUSE8=1` |
+| `indexer_qreuse16` | `DS4_CUDA_INDEXER_DIRECT_ONE_QREUSE16=1` |
+
+Proxy 64k results:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast \
+  indexer_qreuse2 indexer_qreuse4 \
+  --ctx-start 65536 --ctx-max 65536 --ctx-alloc 100000 --gen-tokens 64 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260524_indexer_qreuse \
+  --summary tuning/gx10_matrix_results/prototype_20260524_indexer_qreuse/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260524_indexer_qreuse/summary.md
+```
+
+| Row | 64k/64 gen t/s | Decision |
+| --- | ---: | --- |
+| `exact_fast` | 13.43 | control |
+| `indexer_qreuse2` | 13.52 | small positive |
+| `indexer_qreuse4` | 13.58 | small positive |
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast indexer_qreuse8 \
+  --ctx-start 65536 --ctx-max 65536 --ctx-alloc 100000 --gen-tokens 64 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260524_indexer_qreuse8 \
+  --summary tuning/gx10_matrix_results/prototype_20260524_indexer_qreuse8/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260524_indexer_qreuse8/summary.md
+```
+
+| Row | 64k/64 gen t/s | Decision |
+| --- | ---: | --- |
+| `exact_fast` | 13.56 | control |
+| `indexer_qreuse8` | 13.69 | best of this family, still small |
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast indexer_qreuse16 \
+  --ctx-start 65536 --ctx-max 65536 --ctx-alloc 100000 --gen-tokens 64 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260524_indexer_qreuse16 \
+  --summary tuning/gx10_matrix_results/prototype_20260524_indexer_qreuse16/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260524_indexer_qreuse16/summary.md
+```
+
+| Row | 64k/64 gen t/s | Decision |
+| --- | ---: | --- |
+| `exact_fast` | 13.49 | control |
+| `indexer_qreuse16` | 13.50 | neutral; too little parallelism |
+
+The best row was then checked at the user's 100k operating point:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast indexer_qreuse8 \
+  --ctx-start 100000 --ctx-max 100000 --ctx-alloc 100128 --gen-tokens 64 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260524_indexer_qreuse8_ctx100k \
+  --summary tuning/gx10_matrix_results/prototype_20260524_indexer_qreuse8_ctx100k/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260524_indexer_qreuse8_ctx100k/summary.md
+```
+
+| Row | 100k/64 gen t/s | Decision |
+| --- | ---: | --- |
+| `exact_fast` | 12.47 | control |
+| `indexer_qreuse8` | 12.73 | speed-positive, about +2.1% |
+
+After adding `gen_token_hash` and `last_token` columns to `ds4-bench`, the same
+100k comparison was repeated:
+
+| Row | 100k/64 gen t/s | `gen_token_hash` | `last_token` |
+| --- | ---: | --- | ---: |
+| `exact_fast` | 12.56 | `3a457d91bce8f4c7` | 201 |
+| `indexer_qreuse8` | 12.66 | `5e6776627619f9d6` | 103381 |
+| `exact_fast` repeat | 12.43 | `3b5a40503e701b5d` | 2034 |
+
+The long-prompt hash is not a valid deterministic quality gate yet: the
+`exact_fast` repeat also changed sequence. A direct diagnostic dump of
+`indexer_scores` at `pos=65536`, layer 2, had the same problem: `exact_fast`
+run-to-run scores were not byte-stable, so a single dump cannot convict or
+clear the q-reuse kernel.
+
+Decision: keep `indexer_qreuse8` as a diagnostic speed-positive long-context
+row, but do not promote it. It is below the +3% gate, `qreuse16` shows the
+family saturates, and the current long-context deterministic checks are not
+stable enough to prove full-quality equivalence. Do not repeat q-reuse row
+counts as a standalone idea; a future revisit would need a deterministic
+long-context gate or a stronger indexer redesign that clears the speed gate.
+
 ## Branch / commit map
 
 ```
