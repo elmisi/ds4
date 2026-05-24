@@ -11751,6 +11751,7 @@ static bool metal_graph_encode_decode_layer(
             if (ok && emit) g->layer_n_index_comp[il]++;
             const uint32_t decode_sparse_threshold =
                 metal_graph_decode_indexer_sparse_threshold(g);
+            const uint32_t decode_top_k = DS4_N_INDEXER_TOP_K;
             if (ok &&
                 g->layer_n_comp[il] > decode_sparse_threshold &&
                 g->layer_n_index_comp[il] > DS4_N_INDEXER_TOP_K) {
