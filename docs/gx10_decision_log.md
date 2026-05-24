@@ -115,6 +115,7 @@ kernel change creates a new reason to retest them.
 | `attn_a_shape8192` / `DS4_CUDA_ATTENTION_OUTPUT_A_SHAPE8192=1` | Exact-order attention-output-A shape specialization lowered resources after removing unroll (`REG:36`), but 256-token run was slower: 15.95 vs 16.04. |
 | `attn_a_cache_x16` / `DS4_CUDA_ATTENTION_OUTPUT_A_CACHE_X16=1` | Full-warp 16-row shared-x attention-output-A probe was slower: 15.90 vs 15.94 and used `REG:64`. |
 | `shape_gate_attn_a` | Combining `moe_gate_shape2048` with `attn_a_shape8192` did not compound: 16.16 vs 16.18 for gate shape alone. |
+| `attn_a_direct_q8` / `DS4_CUDA_ATTENTION_OUTPUT_A_DIRECT_Q8=1` | Direct `attn_output_a` -> Q8 activation blocks for `attn_output_b` was slower: 16.07 vs 16.15 with the float low write, then 16.02 vs 16.13 after removing it. |
 | `attn_qb_soa_b32_special` / `DS4_CUDA_Q8_SOA_QB=1 DS4_CUDA_ATTN_Q_B_SOA_B32_SPECIAL=1` | Small positive/noisy: 16.09 vs 15.98 at 128 tokens and 16.06 vs 16.04 at 256 tokens, with `REG:64` vs generic SoA `REG:51`. Candidate only in combo. |
 | `shape_gate_attn_qb_soa_b32` | Routed MoE const-stride plus SoA `attn_q_b` blocks=32 specialization composed better than either alone: 16.21 vs 16.04 at 256 tokens, repeat 16.18 vs 15.85. Rejected on 12q no-think 2048: `exact_fast` 12/12, combo 11/12, missed `AIME2025/aime2025-16` with `600` vs `468` after budget saturation. |
 | `indexer_topk_chunk8192` / `DS4_CUDA_TOPK_CHUNK8192=1` | Long-context top-k chunking was negative: 13.36 vs 13.46 t/s at frontier 65536; `uint32_t` 8192 chunk also exceeded GB10 shared memory. |
@@ -210,11 +211,11 @@ decode-window Nsight run with `--delay=22 --duration=6` produced:
 4. shared gate/up, attention, f16 pair, and output head behind those rows.
 
 The latest pass also rejected the narrow `attn_q_b` half-warp/interleaved/SoA
-blocks=32 specialization variants, HC-expand exact-shape/no-block-out variants,
-MoE span/global-LUT/register-cap/read-only-cache variants, shared expert no-aux
-writes, and long-context top-k chunk-size-only variants. There is currently no
-non-default candidate that has cleared both the speed and quality gates. The
-next credible attempt must find a structural gain in real routed-MoE or Q8
-projection weight traffic without repeating the row-major/block-paired/
-native-pack/cache-x/F16/cuBLAS/top-k-chunk/SoA-QB-special experiments already
-rejected.
+blocks=32 specialization variants, direct-Q8 attention-output-A, HC-expand
+exact-shape/no-block-out variants, MoE span/global-LUT/register-cap/read-only
+cache variants, shared expert no-aux writes, and long-context top-k
+chunk-size-only variants. There is currently no non-default candidate that has cleared
+both the speed and quality gates. The next credible attempt must find a
+structural gain in real routed-MoE or Q8 projection weight traffic without
+repeating the row-major/block-paired/native-pack/cache-x/F16/cuBLAS/
+top-k-chunk/SoA-QB-special/direct-attn-A-Q8 experiments already rejected.

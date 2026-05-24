@@ -1,0 +1,30 @@
+[
+  {
+    "row": "attn_a_direct_q8",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 16.07,
+    "gen_8192": 16.07,
+    "gen_last": 16.07,
+    "gen_mean": 16.07,
+    "gen_max": 16.07,
+    "gen_ss_mean": 16.07,
+    "prefill_mean": 391.78,
+    "prefill_max": 391.78
+  },
+  {
+    "row": "exact_fast",
+    "rows": 1,
+    "ctx_first": 8192,
+    "ctx_last": 8192,
+    "gen_first": 16.15,
+    "gen_8192": 16.15,
+    "gen_last": 16.15,
+    "gen_mean": 16.15,
+    "gen_max": 16.15,
+    "gen_ss_mean": 16.15,
+    "prefill_mean": 393.68,
+    "prefill_max": 393.68
+  }
+]

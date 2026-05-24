@@ -36,6 +36,7 @@ BASE_UNSET_NAMES = {
     "DS4_CUDA_ATTENTION_OUTPUT_A_HWARP16",
     "DS4_CUDA_ATTENTION_OUTPUT_A_SHAPE8192",
     "DS4_CUDA_ATTENTION_OUTPUT_A_CACHE_X16",
+    "DS4_CUDA_ATTENTION_OUTPUT_A_DIRECT_Q8",
     "DS4_CUDA_ATTN_Q_B_CUBLAS_DECODE",
     "DS4_CUDA_ATTN_Q_B_HWARP16",
     "DS4_CUDA_ATTN_Q_B_B32_SPECIAL",
@@ -296,6 +297,11 @@ MATRIX = {
         "category": "prototype",
         "env": {**EXACT_FAST, **env(DS4_CUDA_ATTENTION_OUTPUT_A_CACHE_X16=1)},
         "status": "exact-order attention-output-A SoA kernel, 16 rows per CTA with shared x",
+    },
+    "attn_a_direct_q8": {
+        "category": "prototype",
+        "env": {**EXACT_FAST, **env(DS4_CUDA_ATTENTION_OUTPUT_A_DIRECT_Q8=1)},
+        "status": "directly quantize attention-output-A low vector for attention-output-B HC expand",
     },
     "moe_h16": {
         "category": "diagnostic",

@@ -6008,6 +6008,63 @@ the non-byte-identical Q/B SoA blocks=32 path can alter long reasoning. Do not
 promote or repeat this exact combo unless the `attn_q_b` kernel is made
 byte-identical or the quality failure is explained by a separate fixed bug.
 
+### 2026-05-24 continuation - direct-Q8 attention-output-A probe
+
+The next structural probe revisited the cghart-style "output fusion" idea, but
+without repeating the already rejected output-head warp8 route, SoA cache-x, or
+attention-output-A shape wrappers. The specific hypothesis was narrower:
+`attn_output_a` already computes the 8192-wide low-rank vector that
+`attn_output_b` immediately quantizes to Q8. A direct producer could compute
+the same per-row dot products and fill the Q8 activation blocks for
+`attn_output_b`, avoiding the separate `attn_low` float -> Q8 quantization
+kernel and one read of the low vector.
+
+Implemented diagnostic row:
+
+| Row | Flag | Intent |
+| --- | --- | --- |
+| `attn_a_direct_q8` | `DS4_CUDA_ATTENTION_OUTPUT_A_DIRECT_Q8=1` | exact-shape DS4 decode path: quantize inverse-RoPE heads, compute `attn_output_a` with a 32-warp CTA per low-Q8 block, directly emit Q8 blocks/scales for the existing SoA `attn_output_b` HC-expand kernel |
+
+The first version still wrote the float `attn_low` scratch for debug
+compatibility:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast attn_a_direct_q8 \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260524_attn_a_direct_q8 \
+  --summary tuning/gx10_matrix_results/prototype_20260524_attn_a_direct_q8/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260524_attn_a_direct_q8/summary.md \
+  --stop-on-fail
+```
+
+| Row | 8192/128 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **16.15** | 393.68 | control |
+| `attn_a_direct_q8` | **16.07** | 391.78 | negative |
+
+The second version removed the float `attn_low` write from the direct path,
+preserving only the downstream Q8 blocks/scales:
+
+```sh
+python3 tuning/gx10_matrix.py bench-suite exact_fast attn_a_direct_q8 \
+  --ctx-start 8192 --ctx-max 8192 --ctx-alloc 100000 --gen-tokens 128 \
+  --out-dir tuning/gx10_matrix_results/prototype_20260524_attn_a_direct_q8_nowrite \
+  --summary tuning/gx10_matrix_results/prototype_20260524_attn_a_direct_q8_nowrite/summary.csv \
+  --markdown tuning/gx10_matrix_results/prototype_20260524_attn_a_direct_q8_nowrite/summary.md \
+  --stop-on-fail
+```
+
+| Row | 8192/128 gen t/s | Prefill t/s | Decision |
+| --- | ---: | ---: | --- |
+| `exact_fast` | **16.13** | 392.52 | control |
+| `attn_a_direct_q8` | **16.02** | 389.14 | negative |
+
+Decision: reject `attn_a_direct_q8`; no quality gate is needed. The removed
+quantization launch and low-vector read are smaller than the cost of the
+32-warp CTA shape and its intra-CTA synchronization. This closes the local
+direct-Q8 attention-output-A idea unless it is redesigned around a different
+CTA decomposition that does not repeat the failed cache-x/shape-wrapper rows.
+
 ## Branch / commit map
 
 ```

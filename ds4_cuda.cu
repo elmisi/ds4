@@ -157,6 +157,7 @@ static int g_cuda_attn_output_a_cache_x;
 static int g_cuda_attn_output_a_hwarp16;
 static int g_cuda_attn_output_a_shape8192;
 static int g_cuda_attn_output_a_cache_x16;
+static int g_cuda_attn_output_a_direct_q8;
 static int g_cuda_q8_soa_cache;
 static int g_cuda_q8_soa_qb;
 static int g_cuda_q8_soa_qkv;
@@ -1841,6 +1842,7 @@ extern "C" int ds4_gpu_init(void) {
     g_cuda_attn_output_a_hwarp16 = getenv("DS4_CUDA_ATTENTION_OUTPUT_A_HWARP16") != NULL;
     g_cuda_attn_output_a_shape8192 = getenv("DS4_CUDA_ATTENTION_OUTPUT_A_SHAPE8192") != NULL;
     g_cuda_attn_output_a_cache_x16 = getenv("DS4_CUDA_ATTENTION_OUTPUT_A_CACHE_X16") != NULL;
+    g_cuda_attn_output_a_direct_q8 = getenv("DS4_CUDA_ATTENTION_OUTPUT_A_DIRECT_Q8") != NULL;
     g_cuda_q8_soa_cache = getenv("DS4_CUDA_Q8_SOA_CACHE") != NULL;
     g_cuda_q8_soa_qb = getenv("DS4_CUDA_Q8_SOA_QB") != NULL;
     g_cuda_q8_soa_qkv = getenv("DS4_CUDA_Q8_SOA_QKV") != NULL;
@@ -6000,6 +6002,60 @@ __global__ static void grouped_q8_0_a_preq_warp8_soa_kernel(
     }
     acc = warp_sum_f32(acc);
     if (lane == 0) low[tok * low_dim + row] = acc;
+}
+
+__global__ static void grouped_q8_0_a_preq_warp32_soa_direct_q8_shape4096_kernel(
+        int8_t *low_q,
+        float *low_scale,
+        const __half *wscale,
+        const int8_t *wq,
+        const int8_t *xq,
+        const float *xscale) {
+    __shared__ float raw[32];
+    __shared__ float vals[32];
+    const uint32_t qblk = blockIdx.x;
+    const uint32_t warp = threadIdx.x >> 5u;
+    const uint32_t lane = threadIdx.x & 31u;
+    const uint32_t row = qblk * 32u + warp;
+    const uint32_t group = row >> 10u;
+    const __half *sr = wscale + (uint64_t)row * 128u;
+    const int8_t *qr = wq + (uint64_t)row * 4096u;
+    const int8_t *xqr = xq + (uint64_t)group * 4096u;
+    const float *xsr = xscale + (uint64_t)group * 128u;
+
+    float acc = 0.0f;
+#pragma unroll
+    for (uint32_t b = lane; b < 128u; b += 32u) {
+        const int8_t *qs = qr + b * 32u;
+        const int8_t *xqb = xqr + b * 32u;
+        const int dot = dot_i8_block_weight_aligned(qs, xqb, 32u, 1);
+        acc += __half2float(sr[b]) * xsr[b] * (float)dot;
+    }
+    acc = warp_sum_f32(acc);
+    if (lane == 0) {
+        raw[warp] = acc;
+        vals[warp] = acc;
+    }
+    __syncthreads();
+
+    if (threadIdx.x < 32u) {
+        vals[threadIdx.x] = fabsf(vals[threadIdx.x]);
+    }
+    __syncthreads();
+    for (uint32_t stride = 16u; stride > 0u; stride >>= 1u) {
+        if (threadIdx.x < stride) {
+            vals[threadIdx.x] = fmaxf(vals[threadIdx.x], vals[threadIdx.x + stride]);
+        }
+        __syncthreads();
+    }
+    const float d = vals[0] / 127.0f;
+    const float id = d != 0.0f ? 1.0f / d : 0.0f;
+    if (threadIdx.x == 0) low_scale[qblk] = d;
+    if (threadIdx.x < 32u) {
+        int v = (int)lrintf(raw[threadIdx.x] * id);
+        v = v > 127 ? 127 : (v < -128 ? -128 : v);
+        low_q[qblk * 32u + threadIdx.x] = (int8_t)v;
+    }
 }
 
 __global__ static void grouped_q8_0_a_preq_warp8_soa_shape8192_kernel(
@@ -13722,6 +13778,157 @@ extern "C" int ds4_gpu_attention_output_low_q8_rope_tensor(
                                                           use_dp4a);
     }
     return cuda_ok(cudaGetLastError(), "attention_output_low_q8_rope launch");
+}
+
+extern "C" int ds4_gpu_attention_output_low_q8_rope_hc_direct_tensor(
+        ds4_gpu_tensor       *out_hc,
+        ds4_gpu_tensor       *block_out,
+        ds4_gpu_tensor       *low,
+        const void             *model_map,
+        uint64_t                model_size,
+        uint64_t                out_a_offset,
+        uint64_t                out_b_offset,
+        uint64_t                group_dim,
+        uint64_t                rank,
+        uint32_t                n_groups,
+        uint64_t                out_dim,
+        const ds4_gpu_tensor *heads,
+        const ds4_gpu_tensor *residual_hc,
+        const ds4_gpu_tensor *split,
+        uint32_t                n_embd,
+        uint32_t                n_hc,
+        uint32_t                head_dim,
+        uint32_t                n_rot,
+        uint32_t                pos,
+        uint32_t                n_ctx_orig,
+        float                   freq_base,
+        float                   freq_scale,
+        float                   ext_factor,
+        float                   attn_factor,
+        float                   beta_fast,
+        float                   beta_slow) {
+    if (!g_cuda_attn_output_a_direct_q8 ||
+        !out_hc || !block_out || !low || !heads || !residual_hc || !split ||
+        !model_map || group_dim != 4096u || rank != 1024u || n_groups != 8u ||
+        out_dim != 4096u || n_embd != 4096u || n_hc != 4u ||
+        head_dim == 0 || n_rot > head_dim || !cuda_q8_use_dp4a()) {
+        return 0;
+    }
+
+    const uint64_t low_dim = (uint64_t)n_groups * rank;
+    const uint64_t blocks_a = (group_dim + 31u) / 32u;
+    const uint64_t blocks_b = (low_dim + 31u) / 32u;
+    const uint64_t out_a_bytes = (uint64_t)n_groups * rank * blocks_a * 34u;
+    const uint64_t out_b_bytes = out_dim * blocks_b * 34u;
+    const uint64_t hc_bytes = (uint64_t)n_hc * n_embd * sizeof(float);
+    const uint64_t split_bytes = (uint64_t)(2u * n_hc + n_hc * n_hc) * sizeof(float);
+    if (blocks_a != 128u || blocks_b != 256u ||
+        out_a_offset > model_size || out_b_offset > model_size ||
+        out_a_bytes > model_size - out_a_offset ||
+        out_b_bytes > model_size - out_b_offset ||
+        heads->bytes < (uint64_t)n_groups * group_dim * sizeof(float) ||
+        low->bytes < low_dim * sizeof(float) ||
+        block_out->bytes < out_dim * sizeof(float) ||
+        residual_hc->bytes < hc_bytes ||
+        split->bytes < split_bytes ||
+        out_hc->bytes < hc_bytes) {
+        return 0;
+    }
+
+    const cuda_q8_soa_range *soa_a = cuda_q8_soa_ptr(model_map,
+                                                     out_a_offset,
+                                                     out_a_bytes,
+                                                     group_dim,
+                                                     low_dim,
+                                                     "attn_output_a");
+    const cuda_q8_soa_range *soa_b = cuda_q8_soa_ptr(model_map,
+                                                     out_b_offset,
+                                                     out_b_bytes,
+                                                     low_dim,
+                                                     out_dim,
+                                                     "attn_output_b_hc_expand");
+    if (!soa_a || !soa_b) return 0;
+
+    const uint64_t head_q_bytes = (uint64_t)n_groups * blocks_a * 32u;
+    const uint64_t head_scale_offset = (head_q_bytes + 15u) & ~15ull;
+    const uint64_t head_scale_bytes = (uint64_t)n_groups * blocks_a * sizeof(float);
+    const uint64_t low_q_offset = (head_scale_offset + head_scale_bytes + 15u) & ~15ull;
+    const uint64_t low_q_bytes = blocks_b * 32u;
+    const uint64_t low_scale_offset = (low_q_offset + low_q_bytes + 15u) & ~15ull;
+    const uint64_t tmp_bytes = low_scale_offset + blocks_b * sizeof(float);
+    void *tmp = cuda_tmp_alloc(tmp_bytes, "attention output direct q8");
+    if (!tmp) return 0;
+    int8_t *head_q = (int8_t *)tmp;
+    float *head_scale = (float *)((char *)tmp + head_scale_offset);
+    int8_t *low_q = (int8_t *)((char *)tmp + low_q_offset);
+    float *low_scale = (float *)((char *)tmp + low_scale_offset);
+
+    dim3 qgrid((unsigned)blocks_a, n_groups, 1);
+    if (g_use_decode_state) {
+        quantize_group_heads_inverse_rope_q8_0_dec_kernel<<<qgrid, 32>>>(
+                head_q,
+                head_scale,
+                (const float *)heads->ptr,
+                (uint32_t)group_dim,
+                n_groups,
+                (uint32_t)blocks_a,
+                head_dim,
+                n_rot,
+                n_ctx_orig,
+                freq_base,
+                freq_scale,
+                ext_factor,
+                attn_factor,
+                beta_fast,
+                beta_slow);
+    } else {
+        quantize_group_heads_inverse_rope_q8_0_kernel<<<qgrid, 32>>>(
+                head_q,
+                head_scale,
+                (const float *)heads->ptr,
+                (uint32_t)group_dim,
+                n_groups,
+                (uint32_t)blocks_a,
+                head_dim,
+                n_rot,
+                pos,
+                n_ctx_orig,
+                freq_base,
+                freq_scale,
+                ext_factor,
+                attn_factor,
+                beta_fast,
+                beta_slow);
+    }
+    if (!cuda_ok(cudaGetLastError(), "attention_output_direct_q8 head quantize launch")) return 0;
+
+    grouped_q8_0_a_preq_warp32_soa_direct_q8_shape4096_kernel<<<256u, 1024>>>(
+            low_q,
+            low_scale,
+            soa_a->scale_ptr,
+            soa_a->quant_ptr,
+            head_q,
+            head_scale);
+    if (!cuda_ok(cudaGetLastError(), "attention_output_direct_q8 low launch")) return 0;
+
+    matmul_q8_0_hc_expand_preq_warp8_soa_kernel<<<512u, 256>>>(
+            (float *)out_hc->ptr,
+            (float *)block_out->ptr,
+            (const float *)block_out->ptr,
+            (const float *)residual_hc->ptr,
+            (const float *)split->ptr,
+            soa_b->scale_ptr,
+            soa_b->quant_ptr,
+            low_q,
+            low_scale,
+            low_dim,
+            out_dim,
+            n_embd,
+            n_hc,
+            blocks_b,
+            0,
+            1);
+    return cuda_ok(cudaGetLastError(), "attention_output_direct_q8 hc launch");
 }
 
 extern "C" int ds4_gpu_swiglu_tensor(ds4_gpu_tensor *out, const ds4_gpu_tensor *gate, const ds4_gpu_tensor *up, uint32_t n, float clamp, float weight) {

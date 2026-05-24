@@ -11976,8 +11976,41 @@ static bool metal_graph_encode_decode_layer(
         metal_graph_debug_dump_tensor("kqv_back", g->heads, q_dim, il, pos);
     }
     if (ok && fuse_attn_out_hc) {
+        bool direct_attn_out_hc = false;
 #ifndef __APPLE__
-        if (fuse_attn_out_rope_low) {
+        if (fuse_attn_out_rope_low &&
+            getenv("DS4_CUDA_ATTENTION_OUTPUT_A_DIRECT_Q8") != NULL &&
+            !metal_graph_debug_wants("attn_low", il, pos)) {
+            ok = ds4_gpu_attention_output_low_q8_rope_hc_direct_tensor(
+                    g->after_attn_hc,
+                    g->attn_out,
+                    g->attn_low,
+                    model->map,
+                    model->size,
+                    layer->attn_output_a->abs_offset,
+                    layer->attn_output_b->abs_offset,
+                    group_dim,
+                    rank,
+                    n_groups,
+                    DS4_N_EMBD,
+                    g->heads,
+                    g->cur_hc,
+                    g->hc_split,
+                    DS4_N_EMBD,
+                    DS4_N_HC,
+                    DS4_N_HEAD_DIM,
+                    DS4_N_ROT,
+                    pos,
+                    compressed ? (uint32_t)DS4_ROPE_ORIG_CTX : 0,
+                    freq_base,
+                    freq_scale,
+                    ext_factor,
+                    attn_factor,
+                    DS4_ROPE_YARN_BETA_FAST,
+                    DS4_ROPE_YARN_BETA_SLOW) != 0;
+            direct_attn_out_hc = ok;
+        }
+        if (ok && !direct_attn_out_hc && fuse_attn_out_rope_low) {
             ok = ds4_gpu_attention_output_low_q8_rope_tensor(g->attn_low,
                                                                model->map,
                                                                model->size,
@@ -11996,7 +12029,7 @@ static bool metal_graph_encode_decode_layer(
                                                                attn_factor,
                                                                DS4_ROPE_YARN_BETA_FAST,
                                                                DS4_ROPE_YARN_BETA_SLOW) != 0;
-        } else
+        } else if (ok && !direct_attn_out_hc)
 #endif
         {
             ok = ds4_gpu_attention_output_low_q8_tensor(g->attn_low,
@@ -12008,7 +12041,7 @@ static bool metal_graph_encode_decode_layer(
                                                           n_groups,
                                                           g->heads) != 0;
         }
-        if (ok) {
+        if (ok && !direct_attn_out_hc) {
             ok = ds4_gpu_matmul_q8_0_hc_expand_tensor(g->after_attn_hc,
                                                         g->attn_out,
                                                         model->map,
