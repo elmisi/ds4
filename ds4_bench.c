@@ -26,6 +26,7 @@ typedef struct {
     const char *chat_prompt_path;
     const char *system;
     const char *csv_path;
+    const char *ab_env;
     ds4_backend backend;
     int threads;
     int ctx_start;
@@ -84,6 +85,7 @@ static void usage(FILE *fp) {
         "  --csv FILE             Write CSV there instead of stdout.\n"
         "  --dump-frontier-logits-dir DIR\n"
         "      Write one full-logit JSON file per measured frontier. DIR must exist.\n"
+        "  --ab-env NAME=VALUE    Also run one candidate decode from the same snapshot.\n"
         "  -h, --help             Show this help.\n");
 }
 
@@ -214,6 +216,8 @@ static bench_config parse_options(int argc, char **argv) {
             c.csv_path = need_arg(&i, argc, argv, arg);
         } else if (!strcmp(arg, "--dump-frontier-logits-dir")) {
             c.dump_frontier_logits_dir = need_arg(&i, argc, argv, arg);
+        } else if (!strcmp(arg, "--ab-env")) {
+            c.ab_env = need_arg(&i, argc, argv, arg);
         } else if (!strcmp(arg, "-t") || !strcmp(arg, "--threads")) {
             c.threads = parse_int(need_arg(&i, argc, argv, arg), arg);
         } else if (!strcmp(arg, "--backend")) {
@@ -265,6 +269,13 @@ static bench_config parse_options(int argc, char **argv) {
     if (c.ctx_alloc <= c.ctx_max + c.gen_tokens) {
         fprintf(stderr, "ds4-bench: --ctx-alloc must be greater than ctx-max + gen-tokens\n");
         exit(2);
+    }
+    if (c.ab_env) {
+        const char *eq = strchr(c.ab_env, '=');
+        if (!eq || eq == c.ab_env || eq[1] == '\0') {
+            fprintf(stderr, "ds4-bench: --ab-env expects NAME=VALUE\n");
+            exit(2);
+        }
     }
     return c;
 }
@@ -380,6 +391,56 @@ static int next_frontier(const bench_config *c, int cur) {
     return next;
 }
 
+static int apply_ab_env(const char *spec) {
+    const char *eq = strchr(spec, '=');
+    if (!eq || eq == spec || eq[1] == '\0') return -1;
+    const size_t name_len = (size_t)(eq - spec);
+    char *name = malloc(name_len + 1u);
+    if (!name) return -1;
+    memcpy(name, spec, name_len);
+    name[name_len] = '\0';
+    const int rc = setenv(name, eq + 1, 1);
+    free(name);
+    return rc;
+}
+
+static int run_generation(
+        ds4_session *session,
+        int          gen_tokens,
+        int          eos,
+        double      *gen_tps,
+        uint64_t    *gen_hash,
+        int         *last_token,
+        char        *err,
+        size_t       err_cap) {
+    uint64_t hash = 1469598103934665603ull;
+    int last = -1;
+    const double t0 = bench_now_sec();
+    for (int i = 0; i < gen_tokens; i++) {
+        if (ds4_session_pos(session) + 1 >= ds4_session_ctx(session)) {
+            snprintf(err, err_cap, "generation would exceed allocated context");
+            return -1;
+        }
+        const int token = ds4_session_argmax_excluding(session, eos);
+        if (token < 0) {
+            snprintf(err, err_cap, "failed to choose non-EOS token");
+            return -1;
+        }
+        if (ds4_session_eval(session, token, err, err_cap) != 0) {
+            return -1;
+        }
+        hash ^= (uint32_t)token;
+        hash *= 1099511628211ull;
+        last = token;
+    }
+    const double t1 = bench_now_sec();
+    const double sec = t1 - t0;
+    *gen_tps = sec > 0.0 ? (double)gen_tokens / sec : 0.0;
+    *gen_hash = hash;
+    *last_token = last;
+    return 0;
+}
+
 static void log_context_memory(ds4_backend backend, int ctx_size) {
     ds4_context_memory m = ds4_context_memory_estimate(backend, ctx_size);
     fprintf(stderr,
@@ -445,7 +506,9 @@ int main(int argc, char **argv) {
             return 1;
         }
     }
-    fprintf(out, "ctx_tokens,prefill_tokens,prefill_tps,gen_tokens,gen_tps,kvcache_bytes,gen_token_hash,last_token\n");
+    fprintf(out, "ctx_tokens,prefill_tokens,prefill_tps,gen_tokens,gen_tps,kvcache_bytes,gen_token_hash,last_token");
+    if (cfg.ab_env) fprintf(out, ",ab_gen_tps,ab_token_hash,ab_last_token");
+    fputc('\n', out);
     fflush(out);
 
     const int eos = ds4_token_eos(engine);
@@ -482,32 +545,16 @@ int main(int argc, char **argv) {
             break;
         }
 
-        uint64_t gen_hash = 1469598103934665603ull;
+        double gen_tps = 0.0;
+        uint64_t gen_hash = 0;
         int last_token = -1;
-        const double gen_t0 = bench_now_sec();
-        for (int i = 0; i < cfg.gen_tokens; i++) {
-            if (ds4_session_pos(session) + 1 >= ds4_session_ctx(session)) {
-                fprintf(stderr, "ds4-bench: generation would exceed allocated context at frontier %d\n", frontier);
-                rc = 1;
-                break;
-            }
-            const int token = ds4_session_argmax_excluding(session, eos);
-            if (token < 0) {
-                fprintf(stderr, "ds4-bench: failed to choose non-EOS token at frontier %d\n", frontier);
-                rc = 1;
-                break;
-            }
-            if (ds4_session_eval(session, token, err, sizeof(err)) != 0) {
-                fprintf(stderr, "ds4-bench: decode at frontier %d failed: %s\n", frontier, err);
-                rc = 1;
-                break;
-            }
-            gen_hash ^= (uint32_t)token;
-            gen_hash *= 1099511628211ull;
-            last_token = token;
+        if (run_generation(session, cfg.gen_tokens, eos,
+                           &gen_tps, &gen_hash, &last_token,
+                           err, sizeof(err)) != 0) {
+            fprintf(stderr, "ds4-bench: decode at frontier %d failed: %s\n", frontier, err);
+            rc = 1;
+            break;
         }
-        const double gen_t1 = bench_now_sec();
-        if (rc != 0) break;
 
         if (ds4_session_load_snapshot(session, &snap, err, sizeof(err)) != 0) {
             fprintf(stderr, "ds4-bench: restore at %d failed: %s\n", frontier, err);
@@ -515,17 +562,46 @@ int main(int argc, char **argv) {
             break;
         }
 
-        const double gen_sec = gen_t1 - gen_t0;
+        double ab_gen_tps = 0.0;
+        uint64_t ab_hash = 0;
+        int ab_last_token = -1;
+        if (cfg.ab_env) {
+            if (apply_ab_env(cfg.ab_env) != 0) {
+                fprintf(stderr, "ds4-bench: failed to apply --ab-env %s\n", cfg.ab_env);
+                rc = 1;
+                break;
+            }
+            if (run_generation(session, cfg.gen_tokens, eos,
+                               &ab_gen_tps, &ab_hash, &ab_last_token,
+                               err, sizeof(err)) != 0) {
+                fprintf(stderr, "ds4-bench: ab decode at frontier %d failed: %s\n", frontier, err);
+                rc = 1;
+                break;
+            }
+            if (ds4_session_load_snapshot(session, &snap, err, sizeof(err)) != 0) {
+                fprintf(stderr, "ds4-bench: restore after ab at %d failed: %s\n", frontier, err);
+                rc = 1;
+                break;
+            }
+        }
+
         fprintf(out,
-                "%d,%d,%.2f,%d,%.2f,%llu,%016llx,%d\n",
+                "%d,%d,%.2f,%d,%.2f,%llu,%016llx,%d",
                 frontier,
                 prefill_tokens,
                 prefill_sec > 0.0 ? (double)prefill_tokens / prefill_sec : 0.0,
                 cfg.gen_tokens,
-                gen_sec > 0.0 ? (double)cfg.gen_tokens / gen_sec : 0.0,
+                gen_tps,
                 (unsigned long long)snap.len,
                 (unsigned long long)gen_hash,
                 last_token);
+        if (cfg.ab_env) {
+            fprintf(out, ",%.2f,%016llx,%d",
+                    ab_gen_tps,
+                    (unsigned long long)ab_hash,
+                    ab_last_token);
+        }
+        fputc('\n', out);
         fflush(out);
 
         previous = frontier;

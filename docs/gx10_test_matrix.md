@@ -213,7 +213,7 @@ door on hard but plausible kernel work.
 | `indexer_topk_chunk8192` | `DS4_CUDA_TOPK_CHUNK8192=1` | long-context top-k chunking negative: 13.36 vs 13.46 t/s at frontier 65536; `uint32_t` 8192 chunk exceeded shared memory | diagnostic only; do not promote |
 | `indexer_qreuse2` | `DS4_CUDA_INDEXER_DIRECT_ONE_QREUSE2=1` | long-context indexer-score q-reuse: 13.52 vs 13.43 t/s at 64k | diagnostic only; below gate |
 | `indexer_qreuse4` | `DS4_CUDA_INDEXER_DIRECT_ONE_QREUSE4=1` | long-context indexer-score q-reuse: 13.58 vs 13.43 t/s at 64k | diagnostic only; below gate |
-| `indexer_qreuse8` | `DS4_CUDA_INDEXER_DIRECT_ONE_QREUSE8=1` | best q-reuse row: 13.69 vs 13.56 at 64k; 12.73 vs 12.47 at 100k once, repeat with hash 12.66 vs 12.56; long-context hash/tensor gates were not stable enough to prove full-quality equivalence | diagnostic speed-positive only; do not promote yet |
+| `indexer_qreuse8` | `DS4_CUDA_INDEXER_DIRECT_ONE_QREUSE8=1` | best q-reuse row: 13.69 vs 13.56 at 64k; 12.73 vs 12.47 at 100k once; same-snapshot `soa` A/B still changed the 64-token greedy hash (`ba0b61c24114b3a4` -> `2c3d110fa4b36036`) | rejected for quality; do not promote |
 | `indexer_qreuse16` | `DS4_CUDA_INDEXER_DIRECT_ONE_QREUSE16=1` | row-count saturation check was neutral: 13.50 vs 13.49 at 64k | diagnostic only; do not repeat standalone |
 | `attention_qreuse2` | `DS4_CUDA_DECODE_ATTENTION_QREUSE2=1` | ratio-128 attention dot q-reuse was slower: 13.49 vs 13.52 at 64k | diagnostic only; do not promote |
 | `attention_qreuse4` | `DS4_CUDA_DECODE_ATTENTION_QREUSE4=1` | ratio-128 attention dot q-reuse was slower: 13.48 vs 13.52 at 64k | diagnostic only; do not promote or try larger row counts |

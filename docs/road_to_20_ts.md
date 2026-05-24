@@ -6244,12 +6244,34 @@ The long-prompt hash is not a valid deterministic quality gate yet: the
 run-to-run scores were not byte-stable, so a single dump cannot convict or
 clear the q-reuse kernel.
 
-Decision: keep `indexer_qreuse8` as a diagnostic speed-positive long-context
-row, but do not promote it. It is below the +3% gate, `qreuse16` shows the
-family saturates, and the current long-context deterministic checks are not
-stable enough to prove full-quality equivalence. Do not repeat q-reuse row
-counts as a standalone idea; a future revisit would need a deterministic
-long-context gate or a stronger indexer redesign that clears the speed gate.
+To remove inter-process run-to-run noise, `ds4-bench` was extended with
+`--ab-env NAME=VALUE`. It now can prefill once, save a session snapshot, run the
+baseline decode, restore the same snapshot, apply one candidate env flag, and
+run the candidate decode in the same process. This is intended as a diagnostic
+gate for dynamically-read env flags; it should be used without CUDA graph when
+testing a kernel's local numerical behavior.
+
+Same-snapshot check:
+
+```sh
+python3 tuning/gx10_matrix.py run soa -- ./ds4-bench --cuda \
+  -m /home/alessandro/projects/ds4/ds4flash.gguf \
+  --prompt-file speed-bench/promessi_sposi.txt \
+  --ctx-start 65536 --ctx-max 65536 --ctx-alloc 100000 --gen-tokens 64 \
+  --ab-env DS4_CUDA_INDEXER_DIRECT_ONE_QREUSE8=1 \
+  --csv tuning/gx10_matrix_results/prototype_20260524_inprocess_ab/indexer_qreuse8_soa_64k.csv
+```
+
+| Mode | 64k/64 gen t/s | `gen_token_hash` | `last_token` |
+| --- | ---: | --- | ---: |
+| baseline `soa` | 13.43 | `ba0b61c24114b3a4` | 42588 |
+| same-snapshot `qreuse8` | 13.57 | `2c3d110fa4b36036` | 260 |
+
+Decision: reject `indexer_qreuse8` for full-quality promotion despite the
+speed signal. The same-snapshot A/B changed the greedy continuation, so this is
+not an exact-safe optimization. `qreuse16` also shows the row-count family
+saturates. Do not repeat indexer q-reuse row-count variants unless the kernel
+is redesigned to prove same-snapshot token equivalence first.
 
 ### 2026-05-24 continuation - ratio-128 attention dot q-reuse
 
