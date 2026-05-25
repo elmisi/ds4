@@ -10308,28 +10308,49 @@ static bool metal_graph_encode_decode_layer(
                                                                     g->layer_n_index_comp[il],
                                                                     &decode_index_stage_t0);
                 }
-                if (ok) ok = ds4_gpu_indexer_score_one_tensor(g->indexer_scores,
-                                                                g->indexer_q,
-                                                                g->indexer_weights,
-                                                                g->layer_index_comp_cache[il],
-                                                                g->layer_n_index_comp[il],
-                                                                DS4_N_INDEXER_HEAD,
-                                                                DS4_N_INDEXER_HEAD_DIM,
-                                                                index_scale) != 0;
+                const bool indexer_score_topk_fused =
+                    getenv("DS4_CUDA_INDEXER_SCORE_TOPK_FUSED") != NULL &&
+                    DS4_N_INDEXER_TOP_K == 512u &&
+                    g->layer_n_index_comp[il] <= 32768u &&
+                    !metal_graph_debug_wants("indexer_scores", il, pos);
+                if (ok && indexer_score_topk_fused) {
+                    ok = ds4_gpu_indexer_score_topk_fused_tensor(g->comp_selected,
+                                                                  g->indexer_q,
+                                                                  g->indexer_weights,
+                                                                  g->layer_index_comp_cache[il],
+                                                                  g->layer_n_index_comp[il],
+                                                                  DS4_N_INDEXER_HEAD,
+                                                                  DS4_N_INDEXER_HEAD_DIM,
+                                                                  index_scale,
+                                                                  DS4_N_INDEXER_TOP_K) != 0;
+                } else if (ok) {
+                    ok = ds4_gpu_indexer_score_one_tensor(g->indexer_scores,
+                                                          g->indexer_q,
+                                                          g->indexer_weights,
+                                                          g->layer_index_comp_cache[il],
+                                                          g->layer_n_index_comp[il],
+                                                          DS4_N_INDEXER_HEAD,
+                                                          DS4_N_INDEXER_HEAD_DIM,
+                                                          index_scale) != 0;
+                }
                 if (ok && decode_index_stage_profile) {
-                    ok = metal_graph_indexer_stage_profile_boundary("decode_score",
+                    ok = metal_graph_indexer_stage_profile_boundary(indexer_score_topk_fused
+                                                                        ? "decode_score_topk_fused"
+                                                                        : "decode_score",
                                                                     il,
                                                                     pos,
                                                                     1,
                                                                     g->layer_n_index_comp[il],
                                                                     &decode_index_stage_t0);
                 }
-                if (ok) ok = ds4_gpu_indexer_topk_tensor(g->comp_selected,
-                                                           g->indexer_scores,
-                                                           g->layer_n_index_comp[il],
-                                                           1,
-                                                           DS4_N_INDEXER_TOP_K) != 0;
-                if (ok && decode_index_stage_profile) {
+                if (ok && !indexer_score_topk_fused) {
+                    ok = ds4_gpu_indexer_topk_tensor(g->comp_selected,
+                                                     g->indexer_scores,
+                                                     g->layer_n_index_comp[il],
+                                                     1,
+                                                     DS4_N_INDEXER_TOP_K) != 0;
+                }
+                if (ok && decode_index_stage_profile && !indexer_score_topk_fused) {
                     ok = metal_graph_indexer_stage_profile_boundary("decode_topk",
                                                                     il,
                                                                     pos,

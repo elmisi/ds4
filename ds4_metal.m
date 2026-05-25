@@ -5222,6 +5222,28 @@ static int ds4_gpu_indexer_scores_batch_tensor(
     return 1;
 }
 
+int ds4_gpu_indexer_score_topk_fused_tensor(
+        ds4_gpu_tensor       *selected,
+        const ds4_gpu_tensor *q,
+        const ds4_gpu_tensor *weights,
+        const ds4_gpu_tensor *index_comp,
+        uint32_t                n_comp,
+        uint32_t                n_head,
+        uint32_t                head_dim,
+        float                   scale,
+        uint32_t                top_k) {
+    (void)selected;
+    (void)q;
+    (void)weights;
+    (void)index_comp;
+    (void)n_comp;
+    (void)n_head;
+    (void)head_dim;
+    (void)scale;
+    (void)top_k;
+    return 0;
+}
+
 int ds4_gpu_indexer_scores_prefill_tensor(
         ds4_gpu_tensor       *scores,
         const ds4_gpu_tensor *q,
