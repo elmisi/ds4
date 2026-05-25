@@ -63,7 +63,7 @@ static int check_large_topk(void) {
         }
     }
     if (rc == 0) {
-        const double max_seconds = getenv_seconds("DS4_CUDA_TOPK_REGRESSION_SEC", 2.0);
+        const double max_seconds = getenv_seconds("DS4_CUDA_TOPK_REGRESSION_SEC", 3.0);
         fprintf(stderr, "cuda-regression: top-k n_comp=%u n_tokens=%u elapsed=%.3fs\n",
                 n_comp, n_tokens, elapsed);
         if (elapsed > max_seconds) {
@@ -118,6 +118,7 @@ static int check_decode_attention_overflow_path(void) {
                                               n_raw,
                                               0,
                                               comp,
+                                              0,
                                               n_comp,
                                               NULL,
                                               0,

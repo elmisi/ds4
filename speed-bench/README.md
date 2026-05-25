@@ -26,3 +26,6 @@ python3 speed-bench/plot_speed.py speed-bench/m3_max.csv --title "M3 Max t/s"
 
 The script uses only the Python standard library. By default it writes a file
 next to the CSV using the `_ts.svg` suffix, such as `speed-bench/m3_max_ts.svg`.
+
+For ASUS GX10 / NVIDIA GB10 CUDA numbers, including the upstream-vs-optimized
+comparison, see `speed-bench/gx10_gb10/`.

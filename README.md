@@ -198,8 +198,24 @@ Q4 requires the larger-memory machine class, so M3 Max Q4 numbers are `N/A`.
 | Mac Studio M3 Ultra, 512 GB | PRO q2 | 32768 tokens | 138.82 t/s | 9.56 t/s |
 | DGX Spark GB10, 128 GB | q2 | 7047 tokens | 343.81 t/s | 13.75 t/s |
 
+On DGX Spark / ASUS GX10, the CUDA decode path has an optional full-quality
+performance set:
+
+```sh
+DS4_CUDA_GRAPH_DECODE=1
+DS4_CUDA_Q8_SOA_CACHE=1
+DS4_CUDA_INDEXER_SCORE_TOPK_FUSED=1
+```
+
+`DS4_CUDA_Q8_SOA_CACHE` keeps selected Q8 attention-output weights in a
+scale/quant layout that is faster for the native Q8 kernels. It is capped at
+4096 MiB by default and can be changed with `DS4_CUDA_Q8_SOA_CACHE_MB`.
+The GX10 benchmark and raw CSV files are in
+[speed-bench/gx10_gb10/](speed-bench/gx10_gb10/).
+
 ![M3 Max t/s](speed-bench/m3_max_ts.svg)
 ![PRO model M3 Ultra t/s](speed-bench/pro_model_m3_ultra_ts.svg)
+![ASUS GX10 / GB10 t/s](speed-bench/gx10_gb10/gx10_gb10_main_vs_optimized_ts.svg)
 
 ## Reducing heat, power usage and fan noise
 
