@@ -257,6 +257,9 @@ Q4 requires the larger-memory machine class, so M3 Max Q4 numbers are `N/A`.
 ![M3 Max t/s](speed-bench/m3_max_ts.svg)
 ![PRO model M3 Ultra t/s](speed-bench/pro_model_m3_ultra_ts.svg)
 
+ASUS GX10 / NVIDIA GB10 CUDA benchmark data is available in
+[`speed-bench/gx10_gb10_fused_hc/`](speed-bench/gx10_gb10_fused_hc/).
+
 ## Running models larger than RAM
 
 The normal Metal path tries to make the model resident in GPU-addressable
