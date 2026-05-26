@@ -47,14 +47,14 @@ run. The CUDA allocation reported by `nvidia-smi` during both runs was
 
 | Context | Upstream gen t/s | Optimized gen t/s | Gain | Upstream prefill t/s | Optimized prefill t/s | KV delta |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 8,192 | 13.55 | 15.48 | +14.2% | 383.15 | 387.13 | 0 |
-| 32,768 | 12.53 | 14.11 | +12.6% | 343.89 | 344.24 | 0 |
-| 65,536 | 11.68 | 13.04 | +11.6% | 293.78 | 293.29 | 0 |
-| 100,000 | 10.95 | 12.10 | +10.5% | 250.89 | 250.09 | 0 |
+| 8,192 | 13.57 | 15.40 | +13.5% | 385.99 | 380.75 | 0 |
+| 32,768 | 12.49 | 14.10 | +12.9% | 343.19 | 341.30 | 0 |
+| 65,536 | 11.63 | 13.03 | +12.0% | 292.39 | 291.67 | 0 |
+| 100,000 | 10.90 | 12.11 | +11.1% | 249.47 | 249.13 | 0 |
 
 Across the 49 common context points from 2k to 100k, the optimized path improves
-generation throughput by **+12.2% average**. Prefill is effectively neutral,
-averaging **+0.05%**.
+generation throughput by **+12.4% average**. Prefill is close to neutral,
+averaging **-0.5%**.
 
 ## Artifacts
 
