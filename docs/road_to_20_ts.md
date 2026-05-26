@@ -7094,6 +7094,81 @@ the current toolchain: explicit `sm_120`/`sm_121`, removing debug info, global
 `-dlcm=cg`, and device LTO all failed the cheap gate. Future work should return
 to measured kernel changes rather than more global compile flags.
 
+### 2026-05-26 fork follow-up probes on clean PR branch
+
+After preparing the cleaner `gx10-decode-fused-hc` PR branch, three fork-derived
+CUDA ideas were rechecked against the current code and the same GX10 target.
+The goal was to accept only full-quality changes that improve one of:
+generation tok/s, memory at equal speed, or prefill at equal memory/generation.
+
+1. **GB10 HMM direct model path from PR #158**. Re-applied the small HMM change
+   locally: mark HMM ranges cached and prefetch the full model when
+   `cudaHostRegister()` is unsupported. Result on an 8K `ds4-bench` spot:
+   prefill stayed flat (`399.08 -> 399.31 tok/s`) but generation regressed
+   (`15.44 -> 13.56 tok/s`) and startup paid an extra `78.880s` HMM prefetch.
+   System `used` memory dropped sharply, but the model moved into page cache and
+   the speed loss violates the gate. Decision: reject for the performance PR.
+
+2. **amarrmb PR #145 MoE down tile8 rowspan**. Applied as opt-in
+   `DS4_CUDA_MOE_DOWN_TILE8_ROWSPAN=1`. Credit and thanks to `amarrmb` for the
+   original tile8 rowspan idea and benchmark notes. The first cheap probes
+   looked promising:
+   8K prefill improved `399.08 -> 413.94 tok/s` (`+3.7%`) with generation
+   essentially neutral, and a same-shape 32K spot improved prefill
+   `371.27 -> 386.64 tok/s`. Agent smoke at ctx 64K completed with peak system
+   used memory around `112288 MiB`; generated 332 traced tokens in about
+   `21.7s` (`~15.3 t/s`). `make cuda-regression` passed.
+
+   A full same-binary 8K/16K/32K/64K sweep then gave:
+
+   | ctx | default prefill | tile8 prefill | prefill delta | default gen | tile8 gen | gen delta |
+   |---:|---:|---:|---:|---:|---:|---:|
+   | 8192 | 399.26 | 408.56 | +2.33% | 15.47 | 15.37 | -0.65% |
+   | 16384 | 381.65 | 391.34 | +2.54% | 15.25 | 15.17 | -0.52% |
+   | 32768 | 360.17 | 369.89 | +2.70% | 14.09 | 14.04 | -0.35% |
+   | 65536 | 313.80 | 321.81 | +2.55% | 13.00 | 12.98 | -0.15% |
+
+   Average prefill delta was `+2.53%`; average generation delta was `-0.42%`.
+   KV bytes and reported context buffers were identical; peak system used memory
+   was effectively equal (`113549 MiB` default vs `113552 MiB` tile8).
+   Wall-clock sweep time improved slightly (`249.68s -> 245.32s`), but the
+   repeated small generation loss violates the strict "prefill without slowing
+   generation" gate. Decision: keep as a useful opt-in/diagnostic prefill path,
+   but do not promote to GB10 default in the performance PR.
+
+   Follow-up check: the tile8 path is guarded by `use_atomic_down`, which is
+   already limited to `n_tokens >= 128`; it therefore does not execute in
+   single-token decode. To test whether the observed generation dip was just
+   measurement noise, a 6-run alternating A/B used `ctx=8192`,
+   `ctx_alloc=65665`, and `gen_tokens=512`:
+
+   | run | mode | prefill | gen |
+   |---:|---|---:|---:|
+   | 1 | default | 399.48 | 15.47 |
+   | 2 | tile8 | 412.40 | 15.41 |
+   | 3 | default | 394.31 | 15.34 |
+   | 4 | tile8 | 409.08 | 15.37 |
+   | 5 | default | 393.37 | 15.38 |
+   | 6 | tile8 | 408.72 | 15.36 |
+
+   Means: default `395.72 prefill / 15.40 gen`; tile8 `410.07 prefill /
+   15.38 gen`, i.e. `+3.63%` prefill and `-0.11%` generation. A longer
+   2048-token decode pair then measured default `393.69 prefill / 15.34 gen`
+   versus tile8 `408.42 prefill / 15.35 gen`, i.e. `+3.74%` prefill and
+   `+0.065%` generation. This supports the code-reading conclusion: tile8 is a
+   prefill-only path and the small generation deltas are run-to-run noise.
+   `make cuda-regression` passed. Updated decision: safe as an opt-in prefill
+   improvement; still do not make it GB10 default without a broader sweep
+   because the benefit is only ~3-4% and the extra kernel is non-trivial.
+
+3. **cghart PR #236 GB10 decode branch**. The full PR does not apply cleanly
+   onto current `gx10-decode-fused-hc`; conflicts hit `ds4.c`, `ds4.h`,
+   `ds4_bench.c`, `ds4_cuda.cu`, `ds4_gpu.h`, and tests. The smaller Q8 GEMV
+   commit also conflicts in central `ds4_cuda.cu` sections and depends on
+   assumptions from the larger first commit. Decision: not a quick probe. Treat
+   it as a manual port candidate only if we decide to spend a focused session on
+   cghart-style Q8 projection kernel redesign.
+
 ## Branch / commit map
 
 ```
