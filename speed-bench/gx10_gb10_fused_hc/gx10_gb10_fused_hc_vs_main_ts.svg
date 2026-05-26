@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
+<style>
+text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+.title { font-size: 25px; font-weight: 700; fill: #1f2933; }
+.axis-label { font-size: 14px; font-weight: 600; fill: #334155; }
+.tick { font-size: 12px; fill: #64748b; }
+.legend { font-size: 13px; font-weight: 600; fill: #1f2933; }
+</style>
+<rect width="960" height="540" fill="#ffffff"/>
+<text class="title" x="480.0" y="34" text-anchor="middle">ASUS GX10 / GB10 generation t/s</text>
+<line x1="82" y1="468.00" x2="924" y2="468.00" stroke="#e2e8f0" stroke-width="1"/>
+<text class="tick" x="70" y="472.00" text-anchor="end">0</text>
+<line x1="82" y1="356.33" x2="924" y2="356.33" stroke="#e2e8f0" stroke-width="1"/>
+<text class="tick" x="70" y="360.33" text-anchor="end">5</text>
+<line x1="82" y1="244.67" x2="924" y2="244.67" stroke="#e2e8f0" stroke-width="1"/>
+<text class="tick" x="70" y="248.67" text-anchor="end">10</text>
+<line x1="82" y1="133.00" x2="924" y2="133.00" stroke="#e2e8f0" stroke-width="1"/>
+<text class="tick" x="70" y="137.00" text-anchor="end">15</text>
+<line x1="82.00" y1="66" x2="82.00" y2="468" stroke="#e2e8f0" stroke-width="1"/>
+<text class="tick" x="82.00" y="492" text-anchor="middle">0</text>
+<line x1="250.40" y1="66" x2="250.40" y2="468" stroke="#e2e8f0" stroke-width="1"/>
+<text class="tick" x="250.40" y="492" text-anchor="middle">20k</text>
+<line x1="418.80" y1="66" x2="418.80" y2="468" stroke="#e2e8f0" stroke-width="1"/>
+<text class="tick" x="418.80" y="492" text-anchor="middle">40k</text>
+<line x1="587.20" y1="66" x2="587.20" y2="468" stroke="#e2e8f0" stroke-width="1"/>
+<text class="tick" x="587.20" y="492" text-anchor="middle">60k</text>
+<line x1="755.60" y1="66" x2="755.60" y2="468" stroke="#e2e8f0" stroke-width="1"/>
+<text class="tick" x="755.60" y="492" text-anchor="middle">80k</text>
+<line x1="924.00" y1="66" x2="924.00" y2="468" stroke="#e2e8f0" stroke-width="1"/>
+<text class="tick" x="924.00" y="492" text-anchor="middle">100k</text>
+<line x1="82" y1="66" x2="82" y2="468" stroke="#334155" stroke-width="1.4"/>
+<line x1="82" y1="468" x2="924" y2="468" stroke="#334155" stroke-width="1.4"/>
+<text class="axis-label" x="480.0" y="520" text-anchor="middle">ctx size</text>
+<text class="axis-label" x="22" y="267.0" text-anchor="middle" transform="rotate(-90 22 267.0)">generation t/s</text>
+<polyline fill="none" stroke="#64748b" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="99.24,162.48 116.49,161.81 133.73,161.36 150.98,165.38 168.22,166.95 185.46,168.29 202.71,169.18 219.95,168.51 237.20,170.07 254.44,171.41 271.69,172.98 288.93,174.54 306.17,176.55 323.42,178.34 340.66,180.35 357.91,188.16 375.15,190.40 392.39,191.51 409.64,192.18 426.88,192.63 444.13,193.75 461.37,195.09 478.62,195.98 495.86,196.65 513.10,198.21 530.35,200.22 547.59,201.12 564.84,202.46 582.08,203.57 599.32,205.14 616.57,206.25 633.81,207.15 651.06,208.49 668.30,209.60 685.55,210.72 702.79,211.61 720.03,211.84 737.28,212.73 754.52,213.85 771.77,214.96 789.01,215.86 806.25,217.20 823.50,218.31 840.74,219.21 857.99,220.10 875.23,221.22 892.48,222.11 909.72,223.00 924.00,223.45"/>
+<polyline fill="none" stroke="#dc2626" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="99.24,124.29 116.49,116.92 133.73,116.92 150.98,122.28 168.22,124.74 185.46,126.52 202.71,128.09 219.95,127.42 237.20,129.87 254.44,131.88 271.69,133.45 288.93,135.46 306.17,138.14 323.42,140.15 340.66,142.60 357.91,152.88 375.15,155.78 392.39,156.90 409.64,158.24 426.88,158.91 444.13,160.02 461.37,161.81 478.62,163.15 495.86,163.82 513.10,165.83 530.35,168.06 547.59,169.63 564.84,170.97 582.08,172.31 599.32,174.54 616.57,175.66 633.81,176.77 651.06,178.56 668.30,180.12 685.55,181.24 702.79,182.36 720.03,182.80 737.28,183.92 754.52,185.93 771.77,186.82 789.01,187.94 806.25,189.50 823.50,190.84 840.74,191.96 857.99,192.85 875.23,194.19 892.48,195.98 909.72,197.32 924.00,197.77"/>
+<rect x="655" y="66" width="246" height="62" rx="6" fill="#ffffff" stroke="#cbd5e1"/>
+<rect x="669" y="78" width="12" height="12" fill="#64748b"/>
+<text class="legend" x="691" y="89">upstream main</text>
+<rect x="669" y="104" width="12" height="12" fill="#dc2626"/>
+<text class="legend" x="691" y="115">fused HC decode</text>
+</svg>

@@ -80,3 +80,5 @@ ABBA and BAAB blocks, poisons host logit buffers before copying, and aborts
 unless every final full-vocabulary logit row is bit-identical. Defaults are an
 8192-token prefix, an automatically sized 8193-token context, and two repeats;
 use `--help` to override them.
+For ASUS GX10 / NVIDIA GB10 CUDA numbers comparing upstream `main` with the
+focused fused-HC decode branch, see `speed-bench/gx10_gb10_fused_hc/`.
