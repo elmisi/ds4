@@ -160,3 +160,6 @@ Start the server separately with an appropriate model, context and
 `--batched-session 8`. The report includes first-token and inter-token
 latency, request latency and throughput. Prompts use fresh nonces;
 `--shared-prefix` tests cache reuse instead.
+
+For ASUS GX10 / NVIDIA GB10 CUDA numbers comparing upstream `main` with the
+focused fused-HC decode branch, see `speed-bench/gx10_gb10_fused_hc/`.
