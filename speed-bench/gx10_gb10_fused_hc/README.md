@@ -56,6 +56,19 @@ Across the 49 common context points from 2k to 100k, the optimized path improves
 generation throughput by **+12.4% average**. Prefill is close to neutral,
 averaging **-0.5%**.
 
+## Optional tuning knobs
+
+The branch also ships an opt-in MoE down-projection kernel that is **not**
+enabled in the benchmark above:
+
+```sh
+DS4_CUDA_MOE_DOWN_TILE8_ROWSPAN=1
+```
+
+This selects a tile8 row-span kernel for the MoE down projection (only active
+when the expert tile width is 8). On GB10 it gives a small prefill speedup; it
+is left off by default so the measurements above reflect the stock decode path.
+
 ## Artifacts
 
 | File | Description |
