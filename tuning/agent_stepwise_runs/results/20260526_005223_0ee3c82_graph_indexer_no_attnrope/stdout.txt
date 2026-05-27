@@ -1,0 +1,18 @@
+The user asks for a list of Italian provinces that start with the letter "B". I can just answer from my knowledge. Let me list them.
+
+Ecco l'elenco delle province italiane che iniziano con la lettera **B**:
+
+1. **Barletta-Andria-Trani** (provincia "Barletta, Andria, Trani" – sigla BT)
+2. **Belluno** (sigla BL)
+3. **Benevento** (sigla BN)
+4. **Bergamo** (sigla BG)
+5. **Biella** (sigla BI)
+6. **Bologna** (sigla BO)
+7. **Bolzano** (provincia autonoma di Bolzano / Alto Adige – sigla BZ)
+8. **Brescia** (sigla BS)
+9. **Brindisi** (sigla BR)
+
+Sono **9** province totali (considerando Barletta-Andria-Trani come provincia a sé, e Bolzano come provincia autonoma). Se conti anche le province "storiche" prima dell'accorpamento, l'elenco non cambia perché quelle sono le attuali.
+
+Vuoi anche i capoluoghi o altre
+

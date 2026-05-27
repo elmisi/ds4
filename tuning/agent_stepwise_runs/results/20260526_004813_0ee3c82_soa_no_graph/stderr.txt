@@ -1,0 +1,12 @@
+ds4: CUDA backend initialized on NVIDIA GB10 (sm_121)
+ds4: CUDA using unordered one-token F16 matmul (Blackwell sm_121)
+ds4: CUDA host registration skipped: operation not supported
+ds4: CUDA loading model tensors into device cache
+ds4: CUDA loading model tensors 16.02 GiB cached
+ds4: CUDA loading model tensors 32.06 GiB cached
+ds4: CUDA loading model tensors 48.02 GiB cached
+ds4: CUDA loading model tensors 64.06 GiB cached
+ds4: CUDA loading model tensors 80.04 GiB cached
+ds4: CUDA startup model cache prepared 80.76 GiB of tensor spans in 18.926s
+ds4: cuda backend initialized for graph diagnostics
+ds4-agent: context buffers 1053.75 MiB (ctx=32768, backend=cuda, prefill_chunk=4096, raw_kv_rows=4352, compressed_kv_rows=8194)

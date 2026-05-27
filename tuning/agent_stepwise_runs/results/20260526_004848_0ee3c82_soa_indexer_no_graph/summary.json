@@ -1,0 +1,41 @@
+{
+  "command": [
+    "/home/alessandro/projects/ds4-stepwise/ds4-agent",
+    "--cuda",
+    "--ctx",
+    "32768",
+    "--chdir",
+    "/home/alessandro/projects/ds4-stepwise",
+    "-m",
+    "/home/alessandro/projects/ds4/ds4flash.gguf",
+    "--non-interactive",
+    "-p",
+    "mi fai la lista delle province italiane che cominciano per la lettera \"B\" ?",
+    "-n",
+    "256",
+    "--trace",
+    "/home/alessandro/projects/ds4-stepwise/tuning/agent_stepwise_runs/results/20260526_004848_0ee3c82_soa_indexer_no_graph/trace.log"
+  ],
+  "elapsed_s": 38.75245261192322,
+  "env": {
+    "DS4_CUDA_INDEXER_SCORE_TOPK_FUSED": "1",
+    "DS4_CUDA_Q8_SOA_CACHE": "1"
+  },
+  "first_token_ts": "2026-05-26 00:49:08.638000",
+  "generated_tokens": 256,
+  "last_token_ts": "2026-05-26 00:49:25.339000",
+  "memory": "/home/alessandro/projects/ds4-stepwise/tuning/agent_stepwise_runs/results/20260526_004848_0ee3c82_soa_indexer_no_graph/memory.csv",
+  "name": "0ee3c82_soa_indexer_no_graph",
+  "peak_cuda_gib": 104.630859375,
+  "peak_mem_total_minus_available_gib": 110.48019790649414,
+  "peak_mem_used_gib": 110.48019790649414,
+  "peak_rss_gib": 0.6692924499511719,
+  "returncode": 0,
+  "run_dir": "/home/alessandro/projects/ds4-stepwise/tuning/agent_stepwise_runs/results/20260526_004848_0ee3c82_soa_indexer_no_graph",
+  "stderr": "/home/alessandro/projects/ds4-stepwise/tuning/agent_stepwise_runs/results/20260526_004848_0ee3c82_soa_indexer_no_graph/stderr.txt",
+  "stdout": "/home/alessandro/projects/ds4-stepwise/tuning/agent_stepwise_runs/results/20260526_004848_0ee3c82_soa_indexer_no_graph/stdout.txt",
+  "trace": "/home/alessandro/projects/ds4-stepwise/tuning/agent_stepwise_runs/results/20260526_004848_0ee3c82_soa_indexer_no_graph/trace.log",
+  "trace_interval_tps": 15.268546793605173,
+  "trace_span_s": 16.701,
+  "trace_tps": 15.328423447697743
+}

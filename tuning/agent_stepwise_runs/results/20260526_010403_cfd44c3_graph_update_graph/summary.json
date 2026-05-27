@@ -1,0 +1,40 @@
+{
+  "command": [
+    "/home/alessandro/projects/ds4-stepwise/ds4-agent",
+    "--cuda",
+    "--ctx",
+    "32768",
+    "--chdir",
+    "/home/alessandro/projects/ds4-stepwise",
+    "-m",
+    "/home/alessandro/projects/ds4/ds4flash.gguf",
+    "--non-interactive",
+    "-p",
+    "mi fai la lista delle province italiane che cominciano per la lettera \"B\" ?",
+    "-n",
+    "256",
+    "--trace",
+    "/home/alessandro/projects/ds4-stepwise/tuning/agent_stepwise_runs/results/20260526_010403_cfd44c3_graph_update_graph/trace.log"
+  ],
+  "elapsed_s": 38.77202391624451,
+  "env": {
+    "DS4_CUDA_GRAPH_DECODE": "1"
+  },
+  "first_token_ts": "2026-05-26 01:04:24.442000",
+  "generated_tokens": 256,
+  "last_token_ts": "2026-05-26 01:04:40.991000",
+  "memory": "/home/alessandro/projects/ds4-stepwise/tuning/agent_stepwise_runs/results/20260526_010403_cfd44c3_graph_update_graph/memory.csv",
+  "name": "cfd44c3_graph_update_graph",
+  "peak_cuda_gib": 103.203125,
+  "peak_mem_total_minus_available_gib": 108.99904251098633,
+  "peak_mem_used_gib": 108.99904251098633,
+  "peak_rss_gib": 0.6828727722167969,
+  "returncode": 0,
+  "run_dir": "/home/alessandro/projects/ds4-stepwise/tuning/agent_stepwise_runs/results/20260526_010403_cfd44c3_graph_update_graph",
+  "stderr": "/home/alessandro/projects/ds4-stepwise/tuning/agent_stepwise_runs/results/20260526_010403_cfd44c3_graph_update_graph/stderr.txt",
+  "stdout": "/home/alessandro/projects/ds4-stepwise/tuning/agent_stepwise_runs/results/20260526_010403_cfd44c3_graph_update_graph/stdout.txt",
+  "trace": "/home/alessandro/projects/ds4-stepwise/tuning/agent_stepwise_runs/results/20260526_010403_cfd44c3_graph_update_graph/trace.log",
+  "trace_interval_tps": 15.408786029367334,
+  "trace_span_s": 16.549,
+  "trace_tps": 15.469212641247205
+}
