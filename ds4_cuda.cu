@@ -132,6 +132,7 @@ static int g_cuda_no_warp_router_select;
 static int g_cuda_no_parallel_router_select;
 static int g_cuda_moe_no_decode_lut_gate;
 static int g_cuda_moe_no_direct_down_sum6;
+static int g_graph_capture_active;
 
 struct cuda_model_range {
     const void *host_base;
@@ -288,6 +289,8 @@ static const char *cuda_model_range_ptr(const void *model_map, uint64_t offset, 
             if (h1 >= h0 && h0 >= r0 && h1 <= r1) return r.registered_device_base + (h0 - r0);
         }
     }
+
+    if (g_graph_capture_active) return NULL;
 
     if (getenv("DS4_CUDA_NO_FD_CACHE") == NULL) {
         const char *fd_ptr = cuda_model_range_ptr_from_fd(model_map, offset, bytes, what);
@@ -613,6 +616,7 @@ static const __half *cuda_q8_f16_ptr(
         }
     }
     if (!cuda_q8_f16_cache_allowed(label, in_dim, out_dim)) return NULL;
+    if (g_graph_capture_active) return NULL;
 
     const char *q8 = cuda_model_range_ptr(model_map, offset, weight_bytes, "q8_0");
     if (!q8) return NULL;
@@ -668,6 +672,7 @@ static float *cuda_q8_f32_ptr(
         }
     }
     if (!cuda_q8_f32_cache_allowed(label, in_dim, out_dim)) return NULL;
+    if (g_graph_capture_active) return NULL;
 
     const char *q8 = cuda_model_range_ptr(model_map, offset, weight_bytes, label ? label : "q8_0");
     if (!q8) return NULL;
@@ -775,6 +780,7 @@ static const cuda_q8_soa_range *cuda_q8_soa_ptr(
         }
     }
     if (!cuda_q8_soa_cache_allowed(label)) return NULL;
+    if (g_graph_capture_active) return NULL;
 
     const uint64_t blocks = (in_dim + 31u) / 32u;
     if (blocks == 0 || out_dim > UINT64_MAX / blocks) return NULL;
@@ -1684,8 +1690,6 @@ struct ds4_gpu_graph_handle {
     cudaGraph_t graph;
     cudaGraphExec_t exec;
 };
-
-static int g_graph_capture_active = 0;
 
 extern "C" int ds4_gpu_graph_capture_supported(void) { return 1; }
 

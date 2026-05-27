@@ -13525,6 +13525,18 @@ static bool metal_graph_eval_token_raw_swa(
     bool ok = true;
     double t_encoded = 0.0;
     if (cuda_graph_decode_mode() && ds4_gpu_graph_capture_supported()) {
+        static __thread int cached_decode_ready = 0;
+
+        if (!cached_decode_ready) {
+            ok = ds4_gpu_begin_commands() != 0;
+            if (ok) ok = metal_graph_encode_token_raw_swa(g, model, weights,
+                                                          token, pos,
+                                                          logits != NULL, true);
+            if (ok) cached_decode_ready = 1;
+            t_encoded = (profile || throttle) ? now_sec() : 0.0;
+            goto decode_done;
+        }
+
         /* Phase 4c: cache the executor across tokens via cudaGraphExecUpdate.
          *
          * First call captures + instantiates a fresh exec. Subsequent calls
@@ -13565,6 +13577,7 @@ static bool metal_graph_eval_token_raw_swa(
         if (ok) ok = metal_graph_encode_token_raw_swa(g, model, weights, token, pos, logits != NULL, true);
         t_encoded = (profile || throttle) ? now_sec() : 0.0;
     }
+decode_done:
     if (ok) ok = ds4_gpu_end_commands() != 0;
     const double t_done = (profile || throttle) ? now_sec() : 0.0;
 
