@@ -9,8 +9,8 @@ branch on ASUS GX10 / NVIDIA GB10.
 
 | Variant | Revision | Notes |
 | --- | --- | --- |
-| Upstream main | `ad0209f` (`Fix PRO routed MoE expert mapping`) | Clean `origin/main` worktree |
-| Fused HC decode | `c0d4130` (`cuda: fuse GB10 decode HC and RoPE paths`) | Branch `gx10-decode-fused-hc` |
+| Upstream main | `59d9bc7` (`Merge commit '7a77a28'`) | Clean `origin/main` worktree |
+| Fused HC decode | `df71dcd` (`Merge remote-tracking branch 'origin/main' into gx10-decode-fused-hc`) | Branch `gx10-decode-fused-hc` |
 
 The optimized branch keeps the quality-preserving GB10 decode changes that
 measured as useful without increasing KV/cache memory. It intentionally does
@@ -22,7 +22,7 @@ failed with CUDA graph capture in agent testing.
 Both variants were built with:
 
 ```sh
-make -j$(nproc) ds4-bench CUDA_ARCH=
+make -B -j$(nproc) ds4-bench CUDA_ARCH=
 ```
 
 The benchmark command was:
@@ -40,21 +40,22 @@ The benchmark command was:
 ```
 
 No runtime performance environment variables were enabled for the optimized
-run. The CUDA allocation reported by `nvidia-smi` during both runs was
-`107275 MiB`; `kvcache_bytes` is identical at every measured context point.
+run. Both startup logs reported `80.76 GiB` of model tensor spans covered by
+the CUDA model cache and `2465.41 MiB` of context buffers at `ctx=100200`;
+`kvcache_bytes` is identical at every measured context point.
 
 ## Results
 
 | Context | Upstream gen t/s | Optimized gen t/s | Gain | Upstream prefill t/s | Optimized prefill t/s | KV delta |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 8,192 | 13.57 | 15.40 | +13.5% | 385.99 | 380.75 | 0 |
-| 32,768 | 12.49 | 14.10 | +12.9% | 343.19 | 341.30 | 0 |
-| 65,536 | 11.63 | 13.03 | +12.0% | 292.39 | 291.67 | 0 |
-| 100,000 | 10.90 | 12.11 | +11.1% | 249.47 | 249.13 | 0 |
+| 8,192 | 13.95 | 15.92 | +14.1% | 383.55 | 387.07 | 0 |
+| 32,768 | 12.86 | 14.51 | +12.8% | 343.50 | 343.37 | 0 |
+| 65,536 | 11.98 | 13.38 | +11.7% | 293.50 | 291.42 | 0 |
+| 100,000 | 11.20 | 12.41 | +10.8% | 249.76 | 249.14 | 0 |
 
 Across the 49 common context points from 2k to 100k, the optimized path improves
 generation throughput by **+12.4% average**. Prefill is close to neutral,
-averaging **-0.5%**.
+averaging **-0.3%**.
 
 ## Optional tuning knobs
 
