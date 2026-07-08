@@ -49831,7 +49831,7 @@ static bool glm_graph_forward_indexed_tokens(
         g->layer_start == 0 && g->layer_count == glm_graph_normal_layer_count() &&
         glm_graph_stream_prefill_full_layer_enabled(g, n_tokens);
 #else
-        false;
+        glm_graph_stream_prefill_full_layer_enabled(g, n_tokens);
 #endif
     const bool layer_prepare =
         glm_graph_stream_prefill_full_layer_prepare_enabled(g, full_layer_prefill);
