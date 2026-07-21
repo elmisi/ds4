@@ -37990,7 +37990,9 @@ static bool glm_graph_layer_uses_generic_routed_moe(
            l->ffn_gate_exps &&
            l->ffn_up_exps &&
            l->ffn_down_exps &&
-           l->ffn_gate_exps->type == DS4_TENSOR_IQ2_XXS;
+           l->ffn_gate_exps->type == DS4_TENSOR_IQ2_XXS &&
+           l->ffn_up_exps->type == DS4_TENSOR_IQ2_XXS &&
+           l->ffn_down_exps->type == DS4_TENSOR_Q2_K;
 }
 
 static bool glm_graph_stream_map_token(
@@ -40024,7 +40026,8 @@ static bool glm_graph_encode_sparse_ffn_one(
         l->ffn_gate_exps->type == l->ffn_up_exps->type &&
         l->ffn_gate_exps->type == l->ffn_down_exps->type &&
         (l->ffn_gate_exps->type == DS4_TENSOR_Q2_K ||
-         l->ffn_gate_exps->type == DS4_TENSOR_Q4_K);
+         l->ffn_gate_exps->type == DS4_TENSOR_Q4_K ||
+         l->ffn_gate_exps->type == DS4_TENSOR_IQ2_XXS);
     const bool streaming_selected_cache =
         generic_streaming_selected_cache ||
         uniform_streaming_selected_cache;
@@ -41159,6 +41162,37 @@ static bool glm_graph_seed_streaming_expert_cache_from_full_layer(
 #endif
 }
 
+static bool glm_graph_load_streaming_selected_experts(
+        const ds4_glm_gpu_graph       *g,
+        const ds4_model               *model,
+        const ds4_layer_weights       *layer,
+        uint32_t                       il,
+        const ds4_gpu_tensor          *selected,
+        uint32_t                       n_tokens,
+        uint64_t                       gate_expert_bytes,
+        uint64_t                       down_expert_bytes,
+        bool                           force_resident) {
+    if (!g || !model || !layer || !selected || !g->ssd_streaming ||
+        force_resident || il < DS4_N_LEADING_DENSE) {
+        return true;
+    }
+    const bool uniform_q2 =
+        layer->ffn_gate_exps &&
+        layer->ffn_up_exps &&
+        layer->ffn_down_exps &&
+        layer->ffn_gate_exps->type == DS4_TENSOR_Q2_K &&
+        layer->ffn_up_exps->type == DS4_TENSOR_Q2_K &&
+        layer->ffn_down_exps->type == DS4_TENSOR_Q2_K;
+    if (!uniform_q2 && !glm_stream_selected_expert_cache_supported(layer, il)) {
+        return true;
+    }
+    const ds4_gpu_stream_expert_table table =
+        graph_stream_expert_table_make(model, layer, il,
+                                       gate_expert_bytes, down_expert_bytes);
+    return ds4_gpu_glm_stream_expert_cache_begin_selected_load_tensor(
+                   &table, selected, n_tokens * DS4_N_EXPERT_USED) != 0;
+}
+
 static bool glm_graph_disable_add3_residual(void);
 
 static bool glm_graph_encode_sparse_ffn_indexed_batch_routed_moe(
@@ -41273,6 +41307,9 @@ static bool glm_graph_encode_sparse_ffn_indexed_batch_routed_moe(
     if (ok) ok = glm_graph_capture_prefill_seed_router_selected(g,
                                                                 il,
                                                                 n_tokens);
+    if (ok) ok = glm_graph_load_streaming_selected_experts(
+            g, model, l, il, g->batch_router_selected, n_tokens,
+            gate_out * gate_row_bytes, down_out * down_row_bytes, false);
     metal_graph_debug_dump_tensor("glm_indexed_router_logits",
                                   g->batch_router_logits,
                                   (uint64_t)n_tokens * DS4_N_EXPERT,
@@ -41718,6 +41755,10 @@ static bool glm_graph_encode_ffn_batch(
     if (ok) ok = glm_graph_capture_prefill_seed_router_selected(g,
                                                                 il,
                                                                 n_tokens);
+    if (ok) ok = glm_graph_load_streaming_selected_experts(
+            g, model, l, il, g->batch_router_selected, n_tokens,
+            gate_out * gate_row_bytes, down_out * down_row_bytes,
+            full_layer_prefill);
     if (ok) ok = glm_graph_seed_streaming_expert_cache_from_full_layer(
             g,
             model,
@@ -42904,6 +42945,8 @@ static bool glm_graph_forward_tokens(
         } \
     } while (0)
     for (uint32_t il = g->layer_start; ok && il <= g->layer_end; il++) {
+        ok = ds4_gpu_recycle_weight_cache_if_needed() != 0;
+        if (!ok) break;
         const uint32_t slice_layer_done = il - g->layer_start + 1u;
         if (layer_prepare &&
             !metal_graph_stream_prepare_join_layer(NULL,
@@ -43805,6 +43848,8 @@ static bool glm_graph_forward_indexed_tokens(
     }
     ds4_gpu_tp_set_attn_head_split(tp_attn_head_split ? 1 : 0);
     for (uint32_t il = g->layer_start; ok && il <= g->layer_end; il++) {
+        ok = ds4_gpu_recycle_weight_cache_if_needed() != 0;
+        if (!ok) break;
         const uint32_t slice_layer_done = il - g->layer_start + 1u;
         if (g->ssd_streaming) {
             ok = glm_graph_stream_map_prefill_layer(g,
@@ -45286,6 +45331,8 @@ static bool glm_graph_forward_token(
     } while (0)
     uint32_t glm_ft_fail_il = UINT32_MAX;
     for (uint32_t il = g->layer_start; ok && il <= g->layer_end; il++) {
+        ok = ds4_gpu_recycle_weight_cache_if_needed() != 0;
+        if (!ok) break;
         if (g->placement) {
             ok = glm_graph_ws_switch(g, g->placement[il + 1u], true);
             if (!ok) break;

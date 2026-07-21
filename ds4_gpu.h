@@ -91,6 +91,7 @@ int ds4_gpu_tensor_read_after_selected_event(const ds4_gpu_tensor *tensor,
 #endif
 int ds4_gpu_end_commands(void);
 int ds4_gpu_synchronize(void);
+int ds4_gpu_recycle_weight_cache_if_needed(void);
 
 int ds4_gpu_set_model_map(const void *model_map, uint64_t model_size);
 int ds4_gpu_set_model_fd(int fd);
