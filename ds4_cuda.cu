@@ -143,6 +143,8 @@ static int g_cuda_no_warp_router_select;
 static int g_cuda_no_parallel_router_select;
 static int g_cuda_moe_no_decode_lut_gate;
 static int g_cuda_moe_no_direct_down_sum6;
+static int g_cuda_force_f16_splitk;
+static int g_cuda_no_f16_splitk;
 
 typedef struct {
     int valid;
@@ -299,7 +301,9 @@ static void cuda_decode_dispatch_env_refresh(void) {
         getenv("DS4_CUDA_EXACT_SCORE_SPLIT_FUSE_INV_ROPE") != NULL;
     g_cuda_moe_decode_graph = getenv("DS4_CUDA_MOE_DECODE_GRAPH") != NULL;
     g_cuda_no_q8_dp4a = getenv("DS4_CUDA_NO_Q8_DP4A") != NULL;
-    g_cuda_force_ordered_f16_matmul = getenv("DS4_CUDA_FORCE_ORDERED_F16_MATMUL") != NULL;
+    g_cuda_force_ordered_f16_matmul =
+        getenv("DS4_CUDA_FORCE_ORDERED_F16_MATMUL") != NULL ||
+        getenv("DS4_CUDA_ORDERED_F16_MATMUL") != NULL;
     g_cuda_no_ordered_f16_matmul = getenv("DS4_CUDA_NO_ORDERED_F16_MATMUL") != NULL;
     g_cuda_serial_f16_matmul = getenv("DS4_CUDA_SERIAL_F16_MATMUL") != NULL;
     g_cuda_serial_router = getenv("DS4_CUDA_SERIAL_ROUTER") != NULL;
@@ -311,6 +315,8 @@ static void cuda_decode_dispatch_env_refresh(void) {
     g_cuda_no_parallel_router_select = getenv("DS4_CUDA_NO_PARALLEL_ROUTER_SELECT") != NULL;
     g_cuda_moe_no_decode_lut_gate = getenv("DS4_CUDA_MOE_NO_DECODE_LUT_GATE") != NULL;
     g_cuda_moe_no_direct_down_sum6 = getenv("DS4_CUDA_MOE_NO_DIRECT_DOWN_SUM6") != NULL;
+    g_cuda_force_f16_splitk = getenv("DS4_CUDA_F16_SPLITK") != NULL;
+    g_cuda_no_f16_splitk = getenv("DS4_CUDA_NO_F16_SPLITK") != NULL;
 }
 
 /* WITH_DEVICE(d) { ... } scope macro.
@@ -455,6 +461,8 @@ static void *g_indexer_mxf4_scratch;
 static uint64_t g_indexer_mxf4_scratch_bytes;
 static int g_indexer_mxf4_scratch_device = -1;
 #endif
+static float *g_f16_splitk_partials;
+static uint64_t g_f16_splitk_partials_bytes;
 static void *g_model_stage_raw[4];
 static void *g_model_stage[4];
 static cudaEvent_t g_model_stage_event[4];
@@ -1621,6 +1629,16 @@ static int cuda_q8_f16_preload_allowed(const char *label, uint64_t in_dim, uint6
         return 0;
     }
     return cuda_q8_f16_cache_allowed(label, in_dim, out_dim);
+}
+
+static int cuda_use_f16_splitk(uint64_t in_dim, uint64_t out_dim, uint64_t n_tok) {
+    if (g_cuda_no_f16_splitk || g_cuda_force_ordered_f16_matmul) return 0;
+    if (g_cuda_serial_f16_matmul || g_cuda_serial_router) return 0;
+    if (!g_f16_splitk_partials || n_tok != 1u || in_dim < 1024u) return 0;
+    /* Entrpi's split-K idea is useful for A/B and it beats the ordered legacy
+     * path on GB10, but this branch already defaults to a faster unordered
+     * one-token F16 kernel. Keep split-K opt-in unless benchmarks change. */
+    return g_cuda_force_f16_splitk;
 }
 
 static int cuda_q8_f32_cache_allowed(const char *label, uint64_t in_dim, uint64_t out_dim) {
@@ -2814,6 +2832,19 @@ extern "C" int ds4_gpu_init_multi(const ds4_gpu_config *cfg) {
         }
     }
 
+
+    if (!g_f16_splitk_partials && g_cuda_force_f16_splitk && !g_cuda_no_f16_splitk) {
+        (void)cudaSetDevice(g_gpu[0].device_id);
+        const uint64_t bytes = (uint64_t)1024u * 1024u * sizeof(float);
+        void *p = NULL;
+        if (cudaMalloc(&p, (size_t)bytes) == cudaSuccess) {
+            g_f16_splitk_partials = (float *)p;
+            g_f16_splitk_partials_bytes = bytes;
+        } else {
+            (void)cudaGetLastError();
+        }
+    }
+
     g_cublas_ready = 1;
     return 1;
 }
@@ -2916,6 +2947,11 @@ extern "C" void ds4_gpu_cleanup(void) {
         (void)cudaFree(g_cuda_tmp);
         g_cuda_tmp = NULL;
         g_cuda_tmp_bytes = 0;
+    }
+    if (g_f16_splitk_partials) {
+        (void)cudaFree(g_f16_splitk_partials);
+        g_f16_splitk_partials = NULL;
+        g_f16_splitk_partials_bytes = 0;
     }
     for (size_t i = 0; i < 4; i++) {
         if (g_model_stage_event[i]) {
@@ -4936,6 +4972,74 @@ __global__ static void matmul_f16_pair_ordered_chunks_kernel(
     }
 }
 
+__device__ static float block_reduce_sum_256(float v);
+
+__global__ static void matmul_f16_splitk_kernel(
+        float *partial,
+        const __half *w,
+        const float *x,
+        uint64_t in_dim,
+        uint64_t out_dim,
+        uint32_t ksplit,
+        int vec_ok) {
+    const uint64_t row = (uint64_t)blockIdx.x;
+    const uint32_t kseg = blockIdx.y;
+    if (row >= out_dim) return;
+
+    uint64_t seg = (in_dim + (uint64_t)ksplit - 1u) / (uint64_t)ksplit;
+    seg = (seg + 7u) & ~(uint64_t)7u;
+    const uint64_t k0 = (uint64_t)kseg * seg;
+    if (k0 >= in_dim) {
+        if (threadIdx.x == 0u) partial[row * (uint64_t)ksplit + (uint64_t)kseg] = 0.0f;
+        return;
+    }
+    uint64_t k1 = k0 + seg;
+    if (k1 > in_dim) k1 = in_dim;
+
+    const __half *wr = w + row * in_dim;
+    const uint32_t tid = threadIdx.x;
+    const uint32_t nt = blockDim.x;
+    float sum = 0.0f;
+    if (vec_ok) {
+        const uint64_t vend = k0 + ((k1 - k0) & ~(uint64_t)7u);
+        for (uint64_t i = k0 + (uint64_t)tid * 8u; i < vend; i += (uint64_t)nt * 8u) {
+            const uint4 wv = *reinterpret_cast<const uint4 *>(wr + i);
+            const float4 xa = *reinterpret_cast<const float4 *>(x + i);
+            const float4 xb = *reinterpret_cast<const float4 *>(x + i + 4);
+            const __half2 *h = reinterpret_cast<const __half2 *>(&wv);
+            const float2 w0 = __half22float2(h[0]);
+            const float2 w1 = __half22float2(h[1]);
+            const float2 w2 = __half22float2(h[2]);
+            const float2 w3 = __half22float2(h[3]);
+            sum += w0.x * xa.x + w0.y * xa.y + w1.x * xa.z + w1.y * xa.w
+                 + w2.x * xb.x + w2.y * xb.y + w3.x * xb.z + w3.y * xb.w;
+        }
+        for (uint64_t i = vend + tid; i < k1; i += nt) {
+            sum += __half2float(wr[i]) * x[i];
+        }
+    } else {
+        for (uint64_t i = k0 + tid; i < k1; i += nt) {
+            sum += __half2float(wr[i]) * x[i];
+        }
+    }
+
+    sum = block_reduce_sum_256(sum);
+    if (threadIdx.x == 0u) partial[row * (uint64_t)ksplit + (uint64_t)kseg] = sum;
+}
+
+__global__ static void matmul_f16_splitk_combine_kernel(
+        float *out,
+        const float *partial,
+        uint64_t out_dim,
+        uint32_t ksplit) {
+    const uint64_t row = (uint64_t)blockIdx.x * (uint64_t)blockDim.x + (uint64_t)threadIdx.x;
+    if (row >= out_dim) return;
+    const float *p = partial + row * (uint64_t)ksplit;
+    float sum = 0.0f;
+    for (uint32_t k = 0u; k < ksplit; k++) sum += p[k];
+    out[row] = sum;
+}
+
 __global__ static void matmul_f16_pair_kernel(
         float *out0,
         float *out1,
@@ -5042,6 +5146,24 @@ __device__ static float warp_sum_f32(float v) {
         v += __shfl_down_sync(0xffffffffu, v, offset);
     }
     return v;
+}
+
+__device__ static float block_reduce_sum_256(float v) {
+    v = warp_sum_f32(v);
+    __shared__ float partial[8];
+    const uint32_t lane = threadIdx.x & 31u;
+    const uint32_t warp = threadIdx.x >> 5u;
+    if (lane == 0u) partial[warp] = v;
+    __syncthreads();
+
+    float sum = 0.0f;
+    if (warp == 0u) {
+        sum = lane < 8u ? partial[lane] : 0.0f;
+        sum += __shfl_down_sync(0xffffffffu, sum, 4);
+        sum += __shfl_down_sync(0xffffffffu, sum, 2);
+        sum += __shfl_down_sync(0xffffffffu, sum, 1);
+    }
+    return sum;
 }
 
 __device__ static float warp_max_f32(float v) {
@@ -16141,6 +16263,37 @@ extern "C" int ds4_gpu_matmul_f16_tensor(ds4_gpu_tensor *out, const void *model_
         matmul_f16_ordered_chunks_kernel<<<grid, 32, 0, cuda_decode_stream()>>>((float *)out->ptr, w, (const float *)x->ptr, in_dim, out_dim, n_tok);
         return cuda_ok(cudaGetLastError(), "matmul_f16_ordered_chunks launch");
     }
+    uint32_t ksplit = 1u;
+    if (!ordered_router && cuda_use_f16_splitk(in_dim, out_dim, n_tok)) {
+        const uint32_t target_blocks = 2048u;
+        const uint32_t min_seg = 512u;
+        uint32_t k = (uint32_t)((target_blocks + out_dim - 1u) / out_dim);
+        const uint32_t maxk = (uint32_t)(in_dim / min_seg);
+        if (k > maxk) k = maxk;
+        const uint64_t need = out_dim * (uint64_t)k * sizeof(float);
+        if (k > 1u && need <= g_f16_splitk_partials_bytes) ksplit = k;
+    }
+    if (ksplit > 1u) {
+        const int vec_ok =
+            (in_dim % 8u == 0u) &&
+            (((uintptr_t)w & 15u) == 0u) &&
+            (((uintptr_t)x->ptr & 15u) == 0u);
+        dim3 sgrid((unsigned)out_dim, ksplit, 1);
+        matmul_f16_splitk_kernel<<<sgrid, 256, 0, cuda_decode_stream()>>>(
+            g_f16_splitk_partials,
+            w,
+            (const float *)x->ptr,
+            in_dim,
+            out_dim,
+            ksplit,
+            vec_ok);
+        matmul_f16_splitk_combine_kernel<<<(unsigned)((out_dim + 255u) / 256u), 256, 0, cuda_decode_stream()>>>(
+            (float *)out->ptr,
+            g_f16_splitk_partials,
+            out_dim,
+            ksplit);
+        return cuda_ok(cudaGetLastError(), "matmul_f16_splitk launch");
+    }
     matmul_f16_kernel<<<grid, 256, 0, cuda_decode_stream()>>>((float *)out->ptr, w, (const float *)x->ptr, in_dim, out_dim, n_tok);
     return cuda_ok(cudaGetLastError(), "matmul_f16 launch");
 }
@@ -16306,7 +16459,8 @@ extern "C" int ds4_gpu_matmul_f16_pair_tensor(
     if (!out0 || !out1 || !x || !model_map || in_dim == 0 || out_dim == 0 || n_tok == 0) {
         return 0;
     }
-    if (g_cuda_no_f16_pair_matmul ||
+    if (cuda_use_f16_splitk(in_dim, out_dim, n_tok) ||
+        g_cuda_no_f16_pair_matmul ||
         g_cuda_serial_f16_matmul ||
         g_cuda_serial_router) {
         return ds4_gpu_matmul_f16_tensor(out0, model_map, model_size, weight0_offset,
