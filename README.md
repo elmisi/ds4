@@ -461,6 +461,9 @@ directly comparable with the table above.
 
 ASUS GX10 / NVIDIA GB10 CUDA benchmark data is available in
 [`speed-bench/gx10_gb10_fused_hc/`](speed-bench/gx10_gb10_fused_hc/).
+The Entrpi-inspired F16 split-K experiment and its final opt-in decision are
+documented in
+[`speed-bench/gx10_gb10_splitk_f16/`](speed-bench/gx10_gb10_splitk_f16/).
 
 ## Running models larger than RAM
 
@@ -474,9 +477,9 @@ on cache misses.
 Streaming is not as fast as fitting the full model in RAM. It still needs memory
 for non-routed weights, KV cache, graph scratch, activations, and the routed
 expert cache. It is useful because routed experts dominate model size and modern
-Mac SSDs are fast enough to make cache misses tolerable. Long prefills can still
-be fast; generation is more sensitive to cache misses because every new token
-routes through experts again.
+local SSDs are fast enough to make cache misses tolerable. Long prefills can
+still be fast; generation is more sensitive to cache misses because every new
+token routes through experts again.
 
 Start with the automatic cache budget:
 
