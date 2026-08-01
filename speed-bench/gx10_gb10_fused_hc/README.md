@@ -9,8 +9,8 @@ branch on ASUS GX10 / NVIDIA GB10.
 
 | Variant | Revision | Notes |
 | --- | --- | --- |
-| Upstream main | `59d9bc7` (`Merge commit '7a77a28'`) | Clean `origin/main` worktree |
-| Fused HC decode | `df71dcd` (`Merge remote-tracking branch 'origin/main' into dgx-performance`) | Branch `dgx-performance` |
+| Upstream main | `54b36ed` | Clean `origin/main` worktree |
+| Fused HC decode | `a1edf72` | Branch `dgx-performance` |
 
 The optimized branch keeps the quality-preserving GB10 decode changes that
 measured as useful without increasing KV/cache memory. It intentionally does
@@ -28,7 +28,7 @@ make -B -j$(nproc) ds4-bench CUDA_ARCH=
 The benchmark command was:
 
 ```sh
-./ds4-bench --cuda \
+DS4_BENCH_FORCE_SNAPSHOT=1 ./ds4-bench --cuda \
   -m /home/alessandro/projects/ds4/ds4flash.gguf \
   --prompt-file speed-bench/promessi_sposi.txt \
   --ctx-start 2048 \
@@ -39,23 +39,24 @@ The benchmark command was:
   --csv <output.csv>
 ```
 
-No runtime performance environment variables were enabled for the optimized
-run. Both startup logs reported `80.76 GiB` of model tensor spans covered by
-the CUDA model cache and `2465.41 MiB` of context buffers at `ctx=100200`;
-`kvcache_bytes` is identical at every measured context point.
+`DS4_BENCH_FORCE_SNAPSHOT=1` saves a benchmark snapshot after the timed
+frontier, avoiding repeated prompt replay while leaving the timed throughput
+measurement unchanged. No runtime performance environment variables were
+enabled for the optimized run. `kvcache_bytes` is identical at every measured
+context point.
 
 ## Results
 
 | Context | Upstream gen t/s | Optimized gen t/s | Gain | Upstream prefill t/s | Optimized prefill t/s | KV delta |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 8,192 | 13.95 | 15.92 | +14.1% | 383.55 | 387.07 | 0 |
-| 32,768 | 12.86 | 14.51 | +12.8% | 343.50 | 343.37 | 0 |
-| 65,536 | 11.98 | 13.38 | +11.7% | 293.50 | 291.42 | 0 |
-| 100,000 | 11.20 | 12.41 | +10.8% | 249.76 | 249.14 | 0 |
+| 8,192 | 15.30 | 16.11 | +5.29% | 365.45 | 366.64 | 0 |
+| 32,768 | 14.55 | 15.28 | +5.02% | 330.19 | 329.05 | 0 |
+| 65,536 | 13.95 | 14.63 | +4.87% | 283.82 | 283.43 | 0 |
+| 100,000 | 13.40 | 14.03 | +4.70% | 246.45 | 245.63 | 0 |
 
 Across the 49 common context points from 2k to 100k, the optimized path improves
-generation throughput by **+12.4% average**. Prefill is close to neutral,
-averaging **-0.3%**.
+generation throughput by **+5.0% average**. Prefill is close to neutral,
+averaging **-0.09%**.
 
 ## Optional tuning knobs
 
