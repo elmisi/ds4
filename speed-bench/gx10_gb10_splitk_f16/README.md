@@ -1,7 +1,7 @@
 # GX10 / GB10 F16 split-K experiment
 
 This benchmark evaluates an Entrpi-inspired split-K F16 decode matmul path on
-the `gx10-decode-fused-hc` branch.
+the `dgx-performance` branch.
 
 The implementation adds a deterministic two-pass split-K kernel for one-token
 F16 matmuls and a 4 MiB CUDA scratch buffer allocated at `ds4_gpu_init()` time.
