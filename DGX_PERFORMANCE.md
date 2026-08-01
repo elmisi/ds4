@@ -107,70 +107,71 @@ context allocation, prompt, and raw CSV files. Throughput is tokens per second.
 
 ### Fused decode versus upstream main
 
-On the recorded ASUS GX10 / NVIDIA GB10 benchmark, over 49 common contexts
-from 2k to 100k tokens, the fused decode path measured **+12.4% average
-generation throughput** with **-0.3% average prefill throughput** and no
-KV-cache-size delta.
+On the refreshed ASUS GX10 / NVIDIA GB10 benchmark, over 49 common contexts
+from 2k to 100k tokens, the fused decode path measured **+5.0% average
+generation throughput** with **-0.09% average prefill throughput** and no
+KV-cache-size delta. The benchmark uses a forced post-frontier snapshot to
+avoid prompt replay between frontiers; the timed throughput measurement remains
+an ordinary CUDA run.
 
 | Context | Main generation | DGX branch generation | Generation delta | Main prefill | DGX branch prefill | KV delta |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 8,192 | 13.95 | 15.92 | +14.1% | 383.55 | 387.07 | 0 |
-| 32,768 | 12.86 | 14.51 | +12.8% | 343.50 | 343.37 | 0 |
-| 65,536 | 11.98 | 13.38 | +11.7% | 293.50 | 291.42 | 0 |
-| 100,000 | 11.20 | 12.41 | +10.8% | 249.76 | 249.14 | 0 |
+| 8,192 | 15.30 | 16.11 | +5.29% | 365.45 | 366.64 | 0 |
+| 32,768 | 14.55 | 15.28 | +5.02% | 330.19 | 329.05 | 0 |
+| 65,536 | 13.95 | 14.63 | +4.87% | 283.82 | 283.43 | 0 |
+| 100,000 | 13.40 | 14.03 | +4.70% | 246.45 | 245.63 | 0 |
 
 The method, raw CSV files, and charts are in
 [`speed-bench/gx10_gb10_fused_hc/`](speed-bench/gx10_gb10_fused_hc/).
 
 ### F16 split-K experiment
 
-Across nine measured frontiers, split-K was **-0.8%** in generation throughput
+Across nine refreshed measured frontiers, split-K was **-1.3%** in generation throughput
 versus the final unordered default, while still outperforming the legacy
 ordered F16 path. That is why split-K remains opt-in.
 
 | Context | Final default generation | Split-K generation | Ordered F16 generation | Split-K vs default | Default vs ordered |
 | ---: | ---: | ---: | ---: | ---: | ---: |
-| 2,048 | 15.73 | 15.70 | 15.04 | -0.19% | +4.59% |
-| 10,240 | 15.86 | 15.77 | 14.87 | -0.57% | +6.66% |
-| 18,432 | 15.65 | 15.52 | 14.68 | -0.83% | +6.61% |
-| 26,624 | 15.24 | 15.10 | 14.32 | -0.92% | +6.42% |
-| 34,816 | 14.42 | 14.29 | 13.59 | -0.90% | +6.11% |
-| 43,008 | 14.21 | 14.08 | 13.41 | -0.91% | +5.97% |
-| 51,200 | 13.94 | 13.81 | 13.17 | -0.93% | +5.85% |
-| 59,392 | 13.63 | 13.51 | 12.90 | -0.88% | +5.66% |
-| 65,536 | 13.43 | 13.29 | 12.70 | -1.04% | +5.75% |
+| 2,048 | 18.92 | 18.63 | 18.19 | -1.53% | +4.01% |
+| 10,240 | 16.03 | 15.81 | 15.48 | -1.37% | +3.55% |
+| 18,432 | 15.98 | 15.77 | 15.44 | -1.31% | +3.50% |
+| 26,624 | 15.81 | 15.60 | 15.28 | -1.33% | +3.47% |
+| 34,816 | 15.19 | 15.00 | 14.70 | -1.25% | +3.33% |
+| 43,008 | 15.03 | 14.85 | 14.56 | -1.20% | +3.23% |
+| 51,200 | 14.88 | 14.70 | 14.43 | -1.21% | +3.12% |
+| 59,392 | 14.72 | 14.54 | 14.26 | -1.22% | +3.23% |
+| 65,536 | 14.61 | 14.42 | 14.15 | -1.30% | +3.25% |
 
 | Variant | Average generation | Average prefill |
 | --- | ---: | ---: |
-| Final unordered default | 14.68 | 345.23 |
-| Split-K opt-in | 14.56 | 349.95 |
-| Legacy ordered F16 | 13.85 | 346.81 |
+| Final unordered default | 15.69 | 332.63 |
+| Split-K opt-in | 15.48 | 331.77 |
+| Legacy ordered F16 | 15.17 | 331.97 |
 
-KV-cache sizing was identical in every split-K run. The opt-in path reserves
-one fixed 4 MiB CUDA scratch allocation; measured maximum RSS was effectively
-unchanged (1,630,484 KB default, 1,630,584 KB split-K, and 1,631,112 KB
-ordered).
+KV-cache sizing was identical in every refreshed split-K run. The opt-in path
+reserves one fixed 4 MiB CUDA scratch allocation. This refresh measures
+throughput only; it does not repeat the separate `/usr/bin/time -v` RSS A/B.
 
 The full experiment, memory accounting, validation notes, CSV files, and charts
 are in [`speed-bench/gx10_gb10_splitk_f16/`](speed-bench/gx10_gb10_splitk_f16/).
 
 ### CUDA architecture A/B
 
-On the recorded GB10 run, an explicit `sm_121` build was generation-neutral but
-averaged **-2.4% prefill throughput** beyond the short-context point. The
+On the refreshed GB10 run, an explicit `sm_121` build was generation-neutral
+(**+0.5% average**) but averaged **-3.3% prefill throughput**. The
 no-explicit-architecture build is therefore the `cuda-spark` default.
 
 | Context | `sm_121` generation | No-arch generation | Generation delta | `sm_121` prefill | No-arch prefill | Prefill delta |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| 2,048 | 19.56 | 19.08 | +2.5% | 392.60 | 386.62 | +1.5% |
-| 10,240 | 16.14 | 16.13 | +0.1% | 358.14 | 370.20 | -3.3% |
-| 18,432 | 16.08 | 16.09 | -0.1% | 345.21 | 356.51 | -3.2% |
-| 26,624 | 15.89 | 15.91 | -0.1% | 333.86 | 344.50 | -3.1% |
-| 34,816 | 15.31 | 15.29 | +0.1% | 321.11 | 330.85 | -2.9% |
-| 43,008 | 15.16 | 15.13 | +0.2% | 305.19 | 313.71 | -2.7% |
-| 51,200 | 15.01 | 14.98 | +0.2% | 295.12 | 303.07 | -2.6% |
-| 59,392 | 14.84 | 14.80 | +0.3% | 285.47 | 292.58 | -2.4% |
-| 65,536 | 14.71 | 14.69 | +0.1% | 279.41 | 287.12 | -2.7% |
+| 2,048 | 19.37 | 18.92 | +2.4% | 388.30 | 388.38 | -0.0% |
+| 10,240 | 16.06 | 16.03 | +0.2% | 355.08 | 372.74 | -4.7% |
+| 18,432 | 15.99 | 15.98 | +0.1% | 342.19 | 358.07 | -4.4% |
+| 26,624 | 15.82 | 15.81 | +0.1% | 331.04 | 345.37 | -4.1% |
+| 34,816 | 15.23 | 15.19 | +0.3% | 318.59 | 331.13 | -3.8% |
+| 43,008 | 15.09 | 15.03 | +0.4% | 303.06 | 313.70 | -3.4% |
+| 51,200 | 14.93 | 14.88 | +0.3% | 293.57 | 303.70 | -3.3% |
+| 59,392 | 14.77 | 14.72 | +0.3% | 284.39 | 293.46 | -3.1% |
+| 65,536 | 14.65 | 14.61 | +0.3% | 278.45 | 287.16 | -3.0% |
 
 The method and artefacts are in
 [`speed-bench/gx10_gb10_sm121/`](speed-bench/gx10_gb10_sm121/).

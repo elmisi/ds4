@@ -25,10 +25,10 @@ separate patch with its own eager-vs-captured token and logprob gates.
 
 ## Method
 
-Branch base at benchmark time:
+Branch revision at benchmark time:
 
 ```text
-d557259 docs: refresh GX10 fused decode benchmarks
+a1edf72 docs: add DGX benchmark data
 ```
 
 Build:
@@ -46,7 +46,7 @@ Model:
 Benchmark shape:
 
 ```sh
-./ds4-bench --cuda \
+DS4_BENCH_FORCE_SNAPSHOT=1 ./ds4-bench --cuda \
   -m /home/alessandro/projects/ds4/gguf/DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix.gguf \
   --prompt-file speed-bench/promessi_sposi.txt \
   --ctx-start 2048 \
@@ -65,52 +65,43 @@ Variants:
 | [`default_splitk.csv`](default_splitk.csv) | `DS4_CUDA_F16_SPLITK=1` equivalent; collected before the final gate change | Split-K opt-in |
 | [`ordered_f16.csv`](ordered_f16.csv) | `DS4_CUDA_ORDERED_F16_MATMUL=1` | Legacy ordered F16 path |
 
-All runs reported `80.76 GiB` of model tensor spans covered by the CUDA model
+All runs reported `80.24 GiB` of model tensor spans covered by the CUDA model
 cache and `1743.17 MiB` of context buffers at `ctx=65700`.
 
 ## Results
 
 | Context | Final default gen t/s | Split-K gen t/s | Ordered gen t/s | Split-K vs final | Final vs ordered | KV equal |
 | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-| 2,048 | 15.73 | 15.70 | 15.04 | -0.19% | +4.59% | yes |
-| 10,240 | 15.86 | 15.77 | 14.87 | -0.57% | +6.66% | yes |
-| 18,432 | 15.65 | 15.52 | 14.68 | -0.83% | +6.61% | yes |
-| 26,624 | 15.24 | 15.10 | 14.32 | -0.92% | +6.42% | yes |
-| 34,816 | 14.42 | 14.29 | 13.59 | -0.90% | +6.11% | yes |
-| 43,008 | 14.21 | 14.08 | 13.41 | -0.91% | +5.97% | yes |
-| 51,200 | 13.94 | 13.81 | 13.17 | -0.93% | +5.85% | yes |
-| 59,392 | 13.63 | 13.51 | 12.90 | -0.88% | +5.66% | yes |
-| 65,536 | 13.43 | 13.29 | 12.70 | -1.04% | +5.75% | yes |
+| 2,048 | 18.92 | 18.63 | 18.19 | -1.53% | +4.01% | yes |
+| 10,240 | 16.03 | 15.81 | 15.48 | -1.37% | +3.55% | yes |
+| 18,432 | 15.98 | 15.77 | 15.44 | -1.31% | +3.50% | yes |
+| 26,624 | 15.81 | 15.60 | 15.28 | -1.33% | +3.47% | yes |
+| 34,816 | 15.19 | 15.00 | 14.70 | -1.25% | +3.33% | yes |
+| 43,008 | 15.03 | 14.85 | 14.56 | -1.20% | +3.23% | yes |
+| 51,200 | 14.88 | 14.70 | 14.43 | -1.21% | +3.12% | yes |
+| 59,392 | 14.72 | 14.54 | 14.26 | -1.22% | +3.23% | yes |
+| 65,536 | 14.61 | 14.42 | 14.15 | -1.30% | +3.25% | yes |
 
 Average generation throughput across the nine frontiers:
 
 | Variant | Avg gen t/s | Avg prefill t/s |
 | --- | ---: | ---: |
-| Final default | 14.68 | 345.23 |
-| Split-K opt-in | 14.56 | 349.95 |
-| Ordered F16 | 13.85 | 346.81 |
+| Final default | 15.69 | 332.63 |
+| Split-K opt-in | 15.48 | 331.77 |
+| Ordered F16 | 15.17 | 331.97 |
 
 Split-K is useful as an opt-in diagnostic and still beats the ordered legacy
-path by **+5.1%** on average, but it is **-0.8%** on average versus the existing
+path by **+3.3%** on average, but it is **-1.3%** on average versus the existing
 unordered GB10 path in this branch. The default therefore stays on the faster
 measured path.
 
 ## Memory
 
 The split-K implementation reserves one fixed 4 MiB CUDA scratch allocation
-when enabled. It does not change KV-cache sizing: all three benchmark runs had
-identical `kvcache_bytes` at every frontier, including `926033292` bytes at
-65,536 tokens. `/usr/bin/time -v` max RSS was also effectively unchanged:
-
-| Variant | Max RSS |
-| --- | ---: |
-| Final default | 1,630,484 KB |
-| Split-K opt-in | 1,630,584 KB |
-| Ordered F16 | 1,631,112 KB |
-
-The small RSS differences are below run-to-run noise for this workload; the
-only intentional memory delta is the 4 MiB CUDA scratch buffer when split-K is
-enabled.
+when enabled. It does not change KV-cache sizing: all three benchmark runs have
+equal `kvcache_bytes` at every recorded frontier. The refreshed throughput run
+did not include a separate `/usr/bin/time -v` RSS A/B; the only intentional
+memory delta remains the 4 MiB CUDA scratch buffer when split-K is enabled.
 
 ## Validation
 
