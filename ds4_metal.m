@@ -8993,6 +8993,10 @@ int ds4_gpu_synchronize(void) {
     return ds4_gpu_finish_command_buffer(cb, 1, "synchronize");
 }
 
+int ds4_gpu_recycle_weight_cache_if_needed(void) {
+    return 1;
+}
+
 void ds4_gpu_cleanup(void) {
     if (!g_initialized) return;
 
