@@ -1694,10 +1694,13 @@ The default graph backend is Metal on macOS and CUDA in CUDA builds:
 ```
 
 On Linux, plain `make` prints the available build targets instead of selecting a
-CUDA target implicitly. Use `make cuda-spark` for DGX Spark / GB10; it builds
-for `sm_121` by default. Use `make cuda-generic` for a normal local CUDA build,
-or set `CUDA_ARCH` explicitly when cross-building or when you need a known
-target:
+CUDA target implicitly. Use `make cuda-spark` for DGX Spark / GB10. It omits an
+explicit `nvcc -arch` because that measured fastest on GB10 (an `sm_121` build
+is generation-neutral but 2-3% slower at prefill; see
+[`speed-bench/gx10_gb10_sm121/`](speed-bench/gx10_gb10_sm121/)). Set
+`CUDA_SPARK_ARCH=sm_N` to override it, or use `make cuda-generic` for a normal
+local CUDA build, or set `CUDA_ARCH` explicitly when cross-building or when you
+need a known target:
 
 ```sh
 make cuda CUDA_ARCH=sm_121
