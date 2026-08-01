@@ -2,6 +2,9 @@
   <img src="logo.svg" alt="DwarfStar logo" width="220">
 </p>
 
+> **DGX performance branch.** This branch's CUDA, GLM, build, validation, and
+> benchmark changes are documented in [DGX_PERFORMANCE.md](DGX_PERFORMANCE.md).
+
 **DwarfStar** is a small native inference engine optimized first for
 **DeepSeek V4 Flash**. It also supports **GLM 5.2 and 5.3**, **GLM 5.3 Flash**, and,
 on very high-memory machines, **DeepSeek V4 PRO**. It is self-contained and
@@ -427,12 +430,6 @@ directly comparable with the table above.
 ![M5 Max t/s](speed-bench/m5_max_ts.svg)
 ![PRO model M3 Ultra t/s](speed-bench/pro_model_m3_ultra_ts.svg)
 
-ASUS GX10 / NVIDIA GB10 CUDA benchmark data is available in
-[`speed-bench/gx10_gb10_fused_hc/`](speed-bench/gx10_gb10_fused_hc/).
-The Entrpi-inspired F16 split-K experiment and its final opt-in decision are
-documented in
-[`speed-bench/gx10_gb10_splitk_f16/`](speed-bench/gx10_gb10_splitk_f16/).
-
 ## Running models larger than RAM
 
 The normal Metal path tries to make the model resident in GPU-addressable
@@ -445,9 +442,9 @@ on cache misses.
 Streaming is not as fast as fitting the full model in RAM. It still needs memory
 for non-routed weights, KV cache, graph scratch, activations, and the routed
 expert cache. It is useful because routed experts dominate model size and modern
-local SSDs are fast enough to make cache misses tolerable. Long prefills can
-still be fast; generation is more sensitive to cache misses because every new
-token routes through experts again.
+Mac SSDs are fast enough to make cache misses tolerable. Long prefills can still
+be fast; generation is more sensitive to cache misses because every new token
+routes through experts again.
 
 Start with the automatic cache budget:
 
@@ -1663,15 +1660,12 @@ The default graph backend is Metal on macOS and CUDA in CUDA builds:
 
 On Linux, plain `make` prints the available build targets instead of selecting a
 CUDA target implicitly. Use `make cuda-spark` for DGX Spark / GB10. It omits an
-explicit `nvcc -arch` because that measured fastest on GB10 (an `sm_121` build
-is generation-neutral but 2-3% slower at prefill; see
-[`speed-bench/gx10_gb10_sm121/`](speed-bench/gx10_gb10_sm121/)). Set
-`CUDA_SPARK_ARCH=sm_N` to override it, or use `make cuda-generic` for a normal
-local CUDA build, or set `CUDA_ARCH` explicitly when cross-building or when you
-need a known target:
+explicit `nvcc -arch` because that is currently the fastest path on GB10. Use
+`make cuda-generic` for a normal local CUDA build, or set `CUDA_ARCH` explicitly
+when cross-building or when you need a known target:
 
 ```sh
-make cuda CUDA_ARCH=sm_121
+make cuda CUDA_ARCH=sm_120
 make cuda CUDA_ARCH=native
 ```
 
