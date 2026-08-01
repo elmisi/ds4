@@ -1,5 +1,6 @@
-ds4: CUDA backend initialized on NVIDIA GB10 (sm_121)
-ds4: CUDA host registration skipped: operation not supported
+ds4: Linux cuda backend set oom_score_adj=1000
+ds4: CUDA backend initialized on NVIDIA GB10 (sm_121) dev=0
+ds4: CUDA (no-copy) host registration skipped: operation not supported
 ds4: CUDA preparing model tensor mappings
 ds4: CUDA loading model tensors into device cache
 ds4: CUDA loading model tensors 16.02 GiB cached
@@ -12,29 +13,8 @@ ds4: CUDA loading model tensors 64.06 GiB cached
 ds4: CUDA prepared model tensor mappings 64.13 GiB
 ds4: CUDA loading model tensors 80.04 GiB cached
 ds4: CUDA prepared model tensor mappings 80.24 GiB
-ds4: CUDA startup model preparation covered 80.76 GiB of tensor spans in 19.667s
+ds4: CUDA startup model preparation covered 80.76 GiB of tensor spans in 16.951s
 ds4: cuda backend initialized for graph diagnostics
+ds4: memory: KV 1.20 GiB (raw 0.36 + compressed 0.84) + buffers 0.50 GiB + resident model 80.76 GiB = 82.46 GiB planned
+ds4: memory detail: ctx=65700 prefill_cap=4096 raw_kv_rows=4352 compressed_kv_rows=16427 backend=cuda
 ds4-bench: context buffers 1743.17 MiB (ctx=65700, backend=cuda, prefill_chunk=4096, raw_kv_rows=4352, compressed_kv_rows=16427)
-	Command being timed: "env DS4_CUDA_ORDERED_F16_MATMUL=1 ./ds4-bench --cuda -m /home/alessandro/projects/ds4/gguf/DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix.gguf --prompt-file speed-bench/promessi_sposi.txt --ctx-start 2048 --ctx-max 65536 --step-incr 8192 --ctx-alloc 65700 --gen-tokens 128 --csv speed-bench/gx10_gb10_splitk_f16/ordered_f16.csv"
-	User time (seconds): 217.74
-	System time (seconds): 68.27
-	Percent of CPU this job got: 95%
-	Elapsed (wall clock) time (h:mm:ss or m:ss): 4:59.91
-	Average shared text size (kbytes): 0
-	Average unshared data size (kbytes): 0
-	Average stack size (kbytes): 0
-	Average total size (kbytes): 0
-	Maximum resident set size (kbytes): 1631112
-	Average resident set size (kbytes): 0
-	Major (requiring I/O) page faults: 0
-	Minor (reclaiming a frame) page faults: 398440
-	Voluntary context switches: 4581
-	Involuntary context switches: 1865
-	Swaps: 0
-	File system inputs: 169375840
-	File system outputs: 72
-	Socket messages sent: 0
-	Socket messages received: 0
-	Signals delivered: 0
-	Page size (bytes): 4096
-	Exit status: 0

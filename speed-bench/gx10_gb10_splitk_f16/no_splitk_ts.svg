@@ -8,7 +8,7 @@ text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 .legend { font-size: 13px; font-weight: 600; fill: #1f2933; }
 </style>
 <rect width="960" height="540" fill="#ffffff"/>
-<text class="title" x="480.0" y="34" text-anchor="middle">GX10 GB10 final default t/s</text>
+<text class="title" x="480.0" y="34" text-anchor="middle">GB10 default F16 throughput</text>
 <line x1="82" y1="468.00" x2="878" y2="468.00" stroke="#e2e8f0" stroke-width="1"/>
 <text class="tick" x="70" y="472.00" text-anchor="end">0</text>
 <line x1="82" y1="387.60" x2="878" y2="387.60" stroke="#e2e8f0" stroke-width="1"/>
@@ -40,8 +40,8 @@ text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
 <text class="axis-label" x="480.0" y="520" text-anchor="middle">ctx size</text>
 <text class="axis-label" x="22" y="267.0" text-anchor="middle" transform="rotate(-90 22 267.0)">prefill t/s</text>
 <text class="axis-label" x="938" y="267.0" text-anchor="middle" transform="rotate(90 938 267.0)">generation t/s</text>
-<polyline fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="106.88,140.80 206.38,156.90 305.88,169.17 405.38,179.73 504.88,191.63 604.38,206.61 703.88,215.28 803.38,224.15 878.00,229.61"/>
-<polyline fill="none" stroke="#dc2626" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="106.88,151.83 206.38,149.21 305.88,153.44 405.38,161.68 504.88,178.16 604.38,182.38 703.88,187.81 803.38,194.04 878.00,198.06"/>
+<polyline fill="none" stroke="#2563eb" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="106.88,155.74 206.38,168.32 305.88,180.11 405.38,190.32 504.88,201.77 604.38,215.79 703.88,223.83 803.38,232.06 878.00,237.12"/>
+<polyline fill="none" stroke="#dc2626" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" points="106.88,87.71 206.38,145.80 305.88,146.80 405.38,150.22 504.88,162.68 604.38,165.90 703.88,168.91 803.38,172.13 878.00,174.34"/>
 <rect x="694" y="66" width="176" height="62" rx="6" fill="#ffffff" stroke="#cbd5e1"/>
 <rect x="708" y="78" width="12" height="12" fill="#2563eb"/>
 <text class="legend" x="730" y="89">prefill</text>
