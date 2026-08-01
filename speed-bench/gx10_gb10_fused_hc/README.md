@@ -10,7 +10,7 @@ branch on ASUS GX10 / NVIDIA GB10.
 | Variant | Revision | Notes |
 | --- | --- | --- |
 | Upstream main | `59d9bc7` (`Merge commit '7a77a28'`) | Clean `origin/main` worktree |
-| Fused HC decode | `df71dcd` (`Merge remote-tracking branch 'origin/main' into gx10-decode-fused-hc`) | Branch `gx10-decode-fused-hc` |
+| Fused HC decode | `df71dcd` (`Merge remote-tracking branch 'origin/main' into dgx-performance`) | Branch `dgx-performance` |
 
 The optimized branch keeps the quality-preserving GB10 decode changes that
 measured as useful without increasing KV/cache memory. It intentionally does
