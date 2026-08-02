@@ -41,14 +41,20 @@ the following *disable* switches:
 | `DS4_CUDA_NO_KV_ROPE_STORE_FUSED=1` | Split RoPE from the decode KV store. |
 | `DS4_CUDA_NO_ATTN_OUTPUT_ROPE_LOW_FUSED=1` | Split RoPE from the low-rank attention output path. |
 
-### Optional CUDA experiments
+### CUDA experiments and GB10 defaults
 
-Two experiments are intentionally opt-in rather than part of the default
-decode path:
+The tile-8 row-span MoE down-projection kernel is enabled by default on
+GB10/sm_121. It improves prompt prefill and leaves generation throughput and
+KV-cache sizing effectively unchanged. It can be disabled for an A/B with
+`DS4_CUDA_NO_MOE_DOWN_TILE8_ROWSPAN=1`. The positive switch remains available
+to test the same kernel on other CUDA devices.
+
+The F16 experiments below remain intentionally opt-in rather than part of the
+default decode path:
 
 | Switch | Implementation | Branch decision |
 | --- | --- | --- |
-| `DS4_CUDA_MOE_DOWN_TILE8_ROWSPAN=1` | Tile-8 row-span MoE down-projection kernel. | Retained as an opt-in prefill tuning knob. |
+| `DS4_CUDA_MOE_DOWN_TILE8_ROWSPAN=1` | Tile-8 row-span MoE down-projection kernel on non-GB10 CUDA devices. | Default on GB10/sm_121; use `DS4_CUDA_NO_MOE_DOWN_TILE8_ROWSPAN=1` to opt out. |
 | `DS4_CUDA_F16_SPLITK=1` | Deterministic two-pass split-K one-token F16 matmul, with a fixed 4 MiB CUDA scratch buffer. | Retained for A/B and diagnostics; the unordered F16 default measured faster. |
 | `DS4_CUDA_ORDERED_F16_MATMUL=1` | Legacy ordered F16 path. | Retained only as an A/B reference. |
 
@@ -123,6 +129,16 @@ an ordinary CUDA run.
 
 The method, raw CSV files, and charts are in
 [`speed-bench/gx10_gb10_fused_hc/`](speed-bench/gx10_gb10_fused_hc/).
+
+### Tile-8 MoE down projection on GB10
+
+With the current DeepSeek V4 Flash 0731 GGUF, a fresh-process A/B at a 2,048
+token frontier and a 262,144-token allocated context measured **+5.6% average
+prefill throughput** (369.18 to 389.98 t/s). Generation was neutral (18.30 to
+18.34 t/s); tile8 is therefore a prompt/context-ingestion optimization rather
+than a decode-speed claim. Both variants planned 85.31 GiB of model, KV, and
+buffer memory. The inputs, raw samples, and reproduction command are in
+[`speed-bench/gx10_gb10_tile8/`](speed-bench/gx10_gb10_tile8/).
 
 ### F16 split-K experiment
 

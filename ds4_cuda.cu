@@ -25412,9 +25412,16 @@ static int routed_moe_launch(
             getenv("DS4_CUDA_MOE_DOWN_ROW512") != NULL ? 512u :
             getenv("DS4_CUDA_MOE_DOWN_ROW2048") != NULL ? 2048u :
             getenv("DS4_CUDA_MOE_DOWN_ROW1024") != NULL ? 1024u : 512u;
+        /* GB10 benefits from grouping the tile-8 MoE down projection by row
+         * span during prefill.  Keep the positive switch for A/B on other
+         * devices, and provide a negative switch so the former path remains
+         * directly comparable on GB10. */
         const uint32_t use_down_tile8_rowspan =
             !q4k_path && use_atomic_down && expert_tile_m == 8u &&
-            getenv("DS4_CUDA_MOE_DOWN_TILE8_ROWSPAN") != NULL;
+            ((g_cuda_gb10_device ||
+              (g_cuda_sm_major == 12 && g_cuda_sm_minor == 1))
+                 ? getenv("DS4_CUDA_NO_MOE_DOWN_TILE8_ROWSPAN") == NULL
+                 : getenv("DS4_CUDA_MOE_DOWN_TILE8_ROWSPAN") != NULL);
         const uint32_t use_down_row2048 = !q4k_path && use_atomic_down && expert_tile_m == 8u &&
             (getenv("DS4_CUDA_MOE_DOWN_ROW2048") != NULL ||
              getenv("DS4_CUDA_MOE_DOWN_ROW256") != NULL ||
