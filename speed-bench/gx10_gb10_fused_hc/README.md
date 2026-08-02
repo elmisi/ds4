@@ -58,18 +58,20 @@ Across the 49 common context points from 2k to 100k, the optimized path improves
 generation throughput by **+5.0% average**. Prefill is close to neutral,
 averaging **-0.09%**.
 
-## Optional tuning knobs
+## Tile-8 MoE down-projection default
 
-The branch also ships an opt-in MoE down-projection kernel that is **not**
-enabled in the benchmark above:
+The GB10/sm_121 runtime now enables the tile-8 row-span MoE down-projection
+kernel by default. It can be disabled for a direct A/B:
 
 ```sh
-DS4_CUDA_MOE_DOWN_TILE8_ROWSPAN=1
+DS4_CUDA_NO_MOE_DOWN_TILE8_ROWSPAN=1
 ```
 
-This selects a tile8 row-span kernel for the MoE down projection (only active
-when the expert tile width is 8). On GB10 it gives a small prefill speedup; it
-is left off by default so the measurements above reflect the stock decode path.
+The positive `DS4_CUDA_MOE_DOWN_TILE8_ROWSPAN=1` switch remains available to
+test this kernel on non-GB10 CUDA devices. The historical benchmark above was
+recorded before tile8 became the GB10 default; its dedicated A/B, using the
+current 0731 model and 262k context allocation, is in
+[`../gx10_gb10_tile8/`](../gx10_gb10_tile8/).
 
 ## Artifacts
 
