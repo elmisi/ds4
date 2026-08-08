@@ -54,7 +54,7 @@ python3 speed-bench/plot_speed.py "$report_dir/dgx_performance.csv" \
     --title "DGX Spark GB10 dgx-performance t/s" \
     >"$report_dir/plot.log" 2>&1
 
-awk -F, 'BEGIN { print "| Context | Prefill | Generation |"; print "| ---: | ---: | ---: |" } NR > 1 && ($1 == 2048 || $1 == 16384 || $1 == 32768 || $1 == 65536) { printf "| %s | %s t/s | %s t/s |\\n", $1, $3, $5 }' \
+awk -F, 'BEGIN { print "| Context | Prefill | Generation |"; print "| ---: | ---: | ---: |" } NR > 1 && ($1 == 2048 || $1 == 16384 || $1 == 32768 || $1 == 65536) { printf "| %s | %s t/s | %s t/s |\n", $1, $3, $5 }' \
     "$report_dir/dgx_performance.csv" >"$report_dir/readme_table.md"
 
 date --iso-8601=seconds >>"$report_dir/provenance.txt"
