@@ -542,10 +542,10 @@ test-cuda-mixed-batch: tests/test_cuda_mixed_batch
 	DS4_TEST_MODEL="$(DS4_TEST_MODEL)" ./tests/test_cuda_mixed_batch
 endif
 
-tests/cuda_fused_decode_smoke: tests/cuda_fused_decode_smoke.o ds4_cuda.o
+tests/cuda_fused_decode_smoke: tests/cuda_fused_decode_smoke.o ds4_cuda.o $(MMQ_OBJS)
 	$(NVCC) $(NVCCFLAGS) -o $@ $^ $(CUDA_LDLIBS)
 
-tests/cuda_splitk_smoke: tests/cuda_splitk_smoke.o ds4_cuda.o
+tests/cuda_splitk_smoke: tests/cuda_splitk_smoke.o ds4_cuda.o $(MMQ_OBJS)
 	$(NVCC) $(NVCCFLAGS) -o $@ $^ $(CUDA_LDLIBS)
 
 ds4_test: ds4_test.o ds4_help.o ds4_kvstore.o rax.o $(CORE_OBJS)
