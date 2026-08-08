@@ -23,11 +23,12 @@ done
     echo "started_at=$(date --iso-8601=seconds)"
     echo "model=$(readlink -f "$model")"
     echo "prompt=$(readlink -f "$prompt")"
+    echo "build=CUDA_ARCH=sm_121"
     echo "command=DS4_BENCH_FORCE_SNAPSHOT=1 ./ds4-bench -m ds4flash.gguf --prompt-file speed-bench/promessi_sposi.txt --ctx-start 2048 --ctx-max 65536 --step-incr 2048 --gen-tokens 128"
     nvidia-smi --query-gpu=name,driver_version,temperature.gpu,utilization.gpu --format=csv,noheader
 } >"$report_dir/provenance.txt"
 
-make -B -j8 ds4-bench CUDA_ARCH= >"$report_dir/build.log" 2>&1
+make -B -j8 ds4-bench CUDA_ARCH=sm_121 >"$report_dir/build.log" 2>&1
 
 DS4_BENCH_FORCE_SNAPSHOT=1 ./ds4-bench \
     -m ds4flash.gguf \
