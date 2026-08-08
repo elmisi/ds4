@@ -140,6 +140,24 @@ than a decode-speed claim. Both variants planned 85.31 GiB of model, KV, and
 buffer memory. The inputs, raw samples, and reproduction command are in
 [`speed-bench/gx10_gb10_tile8/`](speed-bench/gx10_gb10_tile8/).
 
+### Upstream `main` MMQ comparison
+
+On 2026-08-04, the same 0731 IQ2XXS/w2Q2K Flash GGUF and 262,144-token
+allocation were compared with upstream `main` at `b7e9f00`. The upstream raw
+MMQ path improved prefill from 386.33 to **441.93 t/s** (**+14.4%**) versus
+the deployed tile8 branch, but reduced steady decode from 18.34 to 17.14 t/s
+(**-6.5%**) and increased first-token latency from 70.37 to 75.76 ms.
+
+Upstream's default aligned-artifact path built 78.71 GiB of derived CUDA
+weights, then did not produce a benchmark result. No OOM or NVIDIA Xid was
+logged, but that default is not a deployment candidate on this configuration.
+The successful MMQ run deliberately disabled those artifacts; its quality
+smoke prompt produced the same correct deterministic answer as the branch.
+Keep `dgx-performance` as the service baseline until the artifact failure and
+decode regression are resolved. The commands, exact environments, CSV, and
+quality-smoke result are in
+[`speed-bench/gx10_gb10_main_mmq/`](speed-bench/gx10_gb10_main_mmq/).
+
 ### F16 split-K experiment
 
 Across nine refreshed measured frontiers, split-K was **-1.3%** in generation throughput
