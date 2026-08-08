@@ -945,8 +945,17 @@ extern "C" int ds4_gpu_decode_graphs_supported(void) {
              strcmp(s, "off") == 0 || strcmp(s, "OFF") == 0 ||
              strcmp(s, "no") == 0 || strcmp(s, "NO") == 0 ||
              strcmp(s, "false") == 0 || strcmp(s, "FALSE") == 0);
-        if (off) {
-            fprintf(stderr, "ds4: DS4_CUDA_DECODE_GRAPHS=%s - decode graph capture disabled\n", s);
+        /* GB10's legacy-stream interaction currently makes decode capture
+         * produce incomplete continuations.  Keep the optimized eager decode
+         * path as the safe default; an explicit non-off value remains an
+         * opt-in for capture debugging. */
+        const int gb10_default_off = g_cuda_gb10_device && (!s || !*s);
+        if (off || gb10_default_off) {
+            if (gb10_default_off) {
+                fprintf(stderr, "ds4: GB10 default: decode graph capture disabled (set DS4_CUDA_DECODE_GRAPHS=1 to opt in)\n");
+            }
+            fprintf(stderr, "ds4: DS4_CUDA_DECODE_GRAPHS=%s - decode graph capture disabled\n",
+                    s ? s : "default");
             enabled = 0;
         } else {
             enabled = 1;
