@@ -20830,12 +20830,6 @@ extern void ds4_gpu_set_decode_attn_rope_fuse(
         uint32_t head_dim, uint32_t n_rot, uint32_t pos0, uint32_t n_ctx_orig,
         bool inverse, float freq_base, float freq_scale, float ext_factor,
         float attn_factor, float beta_fast, float beta_slow);
-extern int ds4_gpu_kv_rope_fp8_store_raw_tensor(
-        ds4_gpu_tensor *kv, ds4_gpu_tensor *raw_cache, uint32_t raw_cap,
-        uint32_t row, uint32_t head_dim, uint32_t n_rot, uint32_t pos0,
-        uint32_t n_ctx_orig, bool inverse, float freq_base, float freq_scale,
-        float ext_factor, float attn_factor, float beta_fast, float beta_slow);
-
 static bool metal_graph_decode_kv_store(
         ds4_gpu_tensor *kv,
         ds4_gpu_tensor *raw_cache,
@@ -23482,7 +23476,7 @@ static bool metal_graph_encode_decode_layer_phase(
                        metal_graph_kv(g), raw_cache, raw_cap, raw_row,
                        DS4_N_HEAD_DIM, DS4_N_ROT, pos,
                        compressed ? (uint32_t)DS4_ROPE_ORIG_CTX : 0,
-                       false, freq_base, freq_scale, ext_factor, attn_factor,
+                       freq_base, freq_scale, ext_factor, attn_factor,
                        DS4_ROPE_YARN_BETA_FAST, DS4_ROPE_YARN_BETA_SLOW) != 0)
                 : metal_graph_decode_kv_store(metal_graph_kv(g), raw_cache, raw_cap, raw_row);
         }
