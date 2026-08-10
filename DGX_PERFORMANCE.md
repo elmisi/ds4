@@ -111,6 +111,30 @@ artefacts in this branch. They use the same model and benchmark command within
 each A/B; the linked benchmark README records the exact model path, build flags,
 context allocation, prompt, and raw CSV files. Throughput is tokens per second.
 
+### Speed-compatible DGX Spark snapshot
+
+This table deliberately mirrors the `Machine`, `Backend`, `Context`, `Prefill`,
+and `Generation` columns in the upstream [`README.md` Speed section](README.md#speed).
+It uses the same DeepSeek V4 Flash Q2 0731 GGUF, the standard *Promessi sposi*
+prompt, 2,048-token incremental prefill steps, and 128 greedy generation tokens
+at the same four context frontiers. The quality-gated branch run was built with
+`CUDA_ARCH=sm_121` and has CUDA decode-graph capture disabled; treat that as an
+explicit run-configuration difference when comparing it with any historical
+upstream row.
+
+| Machine | Backend | Context | Prefill | Generation |
+| --- | --- | ---: | ---: | ---: |
+| DGX Spark GB10, 128 GB | CUDA | 2048 | 781.45 t/s | 20.79 t/s |
+| DGX Spark GB10, 128 GB | CUDA | 16384 | 814.98 t/s | 16.79 t/s |
+| DGX Spark GB10, 128 GB | CUDA | 32768 | 804.14 t/s | 16.03 t/s |
+| DGX Spark GB10, 128 GB | CUDA | 65536 | 771.95 t/s | 15.24 t/s |
+
+These values are the 2026-08-08 `dgx-performance` snapshot at `03fcd847`,
+which passed the long-context and logprob-vector quality gate. The complete
+32-frontier CSV, command, build flags, GPU state, and paired safe-`main` control
+are in
+[`speed-bench/gx10_gb10_sm121_safe_main_style_20260808/`](speed-bench/gx10_gb10_sm121_safe_main_style_20260808/).
+
 ### Fused decode versus upstream main
 
 On the refreshed ASUS GX10 / NVIDIA GB10 benchmark, over 49 common contexts
