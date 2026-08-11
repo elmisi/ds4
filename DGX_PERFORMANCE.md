@@ -21,25 +21,15 @@ as universal performance claims.
 
 ## CUDA decode path
 
-The default CUDA decode path includes the following GB10-focused changes:
+The safe GB10 default retains the unordered one-token F16 matmul, Q8 decode
+input cache, CUDA token-split synchronization avoidance, and the tile-8 MoE
+down-projection tuning below. CUDA decode-graph capture is disabled by default
+on GB10.
 
-- Fused HC decode preparation combines the HC mixing/split work with RMS norm.
-- The decode graph fuses Q normalization with RoPE, KV RoPE with the raw FP8 KV
-  store, and the low-rank attention-output work with RoPE where applicable.
-- The one-token F16 path uses an unordered pair matmul and GB10-oriented launch
-  tuning.
-- The Q8 decode input is cached for the one-token path.
-- The graph driver avoids an unnecessary token-split synchronization on CUDA.
-
-These fusions are enabled by default. They can be isolated for diagnostics with
-the following *disable* switches:
-
-| Switch | Effect |
-| --- | --- |
-| `DS4_CUDA_NO_Q_NORM_ROPE_FUSED=1` | Use the non-fused Q-normalization/RoPE path. |
-| `DS4_CUDA_NO_FUSED_HC_PRE=1` | Use the non-fused HC decode preparation. |
-| `DS4_CUDA_NO_KV_ROPE_STORE_FUSED=1` | Split RoPE from the decode KV store. |
-| `DS4_CUDA_NO_ATTN_OUTPUT_ROPE_LOW_FUSED=1` | Split RoPE from the low-rank attention output path. |
+The former HC/RoPE fused-decode bundle is deliberately absent: it corrupted
+autoregressive continuations on this hardware even with decode graphs disabled.
+Commit `8393c5d` removed the bundle after the real high-thinking API smoke
+failed; the current measurements and service use the corrected path.
 
 ### CUDA experiments and GB10 defaults
 
@@ -113,25 +103,26 @@ context allocation, prompt, and raw CSV files. Throughput is tokens per second.
 
 ### Speed-compatible DGX Spark snapshot
 
-This is the same `Machine`, `Backend`, `Context`, `Prefill`, and `Generation`
-table published in the [`README.md` Speed section](README.md#speed). It uses the
-standard *Promessi sposi* input, 2,048-token context steps, and 128 greedy
-generation tokens at every frontier. The complete sweeps are in
-[`speed-bench/m5_max.csv`](speed-bench/m5_max.csv) and
-[`speed-bench/gb10.csv`](speed-bench/gb10.csv).
+This table deliberately mirrors the `Machine`, `Backend`, `Context`, `Prefill`,
+and `Generation` columns in the upstream [`README.md` Speed section](README.md#speed).
+It uses the same DeepSeek V4 Flash Q2 0731 GGUF, the standard *Promessi sposi*
+prompt, 2,048-token incremental prefill steps, and 128 greedy generation tokens
+at the same four context frontiers. This fresh branch run was built with
+`CUDA_ARCH=sm_121` and used `DS4_CUDA_DECODE_GRAPHS=0`.
 
 | Machine | Backend | Context | Prefill | Generation |
 | --- | --- | ---: | ---: | ---: |
-| MacBook Pro M5 Max, 128 GB | Metal | 2048 | 790.18 t/s | 39.35 t/s |
-| MacBook Pro M5 Max, 128 GB | Metal | 16384 | 572.53 t/s | 36.14 t/s |
-| MacBook Pro M5 Max, 128 GB | Metal | 32768 | 557.04 t/s | 34.36 t/s |
-| MacBook Pro M5 Max, 128 GB | Metal | 65536 | 398.50 t/s | 27.64 t/s |
-| DGX Spark GB10, 128 GB | CUDA | 2048 | 825.76 t/s | 18.05 t/s |
-| DGX Spark GB10, 128 GB | CUDA | 16384 | 872.44 t/s | 15.10 t/s |
-| DGX Spark GB10, 128 GB | CUDA | 32768 | 855.94 t/s | 14.43 t/s |
-| DGX Spark GB10, 128 GB | CUDA | 65536 | 822.98 t/s | 13.84 t/s |
+| DGX Spark GB10, 128 GB | CUDA | 2048 | 830.90 t/s | 21.62 t/s |
+| DGX Spark GB10, 128 GB | CUDA | 16384 | 869.54 t/s | 17.53 t/s |
+| DGX Spark GB10, 128 GB | CUDA | 32768 | 850.89 t/s | 16.66 t/s |
+| DGX Spark GB10, 128 GB | CUDA | 65536 | 821.55 t/s | 15.86 t/s |
 
-### Fused decode versus upstream main
+These values are the 2026-08-11 `dgx-performance` snapshot at `240e9d7`,
+measured on the local NVIDIA GB10 after the correctness rollback. The complete
+32-frontier CSV, command, build flags, and provenance are in
+[`speed-bench/gx10_gb10_current_safe_20260811/`](speed-bench/gx10_gb10_current_safe_20260811/).
+
+### Fused decode versus upstream main (historical, reverted)
 
 On the refreshed ASUS GX10 / NVIDIA GB10 benchmark, over 49 common contexts
 from 2k to 100k tokens, the fused decode path measured **+5.0% average
@@ -139,6 +130,10 @@ generation throughput** with **-0.09% average prefill throughput** and no
 KV-cache-size delta. The benchmark uses a forced post-frontier snapshot to
 avoid prompt replay between frontiers; the timed throughput measurement remains
 an ordinary CUDA run.
+
+This result is retained only as historical evidence: the fused path was removed
+in `8393c5d` because it generated corrupted continuations. It is not a current
+`dgx-performance` speed claim; use the safe snapshot above instead.
 
 | Context | Main generation | DGX branch generation | Generation delta | Main prefill | DGX branch prefill | KV delta |
 | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
