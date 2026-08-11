@@ -113,27 +113,23 @@ context allocation, prompt, and raw CSV files. Throughput is tokens per second.
 
 ### Speed-compatible DGX Spark snapshot
 
-This table deliberately mirrors the `Machine`, `Backend`, `Context`, `Prefill`,
-and `Generation` columns in the upstream [`README.md` Speed section](README.md#speed).
-It uses the same DeepSeek V4 Flash Q2 0731 GGUF, the standard *Promessi sposi*
-prompt, 2,048-token incremental prefill steps, and 128 greedy generation tokens
-at the same four context frontiers. The quality-gated branch run was built with
-`CUDA_ARCH=sm_121` and has CUDA decode-graph capture disabled; treat that as an
-explicit run-configuration difference when comparing it with any historical
-upstream row.
+This is the same `Machine`, `Backend`, `Context`, `Prefill`, and `Generation`
+table published in the [`README.md` Speed section](README.md#speed). It uses the
+standard *Promessi sposi* input, 2,048-token context steps, and 128 greedy
+generation tokens at every frontier. The complete sweeps are in
+[`speed-bench/m5_max.csv`](speed-bench/m5_max.csv) and
+[`speed-bench/gb10.csv`](speed-bench/gb10.csv).
 
 | Machine | Backend | Context | Prefill | Generation |
 | --- | --- | ---: | ---: | ---: |
-| DGX Spark GB10, 128 GB | CUDA | 2048 | 781.45 t/s | 20.79 t/s |
-| DGX Spark GB10, 128 GB | CUDA | 16384 | 814.98 t/s | 16.79 t/s |
-| DGX Spark GB10, 128 GB | CUDA | 32768 | 804.14 t/s | 16.03 t/s |
-| DGX Spark GB10, 128 GB | CUDA | 65536 | 771.95 t/s | 15.24 t/s |
-
-These values are the 2026-08-08 `dgx-performance` snapshot at `03fcd847`,
-which passed the long-context and logprob-vector quality gate. The complete
-32-frontier CSV, command, build flags, GPU state, and paired safe-`main` control
-are in
-[`speed-bench/gx10_gb10_sm121_safe_main_style_20260808/`](speed-bench/gx10_gb10_sm121_safe_main_style_20260808/).
+| MacBook Pro M5 Max, 128 GB | Metal | 2048 | 790.18 t/s | 39.35 t/s |
+| MacBook Pro M5 Max, 128 GB | Metal | 16384 | 572.53 t/s | 36.14 t/s |
+| MacBook Pro M5 Max, 128 GB | Metal | 32768 | 557.04 t/s | 34.36 t/s |
+| MacBook Pro M5 Max, 128 GB | Metal | 65536 | 398.50 t/s | 27.64 t/s |
+| DGX Spark GB10, 128 GB | CUDA | 2048 | 825.76 t/s | 18.05 t/s |
+| DGX Spark GB10, 128 GB | CUDA | 16384 | 872.44 t/s | 15.10 t/s |
+| DGX Spark GB10, 128 GB | CUDA | 32768 | 855.94 t/s | 14.43 t/s |
+| DGX Spark GB10, 128 GB | CUDA | 65536 | 822.98 t/s | 13.84 t/s |
 
 ### Fused decode versus upstream main
 
