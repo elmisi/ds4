@@ -1,0 +1,9 @@
+revision=240e9d7d59802717cdce8d146ad59576db1298a7
+branch=dgx-performance
+started_at=2026-08-11T09:29:47+02:00
+model=/home/alessandro/projects/ds4/gguf/DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix-0731.gguf
+prompt=/home/alessandro/projects/ds4-gx10/speed-bench/promessi_sposi.txt
+build=CUDA_ARCH=sm_121
+gpu=NVIDIA GB10
+driver=595.84
+command=DS4_BENCH_FORCE_SNAPSHOT=1 DS4_CUDA_DECODE_GRAPHS=0 ./ds4-bench --cuda -m ds4flash.gguf --prompt-file speed-bench/promessi_sposi.txt --ctx-start 2048 --ctx-max 65536 --step-incr 2048 --gen-tokens 128 --csv speed-bench/gx10_gb10_current_safe_20260811/dgx_performance.csv
