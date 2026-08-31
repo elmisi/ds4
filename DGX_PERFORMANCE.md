@@ -101,6 +101,16 @@ artefacts in this branch. They use the same model and benchmark command within
 each A/B; the linked benchmark README records the exact model path, build flags,
 context allocation, prompt, and raw CSV files. Throughput is tokens per second.
 
+### Upstream rebase validation (2026-08-31)
+
+After fast-forwarding `main` to `ec7642c`, the branch was rebased without merge
+commits and validated at `35ae260`. Against the exact pre-rebase `4caae72`
+binary, the 32-frontier DeepSeek V4 Flash sweep improves mean prefill by 1.817%.
+An alternating three-run 32K/256-token control improves mean prefill by 2.856%
+and mean generation by 0.498%; long-context, logprob, local golden-vector, CUDA
+smoke, and real-output gates pass. Reproduction data and logs are in
+[`speed-bench/gx10_gb10_upstream_rebase_20260831/`](speed-bench/gx10_gb10_upstream_rebase_20260831/).
+
 ### Speed-compatible DGX Spark snapshot
 
 This table deliberately mirrors the `Machine`, `Backend`, `Context`, `Prefill`,
