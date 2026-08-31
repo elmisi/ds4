@@ -1,0 +1,39 @@
+started_at=2026-08-31T18:38:01+02:00
+finished_at=2026-08-31T19:05:11+02:00
+machine=amygdala
+os=Linux 6.17.0-1031-nvidia aarch64
+cpu=Cortex-X925 and Cortex-A725, 20 CPUs
+gpu=NVIDIA GB10
+compute_capability=12.1
+driver=595.84
+cuda_toolkit=13.0 V13.0.88
+cuda_arch=sm_121
+main_before=c1d4597
+main_after=ec7642cdd9ec81d01ad4b1fd8f8a3d1511533748
+dgx_performance_before=4caae720c38f8fc872cd5baa4b0793e41cabe053
+dgx_performance_after=35ae260e1501be6be4f00f38666cce949efd72d8
+backup_branch=backup/dgx-performance-pre-rebase-20260831
+integration=git rebase main
+merge_commits_main_to_candidate=0
+model=/home/alessandro/projects/ds4/gguf/DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix-0731.gguf
+model_size_bytes=86720111488
+model_sha256=ca22ae2f838e14077c22bc1c1417b71b45b5e5a3687bd96c2ac6e17fdb6261c0
+prompt=/home/alessandro/projects/ds4-gx10/speed-bench/promessi_sposi.txt
+baseline_binary_sha256=1e4c313f0e54be789d838fa793f246c30dc7ba08d41d08d34c704d69b0a3dde6
+benchmark_candidate_ds4_bench_sha256=dc245fc1bd47f5e0cf2f8921bb68c9c471d8ad11284c42676a5c65b2e59079db
+benchmark_candidate_ds4_sha256=d83a5ad0fd83e119e8719f7fba0408d45e17747828a2bfc9f11743a2db613c55
+benchmark_candidate_ds4_server_sha256=50a5aec9e578db57090c88791aa7553dd3a0abfc75ef442368482ebc45f952f2
+benchmark_candidate_ds4_eval_sha256=d27f3bb25ef98cfc6014250e9845deaebc1b669b53e65aa8832ef6801be79d91
+benchmark_candidate_ds4_agent_sha256=bf9849c235655e67c26fe5f49806b629a11965ac5469f79f0647a5c6cfaed58e
+post_validation_rebuild_at=2026-09-01T00:12:31+02:00
+post_validation_ds4_sha256=5fdb492e317dd1a40274e0651957ef64d603ee90beaab8ea90e0ae70a3be0a38
+post_validation_ds4_server_sha256=0711861126cc4528dd247b5bf227be7daebfa7d99242065e7960ddb3f361679d
+post_validation_ds4_bench_sha256=1c46933cc4408470e88fbdbc7515fa37c710916cd759820b3644fab5d17ff0a3
+post_validation_ds4_eval_sha256=f6e93be092b7a4653e098ed2432ec1e43a441fd80830e9c1246c8fd574f30841
+post_validation_ds4_agent_sha256=cc00aa0e293043ee0dc01471bacbf5a576feaa990f765a554b3cc048723ca7ff
+build=make -j8 cuda CUDA_ARCH=sm_121
+sweep=DS4_BENCH_FORCE_SNAPSHOT=1 DS4_CUDA_DECODE_GRAPHS=0 ds4-bench --cuda -m ds4flash.gguf --prompt-file speed-bench/promessi_sposi.txt --ctx-start 2048 --ctx-max 65536 --step-incr 2048 --gen-tokens 128
+decode_repeat=DS4_BENCH_FORCE_SNAPSHOT=1 DS4_CUDA_DECODE_GRAPHS=0 ds4-bench --cuda -m ds4flash.gguf --prompt-file speed-bench/promessi_sposi.txt --ctx-start 32768 --ctx-max 32768 --step-incr 2048 --gen-tokens 256
+service_initial=inactive/dead
+service_final=inactive/dead
+failures=0
