@@ -8463,12 +8463,18 @@ static bool agent_tool_observation_build(agent_worker *w,
         }
     }
     ds4_tokens_copy(tokens, &w->transcript);
-    /* GLM grounds image tokens in user turns; keep text-only observations in
-     * the native tool-response role used by the rest of the agent protocol. */
-    bool ok = ds4_chat_append_multimodal_message(
-        w->engine, tokens, obs->image_count ? "user" : "tool",
-        parts, images, obs->image_count, spans,
-        err, err_len) != 0;
+    bool ok;
+    if (!obs->image_count) {
+        /* The multimodal helper is GLM-only.  Text observations must retain
+         * the native tool wrapper for DeepSeek as well as GLM. */
+        ds4_chat_append_message(w->engine, tokens, "tool", parts[0]);
+        ok = true;
+    } else {
+        /* GLM grounds image tokens in user turns. */
+        ok = ds4_chat_append_multimodal_message(
+            w->engine, tokens, "user", parts, images, obs->image_count, spans,
+            err, err_len) != 0;
+    }
     free(parts);
     if (!ok) {
         for (size_t i = 0; i < obs->image_count; i++) {
