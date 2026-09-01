@@ -2,6 +2,9 @@
   <img src="logo.svg" alt="DwarfStar logo" width="220">
 </p>
 
+> **DGX performance branch.** This branch's CUDA, GLM, build, validation, and
+> benchmark changes are documented in [DGX_PERFORMANCE.md](DGX_PERFORMANCE.md).
+
 **DwarfStar** is a small native inference engine optimized first for
 **DeepSeek V4 Flash**. It also supports **GLM 5.2 and 5.3**, **GLM 5.3 Flash**, and,
 on very high-memory machines, **DeepSeek V4 PRO**. It is self-contained and

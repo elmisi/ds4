@@ -1,0 +1,24 @@
+ds4: Linux cuda backend set oom_score_adj=1000
+ds4: CUDA using unordered one-token F16 matmul on GB10/sm_121
+ds4: CUDA backend initialized on NVIDIA GB10 (sm_121) dev=0
+ds4: direct I/O enabled for /home/alessandro/projects/ds4-gx10/ds4flash.gguf align=4096
+ds4: direct I/O enabled for /home/alessandro/projects/ds4-gx10/ds4flash.gguf align=4096
+ds4: q2k aligned repack base: 43 tensors 28.22 GiB in 6.7s (threads=6)
+ds4: direct I/O enabled for /home/alessandro/projects/ds4-gx10/ds4flash.gguf align=4096
+ds4: iq2 aligned repack base: 86 tensors 44.34 GiB in 10.3s (threads=6)
+ds4: direct I/O enabled for /home/alessandro/projects/ds4-gx10/ds4flash.gguf align=4096
+ds4: q8 aligned repack base: 345 tensors 6.15 GiB in 2.3s (threads=6)
+ds4: built 474 aligned CUDA artifacts (78.71 GiB) in 19.3s; expert raw residency replaced
+ds4: CUDA aligned artifacts replace expert residency; leaving the 80.76 GiB model mmap unpinned
+ds4: CUDA preparing model tensor mappings
+ds4: CUDA loading model tensors into device cache
+ds4: CUDA startup model preparation covered 8.20 GiB of tensor spans in 1.735s
+ds4: cuda backend initialized for graph diagnostics
+ds4: memory: KV 0.78 GiB (raw 0.36 + compressed 0.42) + buffers 0.25 GiB + resident model 80.76 GiB = 81.79 GiB planned
+ds4: memory detail: ctx=33025 prefill_cap=4096 raw_kv_rows=4352 compressed_kv_rows=8258 backend=cuda
+ds4-bench: context buffers 1059.11 MiB (ctx=33025, backend=cuda, prefill_chunk=4096, raw_kv_rows=4352, compressed_kv_rows=8258)
+ds4: dense Q8 prefill using aligned D2R
+ds4: moe gateup y-indirect q8 staging engage (flat-pool p5b, first n_tokens=4096 n_assign=24576)
+ds4: routed MoE using fused-direct CUDA prefill
+ds4: routed MoE using aligned CUDA artifacts
+ds4: DS4_CUDA_DECODE_GRAPHS=0 - decode graph capture disabled

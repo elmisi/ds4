@@ -1,0 +1,5 @@
+metric,baseline,candidate,delta_percent,samples
+sweep_prefill_mean_tps,846.130000,861.505625,1.817171,32
+sweep_generation_mean_tps,17.259062,17.210625,-0.280650,32
+repeat_32k_prefill_mean_tps,902.276667,928.046667,2.856108,3
+repeat_32k_generation_mean_tps,16.726667,16.810000,0.498206,3

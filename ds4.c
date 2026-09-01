@@ -27395,7 +27395,14 @@ static DS4_MAYBE_UNUSED bool metal_graph_pre_m5_q2_decode_schedule_eligible(
 }
 
 static uint32_t metal_graph_token_split_after_layers(void) {
+#ifdef __APPLE__
     uint32_t split_after_layers = 4;
+#else
+    /* On CUDA, flushing the split point synchronizes the device.  The split is
+     * useful for Metal command scheduling, but in CUDA decode it adds a
+     * per-token barrier in the hot path. */
+    uint32_t split_after_layers = 0;
+#endif
 #ifndef DS4_ROCM_BUILD
     const char *split_env = getenv("DS4_METAL_GRAPH_TOKEN_SPLIT_LAYERS");
     if (split_env && split_env[0]) {
@@ -41338,7 +41345,9 @@ static bool glm_graph_layer_uses_generic_routed_moe(
            l->ffn_gate_exps &&
            l->ffn_up_exps &&
            l->ffn_down_exps &&
-           l->ffn_gate_exps->type == DS4_TENSOR_IQ2_XXS;
+           l->ffn_gate_exps->type == DS4_TENSOR_IQ2_XXS &&
+           l->ffn_up_exps->type == DS4_TENSOR_IQ2_XXS &&
+           l->ffn_down_exps->type == DS4_TENSOR_Q2_K;
 }
 
 static bool glm_tp_validate_ownership_kernels(
@@ -44198,7 +44207,8 @@ static bool glm_graph_encode_sparse_ffn_one(
         l->ffn_gate_exps->type == l->ffn_up_exps->type &&
         l->ffn_gate_exps->type == l->ffn_down_exps->type &&
         (l->ffn_gate_exps->type == DS4_TENSOR_Q2_K ||
-         l->ffn_gate_exps->type == DS4_TENSOR_Q4_K);
+         l->ffn_gate_exps->type == DS4_TENSOR_Q4_K ||
+         l->ffn_gate_exps->type == DS4_TENSOR_IQ2_XXS);
     const bool streaming_selected_cache =
         generic_streaming_selected_cache ||
         uniform_streaming_selected_cache;
@@ -45414,6 +45424,37 @@ static bool glm_graph_seed_streaming_expert_cache_from_full_layer(
 #endif
 }
 
+static bool glm_graph_load_streaming_selected_experts(
+        const ds4_glm_gpu_graph       *g,
+        const ds4_model               *model,
+        const ds4_layer_weights       *layer,
+        uint32_t                       il,
+        const ds4_gpu_tensor          *selected,
+        uint32_t                       n_tokens,
+        uint64_t                       gate_expert_bytes,
+        uint64_t                       down_expert_bytes,
+        bool                           force_resident) {
+    if (!g || !model || !layer || !selected || !g->ssd_streaming ||
+        force_resident || il < DS4_N_LEADING_DENSE) {
+        return true;
+    }
+    const bool uniform_q2 =
+        layer->ffn_gate_exps &&
+        layer->ffn_up_exps &&
+        layer->ffn_down_exps &&
+        layer->ffn_gate_exps->type == DS4_TENSOR_Q2_K &&
+        layer->ffn_up_exps->type == DS4_TENSOR_Q2_K &&
+        layer->ffn_down_exps->type == DS4_TENSOR_Q2_K;
+    if (!uniform_q2 && !glm_stream_selected_expert_cache_supported(layer, il)) {
+        return true;
+    }
+    const ds4_gpu_stream_expert_table table =
+        graph_stream_expert_table_make(model, layer, il,
+                                       gate_expert_bytes, down_expert_bytes);
+    return ds4_gpu_glm_stream_expert_cache_begin_selected_load_tensor(
+                   &table, selected, n_tokens * DS4_N_EXPERT_USED) != 0;
+}
+
 static bool glm_graph_disable_add3_residual(void);
 
 static bool glm_graph_encode_sparse_ffn_indexed_batch_routed_moe(
@@ -45532,6 +45573,9 @@ static bool glm_graph_encode_sparse_ffn_indexed_batch_routed_moe(
     if (ok) ok = glm_graph_capture_prefill_seed_router_selected(g,
                                                                 il,
                                                                 n_tokens);
+    if (ok) ok = glm_graph_load_streaming_selected_experts(
+            g, model, l, il, g->batch_router_selected, n_tokens,
+            gate_out * gate_row_bytes, down_out * down_row_bytes, false);
     metal_graph_debug_dump_tensor("glm_indexed_router_logits",
                                   g->batch_router_logits,
                                   (uint64_t)n_tokens * DS4_N_EXPERT,
@@ -46052,6 +46096,10 @@ static bool glm_graph_encode_ffn_batch(
     if (ok) ok = glm_graph_capture_prefill_seed_router_selected(g,
                                                                 il,
                                                                 n_tokens);
+    if (ok) ok = glm_graph_load_streaming_selected_experts(
+            g, model, l, il, g->batch_router_selected, n_tokens,
+            gate_out * gate_row_bytes, down_out * down_row_bytes,
+            full_layer_prefill);
     if (ok) ok = glm_graph_seed_streaming_expert_cache_from_full_layer(
             g,
             model,
@@ -47582,6 +47630,8 @@ static bool glm_graph_forward_tokens(
     } while (0)
     for (uint32_t il = g->layer_start; ok && il <= g->layer_end; il++) {
         failed_layer = il;
+        ok = ds4_gpu_recycle_weight_cache_if_needed() != 0;
+        if (!ok) break;
         const uint32_t slice_layer_done = il - g->layer_start + 1u;
         if (layer_prepare &&
             !metal_graph_stream_prepare_join_layer(NULL,
@@ -48737,10 +48787,18 @@ static bool glm_graph_forward_indexed_tokens(
     const uint32_t drain_interval =
         progress_flush_interval != 0 ? glm_graph_indexed_prefill_drain_interval() : 0u;
     const bool progress_requested = display_progress && work_total > 0;
-    ds4_gpu_set_glm_streaming_prefill_full_layer(false);
+    /* Mirror the plain prefill flow: above the full-layer threshold the
+     * selected-expert addr loader is the wrong tool: a chunk of N tokens
+     * selects far more unique experts per layer than the cache can hold, and
+     * its overflow branch needs the full expert tensors mapped.  Hardcoding
+     * false here broke every generation prompt above ~64 tokens ("failed to
+     * map overflow expert views"), while short prompts keep the addr path. */
+    const bool full_layer_prefill =
+        glm_graph_stream_prefill_full_layer_enabled(g, n_tokens);
+    ds4_gpu_set_glm_streaming_prefill_full_layer(full_layer_prefill);
     const bool streaming_prefill_sync_each_layer =
         !g->ssd_streaming ||
-        glm_graph_streaming_prefill_sync_each_layer(false);
+        glm_graph_streaming_prefill_sync_each_layer(full_layer_prefill);
 
     if (trace) {
         glm_graph_indexed_prefill_tracef(
@@ -48873,6 +48931,8 @@ static bool glm_graph_forward_indexed_tokens(
     }
     ds4_gpu_tp_set_attn_head_split(tp_attn_head_split ? 1 : 0);
     for (uint32_t il = g->layer_start; ok && il <= g->layer_end; il++) {
+        ok = ds4_gpu_recycle_weight_cache_if_needed() != 0;
+        if (!ok) break;
         const uint32_t slice_layer_done = il - g->layer_start + 1u;
         if (g->ssd_streaming) {
             ok = glm_graph_stream_map_prefill_layer(g,
@@ -48880,7 +48940,7 @@ static bool glm_graph_forward_indexed_tokens(
                                                     weights,
                                                     il,
                                                     n_tokens,
-                                                    false);
+                                                    full_layer_prefill);
             if (ok) ok = ds4_gpu_begin_commands() != 0;
         }
         const ds4_layer_weights *l = &weights->layer[il];
@@ -50784,6 +50844,8 @@ static bool glm_graph_forward_token(
     const char *glm_ft_fail_stage = "layer setup";
 #define DS4_GLM_FT_STAGE(stage_) do { if (ok) glm_ft_fail_stage = (stage_); } while (0)
     for (uint32_t il = g->layer_start; ok && il <= g->layer_end; il++) {
+        ok = ds4_gpu_recycle_weight_cache_if_needed() != 0;
+        if (!ok) break;
         if (g->placement) {
             ok = glm_graph_ws_switch(g, g->placement[il + 1u], true);
             if (!ok) break;
