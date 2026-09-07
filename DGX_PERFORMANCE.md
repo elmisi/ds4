@@ -1,5 +1,26 @@
 # DGX performance branch
 
+## September 7, 2026: validated 256K upstream integration
+
+The 37 DGX commits were rebased onto upstream `b6af0ad`, preserving the
+validated GB10 optimizations. Candidate `73bbdff` passed the long-context,
+logprob/golden, CUDA, snapshot and real-output gates before promotion.
+
+At 250000–258192 actual tokens, three alternating A/B/C runs measured
+approximately 2% higher decode throughput than the previous DGX tip `9dfa943`
+and 3.6–3.8% higher than upstream. Prefill and overall benchmark wall time
+were essentially unchanged. The 12 full-logit comparisons against the old
+DGX branch were identical. These are Flash 0731 Q2 results, not GLM claims.
+
+Keep target-only decoding, temperature 1, thinking, top-p 1, min-p 0.05,
+and decode graphs disabled for general 256K use. DSpark is not a transparent
+default speedup: opportunistic changes sampling, exact did not improve cold
+task completion, and prose decode was slower. A smaller prefill chunk avoided
+swap pressure but made cold prefill substantially slower.
+
+See the [256K validation report and CSVs](speed-bench/gx10_gb10_256k_20260907/README.md)
+for commits, commands, quality checks, temperature and memory caveats.
+
 `dgx-performance` is the performance-oriented development branch for
 NVIDIA DGX Spark / GB10 and related CUDA deployments. It deliberately keeps
 [`main`](README.md) available as a clean upstream mirror. This document records
