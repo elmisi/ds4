@@ -19211,35 +19211,39 @@ static void test_kv_cache_eviction_ignores_oversize_incoming(void) {
     rmdir(dir);
 }
 
-static void test_kv_cache_eviction_prefers_superseded_continued_prefix(void) {
+static void test_kv_cache_eviction_keeps_rollback_prefixes(void) {
     char tmpl[] = "/tmp/ds4-kv-prefix-evict-test.XXXXXX";
     char *dir = mkdtemp(tmpl);
     TEST_ASSERT(dir != NULL);
     if (!dir) return;
 
-    const char *continued_text = "system: hello world";
-    const char *cold_text = "different stable prefix";
-    const char *incoming_text = "system: hello world\nuser: prompt";
-    test_kv_text_stub_file(dir, continued_text, KV_REASON_CONTINUED, 4096, 2048);
-    test_kv_text_stub_file(dir, cold_text, KV_REASON_COLD, 1024, 2048);
-
-    char continued_sha[41], cold_sha[41];
-    sha1_bytes_hex(continued_text, strlen(continued_text), continued_sha);
-    sha1_bytes_hex(cold_text, strlen(cold_text), cold_sha);
-    char continued_name[44], cold_name[44];
-    snprintf(continued_name, sizeof(continued_name), "%.40s.kv", continued_sha);
-    snprintf(cold_name, sizeof(cold_name), "%.40s.kv", cold_sha);
-    char *continued_path = path_join(dir, continued_name);
-    char *cold_path = path_join(dir, cold_name);
-
+    /* The next prompt diverges after the penultimate waypoint. The incoming
+     * full snapshot cannot serve it, even though it extends every waypoint. */
+    const char *texts[] = {"system:", "system: hello", "system: hello world",
+                           "unrelated old anchor"};
+    const char *incoming_text = "system: hello world old tail";
+    const char *next_prompt = "system: hello changed tail";
+    char *paths[4];
+    uint64_t sizes[4];
+    for (int i = 0; i < 4; i++) {
+        test_kv_text_stub_file(dir, texts[i],
+                              i == 3 ? KV_REASON_COLD : KV_REASON_CONTINUED,
+                              (uint32_t)(1024 * (i + 1)), 2048);
+        char sha[41], name[44];
+        sha1_bytes_hex(texts[i], strlen(texts[i]), sha);
+        snprintf(name, sizeof(name), "%.40s.kv", sha);
+        paths[i] = path_join(dir, name);
+        struct stat st;
+        TEST_ASSERT(stat(paths[i], &st) == 0);
+        sizes[i] = (uint64_t)st.st_size;
+    }
     kv_disk_cache kc = {0};
     kc.enabled = true;
     kc.dir = xstrdup(dir);
     kc.opt = kv_cache_default_options();
     uint64_t incoming_bytes =
         KV_CACHE_FIXED_HEADER + 4u + strlen(incoming_text) + 2048u;
-    kc.budget_bytes =
-        incoming_bytes + KV_CACHE_FIXED_HEADER + 4u + strlen(cold_text) + 2048u;
+    kc.budget_bytes = incoming_bytes + sizes[1] + sizes[2];
     ds4_kvstore_eviction_context incoming = {
         .text = incoming_text,
         .text_len = strlen(incoming_text),
@@ -19249,15 +19253,24 @@ static void test_kv_cache_eviction_prefers_superseded_continued_prefix(void) {
         .reject_different_quant = false,
     };
     kv_cache_evict(&kc, NULL, incoming_bytes, &incoming);
+    TEST_ASSERT(access(paths[0], F_OK) != 0);
+    TEST_ASSERT(access(paths[1], F_OK) == 0);
+    TEST_ASSERT(access(paths[2], F_OK) == 0);
+    TEST_ASSERT(access(paths[3], F_OK) != 0);
+    TEST_ASSERT(strncmp(next_prompt, texts[1], strlen(texts[1])) == 0);
+    TEST_ASSERT(strncmp(next_prompt, texts[2], strlen(texts[2])) != 0);
 
-    TEST_ASSERT(access(continued_path, F_OK) != 0);
-    TEST_ASSERT(access(cold_path, F_OK) == 0);
-
+    /* Protection must not exceed the budget, even when only rollback points
+     * remain. A budget equal to the incoming file leaves no room for them. */
+    kc.budget_bytes = incoming_bytes;
+    kv_cache_evict(&kc, NULL, incoming_bytes, &incoming);
+    TEST_ASSERT(access(paths[1], F_OK) != 0);
+    TEST_ASSERT(access(paths[2], F_OK) != 0);
     kv_cache_close(&kc);
-    unlink(continued_path);
-    unlink(cold_path);
-    free(continued_path);
-    free(cold_path);
+    for (int i = 0; i < 4; i++) {
+        unlink(paths[i]);
+        free(paths[i]);
+    }
     rmdir(dir);
 }
 
@@ -19874,7 +19887,7 @@ static void ds4_server_unit_tests_run(void) {
     test_kv_cache_eviction_prefers_anchor_reason();
     test_kv_cache_eviction_makes_room_before_store();
     test_kv_cache_eviction_ignores_oversize_incoming();
-    test_kv_cache_eviction_prefers_superseded_continued_prefix();
+    test_kv_cache_eviction_keeps_rollback_prefixes();
     test_kv_cache_eviction_keeps_smaller_context_prefix();
     test_kv_cache_eviction_score_decays_stale_hits();
     test_kv_cache_eviction_decayed_hits_tie_break_by_age();

@@ -43,10 +43,9 @@
 /* Disk-hit counts are evidence that a checkpoint was useful, but only while
  * the workload still resembles the one that produced those hits. */
 #define KV_CACHE_MIN_EFFECTIVE_HITS 0.01
-/* A continued checkpoint that is a strict prefix of the incoming store is a
- * routine waypoint on the same path. Keep recent hits meaningful, but make
- * never-hit or stale waypoints cheap victims while pre-evicting for the new
- * store. */
+/* Among entries in the same eviction tier, prefer removing never-hit or
+ * stale continued waypoints on the incoming path. The two longest matching
+ * waypoints receive a separate rollback preference in ds4_kvstore_evict(). */
 #define KV_CACHE_CONTINUED_PREFIX_MIN_FACTOR 0.05
 #define KV_CACHE_CONTINUED_PREFIX_HIT_FACTOR 0.45
 /* Cold/evict/shutdown checkpoints are intentional anchors, not just automatic
@@ -501,7 +500,7 @@ bool ds4_kvstore_touch_file(const char *path, uint32_t hits) {
     return ok;
 }
 
-static bool kv_cache_incoming_supersedes_continued(
+static bool kv_cache_continued_prefix_of_incoming(
         const ds4_kvstore_entry *e,
         const ds4_kvstore_eviction_context *incoming) {
     if (!e || !incoming || !incoming->text) return false;
@@ -549,7 +548,7 @@ double ds4_kvstore_entry_eviction_score(
                    (double)e->tokens / (double)e->file_size;
     if (kv_cache_reason_is_anchor(e->reason))
         score *= KV_CACHE_ANCHOR_REASON_SCORE_FACTOR;
-    if (kv_cache_incoming_supersedes_continued(e, incoming)) {
+    if (kv_cache_continued_prefix_of_incoming(e, incoming)) {
         double h = effective_hits > 0.0 ?
             effective_hits / (effective_hits + 1.0) : 0.0;
         score *= KV_CACHE_CONTINUED_PREFIX_MIN_FACTOR +
@@ -568,21 +567,48 @@ void ds4_kvstore_evict(ds4_kvstore *kc, const ds4_tokens *live,
     uint64_t total = 0;
     for (int i = 0; i < kc->len; i++) total += kc->entry[i].file_size;
     const uint64_t target = kc->budget_bytes - extra_bytes;
+    if (total <= target) return;
+    /* A longer snapshot cannot restore a prompt that diverges inside it.
+     * Retain two recent continued prefixes as rollback points, ahead of the
+     * usual score policy. This is a preference, not a pin: a small budget must
+     * still be able to evict them. Select once so older waypoints do not become
+     * protected as entries are removed. */
+    int rollback[2] = {-1, -1};
+    for (int i = 0; i < kc->len; i++) {
+        if (!kv_cache_continued_prefix_of_incoming(&kc->entry[i], incoming))
+            continue;
+        if (rollback[0] < 0 ||
+            kc->entry[i].text_bytes > kc->entry[rollback[0]].text_bytes) {
+            rollback[1] = rollback[0];
+            rollback[0] = i;
+        } else if (rollback[1] < 0 ||
+                   kc->entry[i].text_bytes > kc->entry[rollback[1]].text_bytes) {
+            rollback[1] = i;
+        }
+    }
+    char rollback_sha[2][41] = {{0}};
+    for (int i = 0; i < 2; i++) {
+        if (rollback[i] >= 0)
+            memcpy(rollback_sha[i], kc->entry[rollback[i]].sha, 41);
+    }
     while (total > target && kc->len > 0) {
-        int victim = 0;
-        double victim_score =
-            ds4_kvstore_entry_eviction_score(&kc->entry[0], live, now,
-                                             incoming);
-        for (int i = 1; i < kc->len; i++) {
+        int victim = -1;
+        bool victim_rollback = false;
+        double victim_score = 0.0;
+        for (int i = 0; i < kc->len; i++) {
+            bool is_rollback = !strcmp(kc->entry[i].sha, rollback_sha[0]) ||
+                               !strcmp(kc->entry[i].sha, rollback_sha[1]);
             double score =
                 ds4_kvstore_entry_eviction_score(&kc->entry[i], live, now,
                                                  incoming);
-            if (score < victim_score ||
+            if (victim < 0 || (victim_rollback && !is_rollback) ||
+                (is_rollback == victim_rollback && (score < victim_score ||
                 (score == victim_score &&
-                 kc->entry[i].last_used < kc->entry[victim].last_used))
+                 kc->entry[i].last_used < kc->entry[victim].last_used))))
             {
                 victim = i;
                 victim_score = score;
+                victim_rollback = is_rollback;
             }
         }
         ds4_kvstore_entry e = kc->entry[victim];
