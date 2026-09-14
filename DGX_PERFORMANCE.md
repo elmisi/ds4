@@ -1,5 +1,17 @@
 # DGX performance branch
 
+## September 14, 2026: current upstream rebase
+
+The local branch was rebased onto upstream `9139e2ae`. At 250000 populated
+tokens the rebased candidate retained essentially all previous DGX decode
+throughput and remained about 3.1% faster than upstream, while prefill matched
+upstream and was about 2.4% slower than the previous DGX tip. Frontier logits
+were byte-identical across all candidates, and the rebased build passed exact
+16/16 recall at 254932 tokens plus the long-context, golden, CUDA and frontend
+gates.
+
+See the [September 14 benchmark report and CSVs](speed-bench/gx10_gb10_main_rebase_20260914/README.md).
+
 ## September 7, 2026: validated 256K upstream integration
 
 The 37 DGX commits were rebased onto upstream `b6af0ad`, preserving the
