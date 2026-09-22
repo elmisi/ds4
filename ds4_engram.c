@@ -116,6 +116,77 @@ fail: {
     }
 }
 
+static __attribute__((noinline)) bool pread_full(int fd, uint8_t *out,
+                                                size_t bytes, uint64_t offset) {
+    while (bytes) {
+        ssize_t n = pread(fd, out, bytes, (off_t)offset);
+        if (n < 0 && errno == EINTR) continue;
+        if (n <= 0) {
+            if (n == 0) errno = EIO;
+            return false;
+        }
+        out += (size_t)n;
+        offset += (size_t)n;
+        bytes -= (size_t)n;
+    }
+    return true;
+}
+
+static bool pread_equal(int a, int b, uint64_t offset, uint64_t bytes) {
+    uint8_t left[65536], right[65536];
+    while (bytes) {
+        size_t chunk = bytes < sizeof(left) ? (size_t)bytes : sizeof(left);
+        if (!pread_full(a, left, chunk, offset) ||
+            !pread_full(b, right, chunk, offset)) return false;
+        if (memcmp(left, right, chunk) != 0) {
+            errno = EINVAL;
+            return false;
+        }
+        offset += chunk;
+        bytes -= chunk;
+    }
+    return true;
+}
+
+bool ds4_engram_table_verify_backing(const ds4_engram_table *t,
+                                     int model_fd, uint64_t file_size,
+                                     uint64_t metadata_bytes,
+                                     bool allow_alternate) {
+    if (!t || t->fd < 0 || model_fd < 0 || metadata_bytes > file_size) {
+        errno = EINVAL;
+        return false;
+    }
+    struct stat model_st, table_st;
+    if (fstat(model_fd, &model_st) || fstat(t->fd, &table_st)) return false;
+    if (!S_ISREG(model_st.st_mode) || !S_ISREG(table_st.st_mode) ||
+        model_st.st_size < 0 || table_st.st_size < 0 ||
+        (uint64_t)model_st.st_size != file_size ||
+        (uint64_t)table_st.st_size != file_size) {
+        errno = EINVAL;
+        return false;
+    }
+    if (model_st.st_dev == table_st.st_dev && model_st.st_ino == table_st.st_ino)
+        return true;
+    if (!allow_alternate) {
+        errno = EXDEV;
+        return false;
+    }
+    if (metadata_bytes && !pread_equal(model_fd, t->fd, 0, metadata_bytes)) return false;
+
+    /* Sixteen evenly distributed rows include both boundaries. This is not a
+     * substitute for the one-time full-copy verification performed when the
+     * alternate GGUF is installed; it is a cheap launch-time guard against a
+     * wrong, replaced, or partially copied file. */
+    enum { SAMPLES = 16 };
+    for (uint32_t i = 0; i < SAMPLES; i++) {
+        uint64_t row = t->rows == 1 ? 0 :
+            ((uint64_t)(t->rows - 1) * i) / (SAMPLES - 1);
+        uint64_t offset = t->offset + row * DS4_ENGRAM_ROW_BYTES;
+        if (!pread_equal(model_fd, t->fd, offset, DS4_ENGRAM_ROW_BYTES)) return false;
+    }
+    return true;
+}
+
 void ds4_engram_table_close(ds4_engram_table *t) {
     if (!t) return;
     if (t->fd >= 0) close(t->fd);

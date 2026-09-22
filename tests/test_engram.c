@@ -197,6 +197,58 @@ static void test_rows(void) {
     assert(unlink(path) == 0);
 }
 
+static void test_backing_validation(void) {
+    enum { FILE_BYTES = 16384, METADATA_BYTES = 512, ROWS = 17 };
+    const uint64_t table_offset = 4096;
+    char primary_path[] = "/tmp/ds4-engram-primary-XXXXXX";
+    char alternate_path[] = "/tmp/ds4-engram-alternate-XXXXXX";
+    int primary = mkstemp(primary_path);
+    int alternate = mkstemp(alternate_path);
+    assert(primary >= 0 && alternate >= 0);
+    uint8_t *contents = malloc(FILE_BYTES);
+    assert(contents);
+    for (size_t i = 0; i < FILE_BYTES; i++) contents[i] = (uint8_t)(i * 131u + i / 17u);
+    assert(write(primary, contents, FILE_BYTES) == FILE_BYTES);
+    assert(write(alternate, contents, FILE_BYTES) == FILE_BYTES);
+
+    ds4_engram_table same, copy;
+    assert(ds4_engram_table_open(&same, primary_path, table_offset, ROWS));
+    assert(ds4_engram_table_verify_backing(&same, primary, FILE_BYTES,
+                                           METADATA_BYTES, false));
+    assert(ds4_engram_table_open(&copy, alternate_path, table_offset, ROWS));
+    errno = 0;
+    assert(!ds4_engram_table_verify_backing(&copy, primary, FILE_BYTES,
+                                            METADATA_BYTES, false));
+    assert(errno == EXDEV);
+    assert(ds4_engram_table_verify_backing(&copy, primary, FILE_BYTES,
+                                           METADATA_BYTES, true));
+
+    uint8_t changed = contents[7] ^ 0xffu;
+    assert(pwrite(alternate, &changed, 1, 7) == 1);
+    assert(!ds4_engram_table_verify_backing(&copy, primary, FILE_BYTES,
+                                            METADATA_BYTES, true));
+    assert(pwrite(alternate, contents + 7, 1, 7) == 1);
+    const uint64_t last = table_offset + (ROWS - 1u) * DS4_ENGRAM_ROW_BYTES;
+    changed = contents[last] ^ 0xffu;
+    assert(pwrite(alternate, &changed, 1, (off_t)last) == 1);
+    assert(!ds4_engram_table_verify_backing(&copy, primary, FILE_BYTES,
+                                            METADATA_BYTES, true));
+    assert(pwrite(alternate, contents + last, 1, (off_t)last) == 1);
+    assert(ds4_engram_table_verify_backing(&copy, primary, FILE_BYTES,
+                                           METADATA_BYTES, true));
+    assert(ftruncate(alternate, FILE_BYTES - 1) == 0);
+    assert(!ds4_engram_table_verify_backing(&copy, primary, FILE_BYTES,
+                                            METADATA_BYTES, true));
+
+    ds4_engram_table_close(&copy);
+    ds4_engram_table_close(&same);
+    free(contents);
+    close(alternate);
+    close(primary);
+    assert(unlink(alternate_path) == 0);
+    assert(unlink(primary_path) == 0);
+}
+
 static void test_all_scaled_values(void) {
     char path[] = "/tmp/ds4-engram-values-XXXXXX";
     const int fd = mkstemp(path);
@@ -235,6 +287,7 @@ static void test_all_scaled_values(void) {
 int main(void) {
     test_hash();
     test_rows();
+    test_backing_validation();
     test_all_scaled_values();
     puts("Engram hashes, history and bounded disk rows: PASS");
     return 0;
