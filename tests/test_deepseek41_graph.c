@@ -1502,7 +1502,7 @@ static int check_partitions(const char *path) {
     ds4_gpu_set_streaming_expert_cache_budget(16);
     setenv("DS4_TP_NO_KEEPALIVE", "1", 1);
     REQUIRE(ds4_gpu_set_model_fd(model.fd));
-    REQUIRE(ds41_graph_alloc(&g, &model, &weights, path, 1, true));
+    REQUIRE(ds41_graph_alloc(&g, &model, &weights, path, false, 1, true));
     const size_t bytes = DS4_N_EMBD * sizeof(float);
     const size_t head_bytes = DS4_N_HEAD * DS4_N_HEAD_DIM * sizeof(float);
     expected = malloc(head_bytes); actual = malloc(head_bytes); first = malloc(head_bytes);
@@ -2029,7 +2029,8 @@ int main(int argc, char **argv) {
     }
     REQUIRE(ds4_gpu_set_model_map_spans(model.map, model.size, offsets, sizes,
                                        spans.len, spans.max_tensor_bytes));
-    REQUIRE(ds41_graph_alloc(&graph, &model, &weights, argv[1], zero ? 20000 : 4096, true));
+    REQUIRE(ds41_graph_alloc(&graph, &model, &weights, argv[1], false,
+                             zero ? 20000 : 4096, true));
     logits = malloc((size_t)DS4_N_VOCAB * sizeof(float));
     REQUIRE(logits);
     const double start = now_sec();
