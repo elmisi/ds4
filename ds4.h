@@ -130,6 +130,7 @@ typedef struct {
 
 typedef struct {
     const char *model_path;
+    const char *engram_model_path;
     const char *mtp_path;
     const char *vision_path;
     ds4_backend backend;
