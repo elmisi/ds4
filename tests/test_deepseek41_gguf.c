@@ -107,7 +107,7 @@ static int run_fixture(int bad_layout) {
     return 0;
 }
 
-static void check_model_layout(const char *path) {
+static void check_model_layout(const char *path, const char *engram_path) {
     ds4_model m;
     model_open(&m, path, false, false);
     config_validate_model(&m);
@@ -129,14 +129,30 @@ static void check_model_layout(const char *path) {
     for (uint32_t i = 0; i < dense.len; i++) assert(dense.v[i].end <= m.size);
     free(all.v);
     free(dense.v);
+    if (engram_path) {
+        const uint32_t layers[] = {1, 14};
+        for (uint32_t i = 0; i < 2; i++) {
+            const ds4_tensor *tensor = required_tensorf(
+                &m, "blk.%u.engram_embd.weight", layers[i]);
+            assert(tensor->dim[1] <= UINT32_MAX);
+            ds4_engram_table table;
+            assert(ds4_engram_table_open(&table, engram_path, tensor->abs_offset,
+                                         (uint32_t)tensor->dim[1]));
+            assert(ds4_engram_table_verify_backing(&table, m.fd, m.file_size,
+                                                    i ? 0 : m.tensor_data_pos,
+                                                    true));
+            ds4_engram_table_close(&table);
+        }
+        puts("V4.1 alternate Engram backing: PASS");
+    }
     model_summary(&m);
     model_close(&m);
     puts("V4.1 complete model layout: PASS");
 }
 
 int main(int argc, char **argv) {
-    if (argc == 2) {
-        check_model_layout(argv[1]);
+    if (argc == 2 || argc == 3) {
+        check_model_layout(argv[1], argc == 3 ? argv[2] : NULL);
         return 0;
     }
     assert(argc == 1);
