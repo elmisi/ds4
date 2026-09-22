@@ -822,6 +822,8 @@ static agent_config parse_options(int argc, char **argv) {
             c.gen.trace_path = need_arg(&i, argc, argv, arg);
         } else if (!strcmp(arg, "-m") || !strcmp(arg, "--model")) {
             c.engine.model_path = need_arg(&i, argc, argv, arg);
+        } else if (!strcmp(arg, "--engram-model")) {
+            c.engine.engram_model_path = need_arg(&i, argc, argv, arg);
         } else if (!strcmp(arg, "--vision")) {
             c.engine.vision_path = need_arg(&i, argc, argv, arg);
         } else if (!strcmp(arg, "--mtp")) {

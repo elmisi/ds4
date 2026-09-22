@@ -48,6 +48,15 @@ typedef struct {
  * Each GGUF I8 row is 256 E4M3 bytes followed by 8 original E8M0 scales. */
 bool ds4_engram_table_open(ds4_engram_table *table, const char *path,
                            uint64_t offset, uint32_t rows);
+/* Verify that a table descriptor still names the primary GGUF, or (when
+ * explicitly allowed) a compatible byte-for-byte copy. Alternate files must
+ * have the same size and metadata; deterministic rows across this table are
+ * compared to catch an accidentally mismatched payload without scanning the
+ * full 189 GiB Engram region at every launch. */
+bool ds4_engram_table_verify_backing(const ds4_engram_table *table,
+                                     int model_fd, uint64_t file_size,
+                                     uint64_t metadata_bytes,
+                                     bool allow_alternate);
 void ds4_engram_table_close(ds4_engram_table *table);
 /* Output uses F32 storage for the reference's BF16-rounded values. No whole
  * table allocation; caller owns count * DIM floats. Failure invalidates output. */
