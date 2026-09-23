@@ -22,6 +22,21 @@ then run two clean timing pairs ordered ON/OFF/OFF/ON. Both use pool8/cache72,
 graphs0, no profiling, 64K populated/256K allocated. Keep binary unchanged while
 the suite runs. Any significant candidate requires further long-context gating.
 
+Implementation/harness committed and pushed as `53e680b9`. Both gates PASS:
+all 256 full vectors identical, including OFF versus the pre-change reference.
+Gate rates OFF349.58/ON367.67 prefill tok/s. Clean timing1 ON392.20; timing1 OFF
+329.26 but peak process swap85588KiB, so exclude the ENTIRE first pair from
+performance claims. Pair2 is in progress. Do not use the suite's unfiltered
+arithmetic mean as a clean gain: use `prefill_timing_summary.py --raw RAW
+--prefix prefill-stage-sync64k-v1 --telemetry RAW/prefill-stage-sync64k-v1-telemetry.jsonl`.
+This preserves all samples and rejects failed/incomplete/swapped pairs.
+Read-only sysfs monitor `prefill_telemetry.py` is running for1100s from around
+09:35 UTC, sampling temperatures and disk sector counts. NVMe ~54..65C observed;
+no thermal cause established. No swap settings or desktop changes.
+Nsight Systems2025.3.2 available; CPU sampling forbidden by perf_event_paranoid4.
+If used after the suite, choose CUDA/OS-runtime trace with sample/cpuctxsw NONE;
+monitor the actual ds4-bench child, not just the nsys wrapper, for memory/swap.
+
 ## Completed work and prior evidence
 
 The user explicitly authorized continued profiling and optimization, regular
