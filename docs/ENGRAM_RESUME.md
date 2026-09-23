@@ -26,10 +26,16 @@ Implementation/harness committed and pushed as `53e680b9`. Both gates PASS:
 all 256 full vectors identical, including OFF versus the pre-change reference.
 Gate rates OFF349.58/ON367.67 prefill tok/s. Clean timing1 ON392.20; timing1 OFF
 329.26 but peak process swap85588KiB, so exclude the ENTIRE first pair from
-performance claims. Pair2 is in progress. Do not use the suite's unfiltered
+performance claims. Pair2 completed clean: OFF350.17/ON355.01 (+1.382%),
+decode9.48/9.49. This is much smaller than the contaminated aggregate.
+Pair3 ON/OFF is being run as a replacement, with the identical binary SHA256
+`2c92d5b2e9b1fc2a5a92e96424ca9bd415e2346dc4e6b6042b7cab790c17ba0f`.
+Source is 53e680b9 plus later harness/docs-only commits; no rebuild since gates.
+Do not use the original suite's unfiltered
 arithmetic mean as a clean gain: use `prefill_timing_summary.py --raw RAW
 --prefix prefill-stage-sync64k-v1 --telemetry RAW/prefill-stage-sync64k-v1-telemetry.jsonl`.
 This preserves all samples and rejects failed/incomplete/swapped pairs.
+The suite now uses this filtered reporter automatically for future summaries.
 Read-only sysfs monitor `prefill_telemetry.py` is running for1100s from around
 09:35 UTC, sampling temperatures and disk sector counts. NVMe ~54..65C observed;
 no thermal cause established. No swap settings or desktop changes.
