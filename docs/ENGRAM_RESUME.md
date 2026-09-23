@@ -29,22 +29,35 @@ The new full logits differ from the old reference; do not claim exactness or
 promote this architecture change without further quality evaluation. Old pool
 OFF/ON comparisons remain internally valid, but do not represent native GB10.
 Preserved `ds4-bench-hybrid` and `ds4-agent-old-sm75` in that run's raw directory.
+Scope: verified the actual `ds4-agent-ds41` alias still launches
+`/home/alessandro/projects/ds4-gx10/ds4-agent` (72GB cache, no Engram alternate).
+Its cuobjdump output is ALREADY entirely sm_121a. The stale build problem was
+in this experimental worktree; do NOT promise a 3.6x prefill gain for the user's
+currently configured agent, nor imply it was running the broken sm_75 image.
 
 Build invalidation fix committed `6ef951de`; ALL 9 cubins verified sm_121a.
 Regression test covers first build, reuse, arch changes, switch back, compiler/
 flags/includes changes. V4.1 CUDA and MXFP4 numerical unit tests passed.
 Current guarded suite `engram-native-64k-v1`: OFF gate completed (218.11 s wall,
-352.92 prefill, 8.89 decode tok/s, no process swap); ON gate and clean timings
-pending. Do not rebuild its binary while this suite is running.
+352.92 prefill, 8.89 decode tok/s, no process swap). ON gate passed: all 256 full
+vectors byte-identical, SHA256
+`9dee9a5d2cc7d4a254716e50e07cd995e58b2c885fdea7fcdd36b36eb47a8298`.
+Suite complete. Clean ON timing: 357.92 prefill, 9.54 decode, 9.61 steady tok/s,
+214.12 s wall; OFF: 354.18 / 9.09 / 9.16, 218.12 s wall. Decode +4.95% in one
+clean pair. Full details and limitations in `ENGRAM_NATIVE_GB10.md`.
 
-Separate source-only fix pending: `ds4_cuda_attn_tokentile_arch_ok` checked only
+Verified correctness fix: `ds4_cuda_attn_tokentile_arch_ok` checked only
 the physical device, not compiled kernel PTX. Pre-Ampere compilation contains
 zero/no-op HMMA/cp.async branches, so add binary/PTX >=80 checks. Reproduce with
 the existing `tests/test_deepseek41_cuda --tp-attention` test using isolated
 sm_75 builds before/after guard; do not let these GPU tests compete with the
 running suite. Pre-guard source preserved in
 `/tmp/ds4-cuda-arch-audit.rZJ8DF/ds4_cuda_before_guard.cu`.
-Then evaluate real output/recall. Keep Q8 and the older queue experiment disabled.
+`engram-arch-guard-audit-v1` completed successfully: unguarded sm_75 fails the
+split-head oracle at 129 rows, guarded sm_75 passes through 2048 rows. Commands,
+isolated sources/objects, logs and result.json are preserved in its raw directory.
+Current next step: native rebuild with the guard, verify native logits unchanged,
+then real-output long-context recall. Keep Q8 and the older queue disabled.
 
 Old-to-hybrid full-logit diagnostic: 0/256 exact vectors, 144/256 matching top1,
 max absolute difference 22.8622, RMS 2.51945, mean KL(old||hybrid) 1.72623.
