@@ -15,6 +15,7 @@ import subprocess
 import sys
 
 from engram_pool_suite import digest
+from prefill_timing_summary import collect
 
 
 def jobs(pairs):
@@ -117,9 +118,8 @@ def main():
     means = {str(enabled): {key: statistics.mean(row[key] for row in rows)
                            for key in ['prefill_tps', 'gen_tps']}
              for enabled, rows in timings.items()}
-    summary = dict(prefix=args.prefix, means=means, timings=timings,
-                   prefill_gain_percent=(means['1']['prefill_tps'] / means['0']['prefill_tps'] - 1) * 100,
-                   warning='Small counterbalanced sample; OS page cache uncontrolled.')
+    summary = dict(prefix=args.prefix, unfiltered_means=means, timings=timings,
+                   **collect(raw, args.prefix))
     (directory / 'suite-summary.json').write_text(json.dumps(summary, indent=2) + '\n')
     print(json.dumps(summary), flush=True)
 
