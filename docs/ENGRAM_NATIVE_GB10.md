@@ -135,6 +135,14 @@ minimum available RAM 20,090,008 KiB (~19.16 GiB). These are quality-run timings
 not a paired throughput comparison with the older agent or an OFF run.
 Exact stdout and strict checker report are preserved in the run directory.
 
-One unprofiled final-build 64K timing (`engram-native-final-clean64k-v1`) is
-currently running to investigate the profile/clean prefill discrepancy; no
-new prefill speedup is claimed yet.
+Final unprofiled 64K timing (`engram-native-final-clean64k-v1`): **355.59 prefill,
+9.55 decode, 9.63 steady tok/s**, wall216.13s, no process swap. This agrees with
+the earlier native clean results, so the guard did not explain the faster
+399.73 tok/s profiled prefill. The next bounded lead is to isolate
+`DS4_METAL_V41_STAGE_PROFILE` (extra GPU barriers) from the other profiling flags
+and run repeated clean A/Bs before considering an independent opt-in scheduling
+change. No new prefill speedup or synchronization optimization is promoted.
+
+All code and small reports are committed locally. Push remains dependent on
+restoring GitHub authentication; see the live checkpoint for publication status.
+Aliases, running services and other performance branches were not changed.

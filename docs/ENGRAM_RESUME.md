@@ -67,10 +67,13 @@ ms/token, expert loads 29.92 ms/token; report updated with stage breakdown.
 254902 actual tokens, final CLI, Lexar pool8/cache72/temp0/nothink. Prefill237.50,
 generation7.86 tok/s, wall1086.56s, no process swap, min available19.16GiB.
 Checker report in RUN/recall.json. This is quality evidence, not a paired speedup.
-Current run `engram-native-final-clean64k-v1`: unprofiled final-build timing
-because the profiled run's 399.73 prefill tok/s exceeded prior clean ~354;
-extra barriers/run variability are confounders. Do not claim a new prefill
-speedup yet. Keep Q8/queue disabled.
+Final run `engram-native-final-clean64k-v1` completed: unprofiled final-build
+355.59 prefill / 9.55 decode / 9.63 steady tok/s, wall216.13s, no process swap.
+No benchmark jobs remain running. Native profiling's399.73 prefill tok/s is
+NOT a promoted speedup. Next bounded research lead: isolate stage-profile GPU
+barriers from other profiling flags, then repeated exact-gated A/Bs before any
+opt-in scheduling implementation. Keep Q8/queue disabled; do not repeat the
+completed old queue/cache72 suites. Deployment was not requested/performed.
 
 Old-to-hybrid full-logit diagnostic: 0/256 exact vectors, 144/256 matching top1,
 max absolute difference 22.8622, RMS 2.51945, mean KL(old||hybrid) 1.72623.

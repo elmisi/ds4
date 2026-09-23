@@ -1,5 +1,10 @@
 # Experimental CUDA Engram decode readers
 
+Latest validation: [native GB10 results](ENGRAM_NATIVE_GB10.md), including the
+CUDA build-architecture correction and 254K real-output recall. The initial
+measurements below used stale sm_75 objects; use the native report for current
+performance claims. Resume state: [ENGRAM_RESUME.md](ENGRAM_RESUME.md).
+
 `DS4_CUDA_ENGRAM_READERS=N` enables a persistent session-owned pool of 1–16
 readers. Unset or `0` retains the existing serial path. Start with `8` for
 experiments; this is not a validated default. The option applies to CUDA
