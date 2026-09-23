@@ -3,6 +3,27 @@
 Updated 2026-09-23. Active worktree: `/home/alessandro/projects/ds4-engram-external`.
 Branch: `feature/external-engram-gguf`, remote: `origin` (`elmisi/ds4`).
 
+## Active prefill investigation (resumed 2026-09-23)
+
+User explicitly asked to continue investigating prefill with the 60% quota floor.
+Fresh telemetry at start: 73% (historical, recheck before further work).
+Completed `prefill-stage-isolate64k-v1`: existing final native binary,
+only `DS4_METAL_V41_STAGE_PROFILE=1` enabled among profiling flags, pool8,
+65536 populated/262144 allocated context, cache72, 256 full decode vectors.
+All 256 full vectors equal `engram-native-64k-v1-gate-on8/decode.f32`.
+Prefill375.30/decode9.52tok/s, wall206.11s, no process swap. This is one profiled
+point, not a promoted gain. Added CUDA-only default-OFF experimental option
+`DS4_CUDA_V41_PREFILL_STAGE_SYNC=1`: same seven stage barriers without clocks or
+logging; 0/unset retains the normal path. Other backends unchanged.
+All five binaries built. Host suite-planning/comparator tests pass.
+Next/current suite `prefill-stage-sync64k-v1` uses `prefill_stage_suite.py`:
+OFF gate must match pre-change native reference; ON gate must match OFF; only
+then run two clean timing pairs ordered ON/OFF/OFF/ON. Both use pool8/cache72,
+graphs0, no profiling, 64K populated/256K allocated. Keep binary unchanged while
+the suite runs. Any significant candidate requires further long-context gating.
+
+## Completed work and prior evidence
+
 The user explicitly authorized continued profiling and optimization, regular
 commits/pushes, and persistent checkpoints. Check fresh quota with
 `/home/alessandro/projects/ds4-ds41/speed-bench/dgx_ds41/check_quota.py` before and
