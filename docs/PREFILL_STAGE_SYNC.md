@@ -22,6 +22,11 @@ Prefix: `prefill-stage-sync64k-v1`.
 
 ## Exactness gate
 
+Earlier isolation run `prefill-stage-isolate64k-v1` used the pre-change native
+binary with ONLY `DS4_METAL_V41_STAGE_PROFILE=1` among profile flags:
+375.30prefill/9.52decode tok/s,206.11s,swap0,256 vectors exactly matching
+`engram-native-64k-v1-gate-on8/decode.f32`. Diagnostic, not a promoted gain.
+
 Both gate runs wrote all256 float32 vocabulary vectors, 129280 values/vector.
 OFF matches the pre-change native reference; ON matches OFF byte-for-byte.
 SHA256: `9dee9a5d2cc7d4a254716e50e07cd995e58b2c885fdea7fcdd36b36eb47a8298`.
