@@ -14105,12 +14105,15 @@ __global__ static void indexer_topk_tree_merge_pow2_kernel(
  * 512th-best key seen so far, so it can only discard candidates that cannot
  * belong to the final top set. Packing supplies the same value/index total
  * order as the existing bitonic and CUB tiers. */
+template<bool CAUSAL = false>
 __global__ static void __launch_bounds__(512) indexer_topk_stream512_kernel(
         uint32_t *selected,
         const float *scores,
         uint32_t n_comp,
         uint32_t n_tokens,
-        uint32_t top_k) {
+        uint32_t top_k,
+        uint32_t pos0 = 0u,
+        uint32_t ratio = 1u) {
     constexpr uint32_t STREAM_THREADS = 512u;
     constexpr uint32_t STREAM_ITEMS = 4u;
     constexpr uint32_t STREAM_CAP = STREAM_THREADS * STREAM_ITEMS;
@@ -14124,6 +14127,9 @@ __global__ static void __launch_bounds__(512) indexer_topk_stream512_kernel(
     const uint32_t tid = threadIdx.x;
     if (t >= n_tokens) return;
     const float *row = scores + (uint64_t)t * n_comp;
+    // Physical row stride and causal visible width are independent. Never
+    // inspect future entries, even if their values are more attractive.
+    const uint32_t visible = CAUSAL ? (pos0 + t + 1u) / ratio : n_comp;
     if (tid == 0u) {
         s_cnt = 0u;
         s_thr = 0u;
@@ -14131,16 +14137,16 @@ __global__ static void __launch_bounds__(512) indexer_topk_stream512_kernel(
     __syncthreads();
 
     const uint32_t start =
-        (uint32_t)(((uint64_t)(t + 1u) * 0x9E3779B9u) % n_comp);
+        (uint32_t)(((uint64_t)(t + 1u) * 0x9E3779B9u) % visible);
     const uint32_t tile = blockDim.x;
-    for (uint32_t base = 0; base < n_comp; base += tile) {
+    for (uint32_t base = 0; base < visible; base += tile) {
         const uint64_t thr = s_thr;
         const uint32_t i = base + tid;
         uint64_t key = 0u;
         bool take = false;
-        if (i < n_comp) {
+        if (i < visible) {
             uint32_t c = start + i;
-            if (c >= n_comp) c -= n_comp;
+            if (c >= visible) c -= visible;
             key = topk_pack_key(row[c], c);
             take = key > thr;
         }

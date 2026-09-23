@@ -976,7 +976,7 @@ static int check_general_topk(void) {
         float *s = ds4_gpu_tensor_contents(scores);
         uint32_t *ids = ds4_gpu_tensor_contents(selected);
         const uint32_t counts[] = {1, 2, 31, 128, 511, 512, 513, 2048, width};
-        for (uint32_t pattern = 0; pattern < 4; pattern++) {
+        for (uint32_t pattern = 0; pattern < 5; pattern++) {
             for (uint32_t t = 0; t < rows; t++) {
                 for (uint32_t i = 0; i < width; i++) {
                     const float value = pattern == 0 ? random_value() :
@@ -1022,7 +1022,8 @@ static int check_general_topk(void) {
 }
 
 static int check_causal_topk(void) {
-    const uint32_t frontiers[] = {1024, 1025, 1535, 2047, 2048, 4095, 16383, 32767, 65535};
+    const uint32_t frontiers[] = {1024, 1025, 1535, 2047, 2048, 4095,
+                                 8191, 8192, 16383, 32767, 65535, 131071};
     const uint32_t counts[] = {1, 2, 31, 32, 33, 127, 128, 129};
     for (uint32_t ratio = 1; ratio <= 2; ratio++) {
     for (size_t fi = 0; fi < sizeof(frontiers) / sizeof(*frontiers); fi++) {
@@ -1035,14 +1036,18 @@ static int check_causal_topk(void) {
         float *s = ds4_gpu_tensor_contents(scores);
         int32_t *ids = ds4_gpu_tensor_contents(selected);
         const int32_t *ref = ds4_gpu_tensor_contents(reference);
-        for (uint32_t pattern = 0; pattern < 3; pattern++) {
+        for (uint32_t pattern = 0; pattern < 4; pattern++) {
             for (uint32_t t = 0; t < 129u; t++) {
                 const uint32_t visible = (start + t + 1u) / ratio;
                 for (uint32_t j = 0; j < width; j++) {
                     /* Future entries are deliberately attractive. Causality
                      * must come from each row's bounds, not score contents. */
                     float v = pattern == 0 ? random_value() : pattern == 1 ? (float)(j % 7u) : -INFINITY;
-                    s[(size_t)t * width + j] = j < visible ? v : 12345.0f;
+                    if (pattern == 3)
+                        v = j % 17u == 0 ? NAN : j % 31u == 0 ? INFINITY : (j % 2u ? -0.0f : 0.0f);
+                    if (pattern == 4)
+                        v = j % 31u == 0 ? INFINITY : j % 13u == 0 ? -INFINITY : (j % 2u ? -0.0f : 0.0f);
+                    s[(size_t)t * width + j] = j < visible ? v : pattern == 4 ? NAN : 12345.0f;
                 }
             }
             for (size_t ci = 0; ci < sizeof(counts) / sizeof(*counts); ci++) {
