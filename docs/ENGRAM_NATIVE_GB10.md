@@ -90,9 +90,9 @@ Reproduce using the guarded operational runner and
 
 The guard now checks both `cudaFuncAttributes.binaryVersion` and `ptxVersion`
 >=80 before selecting the token-tile kernel, falling back safely otherwise.
-Real-output validation and final native rebuild checks remain pending; see
-`ENGRAM_RESUME.md`. Do not promote an architecture transition based only on
-the throughput numbers above.
+The final native rebuild checks are recorded below; real-output validation is
+tracked in `ENGRAM_RESUME.md`. Do not promote an architecture transition based
+only on the throughput numbers above.
 
 ## Final native guard/profile verification
 
@@ -120,4 +120,21 @@ Profile throughput was 399.73 prefill / 9.51 decode tok/s, 194.16 s wall,
 no process swap. It includes extra GPU barriers and is not a clean performance
 claim: the higher prefill rate versus the earlier clean runs needs a controlled
 post-guard timing before attributing it to scheduling, build or run variability.
-Real-output long-context recall is currently running.
+Real-output long-context recall passed (details below).
+
+## Real-output quality at near-full context
+
+`engram-native-recall-256k-v1`: **16/16 exact name/value associations**, checked
+by the existing strict `check_recall.py` against the hash-pinned fixture.
+Actual prompt length **254,902 tokens**, allocated context 262,144; native final
+CLI, alternate Engram GGUF on Lexar, pool8, cache72, target-only temp0/nothink.
+CLI SHA256 `2564b032cb07fbbabc8087c01c251bdf3e386f936e556e32d4e686c9feb295bf`.
+
+Prefill 237.50 tok/s, generation 7.86 tok/s, wall 1086.56 s. No process swap;
+minimum available RAM 20,090,008 KiB (~19.16 GiB). These are quality-run timings,
+not a paired throughput comparison with the older agent or an OFF run.
+Exact stdout and strict checker report are preserved in the run directory.
+
+One unprofiled final-build 64K timing (`engram-native-final-clean64k-v1`) is
+currently running to investigate the profile/clean prefill discrepancy; no
+new prefill speedup is claimed yet.
