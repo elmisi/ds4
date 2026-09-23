@@ -14,10 +14,13 @@ pool (opt-in `DS4_CUDA_ENGRAM_READERS=8`), exact 4K/32 and 64K/256 decode gates,
 ASan/UBSan/TSan tests, builds and one clean timing pair (+6.50% decode on Lexar).
 Full evidence and commands: `ENGRAM_PARALLEL_DECODE.md`.
 
-Pool implementation is committed as `44cdb00e`. Push attempted, blocked:
-HTTPS credentials unavailable; `gh auth status` reports invalid token for elmisi;
-SSH fails host-key verification. User has been asked asynchronously to restore
-GitHub login. Do not claim remote backup until push is verified.
+Pool implementation is committed as `44cdb00e`. Publication unblocked on
+2026-09-23 after the user renewed GitHub login/setup: push to
+`origin/feature/external-engram-gguf` succeeded, with remote `e571a916` verified
+identical to local HEAD before this checkpoint update. Upstream tracking is set.
+Earlier HTTPS attempts had missing/rejected credentials; SSH host verification
+also failed. The user reports frequent reauthentication: investigate separately,
+without assuming the keyring is the cause or changing credentials implicitly.
 
 Profiling committed as `3498f905`. Completed `engram-profile-64k-v1`: 228.13 s
 wall, 333.06 prefill tok/s, 9.57 decode tok/s, no process swap, 256 decode
