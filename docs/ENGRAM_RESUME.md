@@ -5,6 +5,11 @@ Branch: `feature/external-engram-gguf`, remote: `origin` (`elmisi/ds4`).
 
 ## Active prefill investigation (resumed 2026-09-23)
 
+TOP-K SUITE COMPLETE: both clean counterbalanced pairs PASS, mean prefill
+364.305->404.795tok/s (+11.114%), decoding essentially unchanged, all process
+swap0. See `PREFILL_TOPK_BATCH.md`. Active next: `prefill-topk-memcheck-v1`, then
+diagnostic CUDA trace and same254902-token recall fixture. No deployment.
+
 Latest: stage-sync clean pairs2/3 mean +6.38% (large variation). Nsight OFF/ON
 same kernel count/time, whole-trace idle gaps48.22->26.71s; no disk causation
 claimed. Full evidence: `PREFILL_STAGE_SYNC.md`. Stage option remains default OFF.
