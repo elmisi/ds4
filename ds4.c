@@ -41275,6 +41275,9 @@ static bool ds41_moe_batch(ds41_gpu_graph *g, const ds4_model *m,
 static DS4_MAYBE_UNUSED bool ds41_graph_step(ds41_gpu_graph *g, const ds4_model *m,
                                              const ds4_weights *w, int token, float *logits) {
     if (!g || !g->valid || g->pos >= g->ctx || token < 0 || (uint32_t)token >= DS4_N_VOCAB) return false;
+    const bool profile = getenv("DS4_CUDA_V41_DECODE_PROFILE") != NULL;
+    const double profile_start = profile ? now_sec() : 0;
+    double engram_wait[2] = {0, 0};
     uint32_t ids[2][DS4_ENGRAM_COLS];
     ds4_engram_history next_history = g->history;
     if (!ds41_hash_tokens(g, &next_history, &token, 1, &ids[0][0])) return false;
@@ -41302,6 +41305,7 @@ static DS4_MAYBE_UNUSED bool ds41_graph_step(ds41_gpu_graph *g, const ds4_model 
         if (!ds4_engram_read(&g->table[i], ids[i], DS4_ENGRAM_COLS, g->rows[i])) return false;
 #endif
     }
+    const double profile_submitted = profile ? now_sec() : 0;
     const float initial_pre[] = {1, 0, 0, 0};
     if (!ds4_gpu_tensor_write(g->pre, 0, initial_pre, sizeof(initial_pre)) ||
         !ds4_gpu_begin_commands()) {
@@ -41317,12 +41321,17 @@ static DS4_MAYBE_UNUSED bool ds41_graph_step(ds41_gpu_graph *g, const ds4_model 
     const bool queue_layers = g->tp_world == 2 && !g->imatrix &&
         !getenv("DS4_METAL_DISABLE_V41_TP_DECODE_QUEUE");
     for (uint32_t il = 0; ok && il < DS4_N_LAYER; il++) {
+        const double profile_layer_start = profile ? now_sec() : 0;
         const ds4_layer_weights *l = &w->layer[il];
         if (layer_resident)
             ok = metal_graph_stream_map_layer(m, w, il) && ds4_gpu_begin_commands();
         if (ok && ds41_engram_layer(il)) {
             const uint32_t i = il == 1 ? 0 : 1;
-            if (async_engram) ok = ds4_engram_pool_wait(g->engram_pool, i);
+            if (async_engram) {
+                const double wait_start = profile ? now_sec() : 0;
+                ok = ds4_engram_pool_wait(g->engram_pool, i);
+                if (profile) engram_wait[i] = now_sec() - wait_start;
+            }
             if (ok) ok = ds4_gpu_tensor_write(g->engram_rows, 0, g->rows[i], sizeof(g->rows[i]));
         }
         if (ok) {
@@ -41344,12 +41353,18 @@ static DS4_MAYBE_UNUSED bool ds41_graph_step(ds41_gpu_graph *g, const ds4_model 
         if (!ok) fprintf(stderr, "ds4: V4.1 layer %u failed at position %u\n", il, g->pos);
         if (ok && drain && !layer_resident && il + 1u < DS4_N_LAYER)
             ok = ds4_gpu_begin_commands() != 0;
+        if (profile) fprintf(stderr, "ds4: V4.1 decode layer pos=%u layer=%u wall_ms=%.6f\n",
+                             g->pos, il, (now_sec() - profile_layer_start) * 1000);
     }
     if (ds4_gpu_commands_active() && !ds4_gpu_end_commands()) ok = false;
     if (layer_resident && !metal_graph_stream_map_decode_static_all(m, w)) ok = false;
     if (g->tp_world == 2 && ds4_gpu_tp_failed()) ok = false;
     if (async_engram && !ds4_engram_pool_drain(g->engram_pool)) ok = false;
     if (ok && logits) ok = ds41_graph_logits(g, m, w, logits);
+    if (profile) fprintf(stderr,
+        "ds4: V4.1 decode token pos=%u async=%u submit_or_serial_ms=%.6f wait0_ms=%.6f wait1_ms=%.6f total_ms=%.6f ok=%u\n",
+        g->pos, async_engram, (profile_submitted - profile_start) * 1000,
+        engram_wait[0] * 1000, engram_wait[1] * 1000, (now_sec() - profile_start) * 1000, ok);
     if (!ok) {
         g->valid = false;
         return false;

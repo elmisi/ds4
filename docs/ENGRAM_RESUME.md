@@ -14,11 +14,22 @@ pool (opt-in `DS4_CUDA_ENGRAM_READERS=8`), exact 4K/32 and 64K/256 decode gates,
 ASan/UBSan/TSan tests, builds and one clean timing pair (+6.50% decode on Lexar).
 Full evidence and commands: `ENGRAM_PARALLEL_DECODE.md`.
 
-Current next step: profile the validated pool-enabled path at 65536 populated
+Pool implementation is committed as `44cdb00e`. Push attempted, blocked:
+HTTPS credentials unavailable; `gh auth status` reports invalid token for elmisi;
+SSH fails host-key verification. User has been asked asynchronously to restore
+GitHub login. Do not claim remote backup until push is verified.
+
+Current step (in progress): `engram-profile-64k-v1`, guarded runner, logs under
+the raw directory below. Profile the validated pool-enabled path at 65536 populated
 tokens, 262144 allocated context, cache argument 72GB, decode graphs OFF.
 Separate Engram waits, selected expert loads/cache misses, GPU compute, and
 prefill stage/prefetch waits before choosing a further optimization. Preserve
 exact numerical output. Keep Q8 and the older queue experiment disabled.
+Added opt-in `DS4_CUDA_V41_DECODE_PROFILE` and `DS4_CUDA_SSD_CACHE_PROFILE`;
+reuse existing `DS4_METAL_GRAPH_PREFILL_PROFILE`, `DS4_METAL_V41_STAGE_PROFILE`,
+and `DS4_CUDA_SSD_PREFETCH_PROFILE`. Interpret nested intervals carefully.
+Summarize with `python3 speed-bench/engram_profile_summary.py RUN/stderr.log`.
+Compare RUN/decode.f32 to the preserved `engram-pool-64k-v1-gate-on8` reference.
 
 Existing raw artifacts remain under
 `/home/alessandro/projects/ds4-ds41/speed-bench/dgx_ds41/raw/engram-pool-*`.

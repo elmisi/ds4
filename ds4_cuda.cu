@@ -27141,7 +27141,10 @@ static int cuda_stream_selected_cache_begin_load(
         const ds4_gpu_stream_expert_table *table,
         const int32_t *selected_ids,
         uint32_t slot_count) {
+    const bool profile = getenv("DS4_CUDA_SSD_CACHE_PROFILE") != NULL;
+    const double profile_start = profile ? cuda_wall_sec() : 0;
     cuda_stream_prefetch_before_load(table);
+    const double profile_prefetched = profile ? cuda_wall_sec() : 0;
     cuda_stream_selected_cache_invalidate();
     if (!g_ssd_streaming_mode) return 1;
     if (!cuda_stream_selected_ranges_valid(table) || !selected_ids || !slot_count)
@@ -27152,6 +27155,7 @@ static int cuda_stream_selected_cache_begin_load(
     }
     if (!cuda_ok(cudaStreamSynchronize(cuda_decode_stream()), "stream expert reuse wait"))
         return 0;
+    const double profile_synced = profile ? cuda_wall_sec() : 0;
     try {
         std::vector<int32_t> expert_to_slot(table->n_total_expert, -1);
         std::vector<int32_t> unique, remap(slot_count);
@@ -27245,8 +27249,11 @@ static int cuda_stream_selected_cache_begin_load(
             slot.used = stamp;
         }
         cuda_stream_upload_batch uploads;
+        unsigned profile_misses = 0;
+        const double profile_load_start = profile ? cuda_wall_sec() : 0;
         for (size_t i = 0; i < unique.size(); i++) {
             if (slots[i] >= 0) continue;
+            if (profile) profile_misses++;
             uint32_t victim = UINT32_MAX;
             uint64_t oldest = stamp;
             for (uint32_t j = 0; j < g_stream_expert_slots.size(); j++) {
@@ -27281,6 +27288,7 @@ static int cuda_stream_selected_cache_begin_load(
             slots[i] = (int32_t)victim;
         }
         if (!uploads.finish()) return 0;
+        const double profile_loaded = profile ? cuda_wall_sec() : 0;
         g_stream_prefill_ids = remap;
         g_stream_prefill_slots = slots;
         for (auto &id : remap) id = slots[id];
@@ -27299,6 +27307,13 @@ static int cuda_stream_selected_cache_begin_load(
         cache.slot_selected_tensor.owner = 0;
         cache.slot_selected_tensor.device_id = 0;
         cache.valid = 1;
+        if (profile) fprintf(stderr,
+            "ds4: CUDA SSD cache layer=%u slots=%u unique=%zu misses=%u bytes=%llu prefetch_wait_ms=%.6f reuse_sync_ms=%.6f prepare_ms=%.6f load_ms=%.6f finish_ms=%.6f total_ms=%.6f\n",
+            table->layer, slot_count, unique.size(), profile_misses,
+            (unsigned long long)(profile_misses * (2 * table->gate_expert_bytes + table->down_expert_bytes)),
+            (profile_prefetched - profile_start) * 1000, (profile_synced - profile_prefetched) * 1000,
+            (profile_load_start - profile_synced) * 1000, (profile_loaded - profile_load_start) * 1000,
+            (cuda_wall_sec() - profile_loaded) * 1000, (cuda_wall_sec() - profile_start) * 1000);
         return 1;
     } catch (...) {
         cuda_stream_selected_cache_release();
