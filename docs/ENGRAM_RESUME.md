@@ -30,11 +30,26 @@ promote this architecture change without further quality evaluation. Old pool
 OFF/ON comparisons remain internally valid, but do not represent native GB10.
 Preserved `ds4-bench-hybrid` and `ds4-agent-old-sm75` in that run's raw directory.
 
-Current step: fix Makefile configuration invalidation and rebuild ALL CUDA
-objects for sm_121a; regression test covers first build, reuse, arch changes,
-switch back, compiler/flags/includes changes. Next run native pool OFF/ON exact
-64K/256 gates and clean timing, then evaluate architecture-induced differences
-and real output. Keep Q8 and the older queue experiment disabled.
+Build invalidation fix committed `6ef951de`; ALL 9 cubins verified sm_121a.
+Regression test covers first build, reuse, arch changes, switch back, compiler/
+flags/includes changes. V4.1 CUDA and MXFP4 numerical unit tests passed.
+Current guarded suite `engram-native-64k-v1`: OFF gate completed (218.11 s wall,
+352.92 prefill, 8.89 decode tok/s, no process swap); ON gate and clean timings
+pending. Do not rebuild its binary while this suite is running.
+
+Separate source-only fix pending: `ds4_cuda_attn_tokentile_arch_ok` checked only
+the physical device, not compiled kernel PTX. Pre-Ampere compilation contains
+zero/no-op HMMA/cp.async branches, so add binary/PTX >=80 checks. Reproduce with
+the existing `tests/test_deepseek41_cuda --tp-attention` test using isolated
+sm_75 builds before/after guard; do not let these GPU tests compete with the
+running suite. Pre-guard source preserved in
+`/tmp/ds4-cuda-arch-audit.rZJ8DF/ds4_cuda_before_guard.cu`.
+Then evaluate real output/recall. Keep Q8 and the older queue experiment disabled.
+
+Old-to-hybrid full-logit diagnostic: 0/256 exact vectors, 144/256 matching top1,
+max absolute difference 22.8622, RMS 2.51945, mean KL(old||hybrid) 1.72623.
+These differences are NOT acceptable numerical noise; resolve the build
+correctness issue before treating either architecture as an output oracle.
 
 Profile mean decode: 104.38 ms total; Engram wait0+wait1 ~0.00037 ms;
 expert cache load 29.43 ms (includes reads/uploads/victim selection), misses
