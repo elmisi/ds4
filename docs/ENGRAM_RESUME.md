@@ -3,6 +3,75 @@
 Updated 2026-09-23. Active worktree: `/home/alessandro/projects/ds4-engram-external`.
 Branch: `feature/external-engram-gguf`, remote: `origin` (`elmisi/ds4`).
 
+## PAUSED — handoff 2026-09-23 evening (supersedes older deployment notes)
+
+User requested saving research and resuming another time. No further research,
+benchmarks or delegation until explicit resume. Global quota floor is now **50%**,
+not 60%. Invoke `check_quota.py --threshold 50` explicitly (script default may
+still be 60). Require fresh <=600s valid telemetry; unknown/future/stale stops.
+Last observed 61% is historical, not future authorization. Child-session telemetry
+can be missing/stale: obtain a fresh parent guard, never assume quota is enough.
+
+### Operational handoff
+
+The manual `ds4-agent-ds41` alias and `dgx-ctl` profile `ds4-ds41` now use
+this worktree's existing native sm_121a binaries, runtime implementation2452f795.
+No inference source was changed or speculative fork optimization deployed.
+Configuration: CUDA SSD streaming, expert cache72GB, ctx262144, internal V4.1
+Flash Q2 GGUF, alternate identical GGUF under
+`/mnt/ds4-models/models/DeepSeek-V4.1-Flash-Q2.gguf`, readers8, top-k1,
+decode graphs0, stage-sync0. Q8/queue experiments remain unpromoted.
+
+Agent: `~/.zshrc:53`. Server launcher and unit:
+`/home/alessandro/elmisi/amygdala/scripts/start-ds4-ds41.sh` and
+`systemd-user/ds4-ds41.service`, installed in `~/.config/systemd/user/`.
+Server retains existing host0.0.0.0:8000, persistent KV32GiB and continued20480.
+Other service profiles unchanged. Existing unrelated dirty amygdala changes
+were preserved; operational edits there remain uncommitted with that worktree.
+Both binaries contain nine cubins, all sm_121a. SHA256:
+- agent: aa4bfb4620b5bbf0751785b9af4591122a09eb578b0d13f84cbea94b3153cde4
+- server: a13bfc44fa3b8df381163eb9f3ceb559f833e62ad8c4f043a1aca0ef52961058
+
+Shell syntax and systemd unit verification passed, daemon-reload performed.
+A faulty dry-run wrapper accidentally launched the real server, which reached
+listening with external Engram/cache72/context262144; it was immediately stopped
+via SIGTERM with orderly shutdown. No other agent/server was found running before
+that check. This is startup evidence only, NOT an inference/quality benchmark.
+Final service state inactive, autostart disabled; no session was restarted.
+
+### Next experiments: V4.1 ONLY
+
+1. Reproduce agent incremental prefill on a retained KV context with append1/2/4K;
+   separate KV reuse/recomputed tokens, prefill, first-response latency, decode.
+   Compare top-k ON with stage-sync OFF/ON, repeated counterbalanced clean pairs.
+   64K is preliminary; populated near256K is the final decision workload.
+2. Profile V4.1 attention projections, then audit upstream PR979 commit
+   ad19000e06ed: https://github.com/antirez/ds4/pull/979 . Luna found a plausible
+   shared Q8 attention-output entry point, NOT proof of applicability or novelty.
+   Reported +10.65% belongs to V4 Flash Q2, not V4.1. Verify actual diff/dispatch,
+   layout/rounding and hotspot before any opt-in port. No promised gain.
+3. Decode: split expert-load cost into disk reads, transfers and cache management.
+   Previous native profile: expert loads29.92ms/token vs Engram waits0.02313ms;
+   increasing Lexar readers is low priority. Keep cache72, desktop and swap safety.
+4. Secondary ideas from Luna read-only scan (no implementations/benchmarks):
+   - https://github.com/antirez/ds4/pull/822 : small continuation fragment at
+     prefill-cap boundary; Metal/ROCm idea needs V4.1 CUDA adaptation.
+   - https://github.com/Entrpi/ds4/commit/574ccbba3228cd3ab47a388cf47f522bfe10ec :
+     RMS+F16 projection fusion; CUDA HC path currently separate, Apple fused.
+     Numerical equivalence and scratch memory require verification.
+   Selected-expert-cache PR1031 and quantum/batching were reported already present;
+   don't reimplement without checking. Backend/model mismatches are not evidence.
+
+All candidates need exact full-vocabulary logit comparison, real output,
+long-context recall and appropriate sanitizer gates. Do not compound individual
+speedup percentages or compare incremental agent70t/s with bulk405t/s directly.
+Observed agent22.6K context generation7.0t/s was a live TUI sample, not controlled
+A/B. Its output was accessible read-only with tmux capture-pane (previously %14);
+rediscover pane/PID on resume, never read /dev/pts directly. No trace file enabled.
+
+Historical sections below describe earlier stages and retain their evidence;
+their statements about no deployment, old alias and quota60 are superseded here.
+
 ## Prefill investigation: current checkpoint
 
 User explicitly resumed prefill research on2026-09-23 with quota floor60%.
