@@ -617,6 +617,19 @@ __global__ static void dsv41_causal_scores_kernel(float *out, const float *score
         col < (start + row + 1u) / ratio ? scores[(uint64_t)row * stride + col] : -INFINITY;
 }
 #endif
+// Comparison sorting and packed-key sorting do not agree on NaN ordering.
+// Keep the existing per-row path for such input, rather than silently changing
+// its behavior. Integer classification also works with --use_fast_math.
+__global__ static void dsv41_topk_has_nan_kernel(unsigned *found, const float *scores,
+        uint32_t width, uint32_t start, uint32_t ratio) {
+    const uint32_t row = blockIdx.y, col = blockIdx.x * blockDim.x + threadIdx.x;
+    bool bad = false;
+    if (col < (start + row + 1u) / ratio) {
+        const uint32_t bits = __float_as_uint(scores[(uint64_t)row * width + col]);
+        bad = (bits & 0x7fffffffu) > 0x7f800000u;
+    }
+    if (__syncthreads_or(bad) && threadIdx.x == 0) atomicExch(found, 1u);
+}
 
 extern "C" int ds4_gpu_dsv41_indexer_topk_batch(ds4_gpu_tensor *selected, const ds4_gpu_tensor *scores,
                                                 uint32_t width, uint32_t rows,
@@ -642,10 +655,34 @@ extern "C" int ds4_gpu_dsv41_indexer_topk_batch(ds4_gpu_tensor *selected, const 
         return ok;
     }
 #endif
+    bool scalar_topk = false;
+    const char *batch_topk = getenv("DS4_CUDA_V41_TOPK_BATCH");
+    if (g_n_gpus == 1 && rows >= 32u && rows <= 65535u && width > 8192u &&
+        batch_topk && !strcmp(batch_topk, "1") &&
+        !getenv("DS4_CUDA_NO_TOPK2048") && !getenv("DS4_CUDA_NO_TOPK_STREAM")) {
+        unsigned *nan_flag = (unsigned *)cuda_tmp_alloc_on(0, sizeof(unsigned), "V4.1 topk NaN flag");
+        unsigned has_nan = 0;
+        if (!nan_flag || !cuda_ok(cudaMemsetAsync(nan_flag, 0, sizeof(unsigned), cuda_decode_stream()),
+                                 "V4.1 topk NaN reset")) return 0;
+        const uint32_t max_visible = (start + rows) / ratio;
+        dsv41_topk_has_nan_kernel<<<dim3((max_visible + 255u) / 256u, rows), 256, 0, cuda_decode_stream()>>>(
+            nan_flag, (const float *)scores->ptr, width, start, ratio);
+        if (!cuda_ok(cudaGetLastError(), "V4.1 topk NaN scan") ||
+            !cuda_ok(cudaMemcpyAsync(&has_nan, nan_flag, sizeof(unsigned), cudaMemcpyDeviceToHost,
+                                     cuda_decode_stream()), "V4.1 topk NaN read") ||
+            !cuda_ok(cudaStreamSynchronize(cuda_decode_stream()), "V4.1 topk NaN wait")) return 0;
+        if (!has_nan) {
+            indexer_topk_stream512_kernel<true><<<rows, 512, 0, cuda_decode_stream()>>>(
+                (uint32_t *)selected->ptr, (const float *)scores->ptr,
+                width, rows, 512u, start, ratio);
+            return cuda_ok(cudaGetLastError(), "V4.1 causal batch topk");
+        }
+        scalar_topk = true;
+    }
     uint32_t row = 0;
 #ifndef __HIP_PLATFORM_AMD__
     /* Batch independent causal rows, splitting only at a sort-width boundary. */
-    while (row < rows && (start + row + 1u) / ratio <= 4096u) {
+    while (!scalar_topk && row < rows && (start + row + 1u) / ratio <= 4096u) {
         const uint32_t visible = (start + row + 1u) / ratio;
         const uint32_t sort = visible <= 1024u ? 1024u : visible <= 2048u ? 2048u : 4096u;
         const uint32_t available = (sort + 1u) * ratio - 1u - (start + row);
@@ -664,7 +701,7 @@ extern "C" int ds4_gpu_dsv41_indexer_topk_batch(ds4_gpu_tensor *selected, const 
         if (!cuda_ok(cudaGetLastError(), "V4.1 causal topk batch")) return 0;
         row += count;
     }
-    if (rows - row >= 2u && getenv("DS4_CUDA_NO_TOPK_STREAM") == NULL) {
+    if (!scalar_topk && rows - row >= 2u && getenv("DS4_CUDA_NO_TOPK_STREAM") == NULL) {
         indexer_topk_stream512_kernel<true><<<rows - row, 512>>>(
             (uint32_t *)selected->ptr + (uint64_t)row * 512u,
             (const float *)scores->ptr + (uint64_t)row * width,
