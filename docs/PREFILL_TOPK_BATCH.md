@@ -28,7 +28,8 @@ Option0/unset and existing top-k disable flags retain the original path.
 - Compute Sanitizer memcheck PASS, `ERROR SUMMARY: 0 errors`, all expanded
   causal cases (`prefill-topk-memcheck-v1`,444.17s). This checks memory access,
   not a separate racecheck/leakcheck claim.
-- Near256K real-output quality gate: pending.
+- Near256K real-output quality gate PASS:16/16 exact associations at254902
+  actual tokens, strict checker, no extra response text and no process swap.
 
 ## Clean model timing
 
@@ -80,8 +81,20 @@ and one decode token; no isolated-prefill or causal disk-latency claim.
 Profiled prefill404.44tok/s is diagnostic only; the gain above uses unprofiled
 counterbalanced runs. Trace source/binary provenance is recorded beside output.
 
-Active long-context quality run: `prefill-topk-recall-256k-v1`, same fixture and
+Completed long-context quality run: `prefill-topk-recall-256k-v1`, same fixture and
 parameters as previously validated native reference, actual254902tokens,
 cache72/pool8/graphs0/topk1/stage-sync OFF, temp0/nothink, max512generatedtokens.
 CLI SHA256 `8b0960c5c27be3c9c5d6c6480d367cf50792bbb35d2d65204b037fc73df5655a`.
-Wait for strict recall checker before claiming this gate passed.
+Strict checker PASS (`recall.json`):16/16 associations. Exit0, wall966.42s,
+minimum MemAvailable19882788KiB (~18.96GiB), peak process swap0. CLI reported
+prefill267.60tok/s, generation7.86tok/s. This is NOT a paired long-context speed
+comparison; the +11.114% claim remains the clean64K A/B result above.
+
+## Handoff
+
+All tests completed; no benchmark/profile/monitor remains running. Both new
+options remain default-OFF. User alias and services were not changed. Source,
+tests and reports are consolidated on `feature/external-engram-gguf` and pushed.
+Do not silently enable stage-sync alongside top-k: their combined effect has
+not been measured. Further useful work would be a separate exact-gated combined
+flag A/B or projection-launch profiling; no gain is claimed for those ideas.
