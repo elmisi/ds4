@@ -8,7 +8,7 @@ Branch: `feature/external-engram-gguf`, remote: `origin` (`elmisi/ds4`).
 User explicitly resumed prefill research on2026-09-23 with quota floor60%.
 Run fresh `check_quota.py` before/after bounded work; unknown/stale telemetry
 or any window below60% means stop. Do not treat percentages in this file as live.
-Latest observed65% around10:49UTC. Keep the desktop and unrelated services intact.
+Latest observed64% around11:00UTC. Keep the desktop and unrelated services intact.
 
 Runtime implementation2452f795; later commits update harness/report/checkpoints.
 All five binaries built native sm_121a. Bench SHA256:
@@ -33,13 +33,18 @@ timing. No extra score matrix. Detailed evidence: `PREFILL_TOPK_BATCH.md`.
 - CUDA attribution: GPU kernel count2,106,477->1,800,574; topk-named kernel
   durations21.851->3.169s; actual model swap0. Profiled rates are not benchmarks.
 
-ONLY ACTIVE JOB: `prefill-topk-recall-256k-v1`, started around10:44UTC,
-same actual254902-token recall fixture and parameters as native reference.
-Keep binary unchanged. Wait for completion, then run strict `check_recall.py
-RUN --output RUN/recall.json`; no long-context PASS claim before checker.
+Long-context gate COMPLETE: `prefill-topk-recall-256k-v1`, same actual254902-token
+fixture/parameters as native reference. Strict checker PASS,16/16 associations,
+exit0,swap0,minavailable18.96GiB,wall966.42s. Prefill267.60tok/s is diagnostic
+quality-run timing, not a paired long speedup. All jobs/monitors have ended.
 Raw root: `/home/alessandro/projects/ds4-ds41/speed-bench/dgx_ds41/raw`.
 Run metadata's git_commit describes runner checkout; use added source provenance
-for the correct runtime source. Commit/push final report and memory checkpoint.
+for the correct runtime source. No deployment: flags remain opt-in and the
+existing alias still uses its previous worktree/configuration. Further research
+must refresh quota; do not rerun completed gates unnecessarily. A combined
+top-k/stage-sync A/B or projection-launch investigation would be new work;
+neither has an established additional gain. Final report and memory checkpoint
+are saved; source and evidence are consolidated on this branch.
 
 ### Separate stage-sync experiment (default OFF, not promoted)
 
