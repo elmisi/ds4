@@ -76,6 +76,7 @@
 /tests/test_deepseek41_cli
 /tests/test_engram
 *.o
+/.ds4-cuda-build-config*
 *.dSYM/
 __pycache__/
 *.pyc

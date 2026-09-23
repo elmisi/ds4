@@ -789,6 +789,25 @@ cuda/mmq/mmvq.o: cuda/mmq/mmvq.cu cuda/mmq/mmvq.cuh cuda/mmq/common.cuh cuda/mmq
 cuda/mmq/ds4_repack.o: cuda/mmq/ds4_repack.cu cuda/mmq/ds4_repack.h
 	$(NVCC) $(NVCCFLAGS) -std=c++17 -c -o $@ $<
 
+# CUDA configuration stamp: changing arch/flags must invalidate existing objects,
+# including switches back to a previously used configuration. Keep this after
+# the source rules so their $< continues to name the source, not the stamp.
+# BEGIN CUDA CONFIG STAMP (also exercised by tests/test_cuda_build_config.py)
+cuda_config_quote = '$(subst ','"'"',$(1))'
+.PHONY: cuda-config-force
+cuda-config-force:
+
+.ds4-cuda-build-config: cuda-config-force
+	@set -eu; tmp=$$(mktemp .ds4-cuda-build-config.XXXXXX); \
+	trap 'rm -f "$$tmp"' EXIT HUP INT TERM; \
+	printf '%s\n' $(call cuda_config_quote,$(NVCC)) \
+	    $(call cuda_config_quote,$(NVCCFLAGS)) \
+	    $(call cuda_config_quote,$(MMQ_INCLUDES)) > "$$tmp"; \
+	if ! cmp -s "$$tmp" "$@"; then mv "$$tmp" "$@"; fi
+
+ds4_cuda.o $(MMQ_OBJS): .ds4-cuda-build-config
+# END CUDA CONFIG STAMP
+
 ds4_rocm.o: ds4_rocm.cu ds4_rocm.h ds4_rocm_memory.h ds4_linux_memory.h ds4_gpu.h ds4_gpu_tp.h ds4_glm53_vision_gpu.cuh ds4_deepseek4_vision_gpu.cuh ds4_image.h ds4_iq2_tables_cuda.inc $(ROCM_SRCS)
 	$(HIPCC) $(ROCM_CFLAGS) -c -o $@ ds4_rocm.cu
 
