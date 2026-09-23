@@ -63,12 +63,14 @@ CLI SHA256 `2564b032cb07fbbabc8087c01c251bdf3e386f936e556e32d4e686c9feb295bf`.
 `engram-native-profile-64k-v1` completed: all 256 vectors byte-identical to
 `engram-native-64k-v1-gate-on8/decode.f32`. Native profile: Engram waits 0.02313
 ms/token, expert loads 29.92 ms/token; report updated with stage breakdown.
-Current run: `engram-native-recall-256k-v1`, ~254902 populated tokens, final CLI,
-Lexar Engram pool8, cache72, temp0/nothink, guarded timeout3600 and RAM floor8GiB.
-After completion run the existing `check_recall.py RUN --output RUN/recall.json`.
-Then one clean post-guard 64K timing is useful: the profiled run's 399.73 prefill
-tok/s is higher than prior clean ~354, but extra barriers/run variability are
-confounders. Do not claim a new prefill speedup yet. Keep Q8/queue disabled.
+`engram-native-recall-256k-v1` PASSED strict checker, 16/16 associations at
+254902 actual tokens, final CLI, Lexar pool8/cache72/temp0/nothink. Prefill237.50,
+generation7.86 tok/s, wall1086.56s, no process swap, min available19.16GiB.
+Checker report in RUN/recall.json. This is quality evidence, not a paired speedup.
+Current run `engram-native-final-clean64k-v1`: unprofiled final-build timing
+because the profiled run's 399.73 prefill tok/s exceeded prior clean ~354;
+extra barriers/run variability are confounders. Do not claim a new prefill
+speedup yet. Keep Q8/queue disabled.
 
 Old-to-hybrid full-logit diagnostic: 0/256 exact vectors, 144/256 matching top1,
 max absolute difference 22.8622, RMS 2.51945, mean KL(old||hybrid) 1.72623.
