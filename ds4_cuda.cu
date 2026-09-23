@@ -11582,12 +11582,18 @@ static_assert(tt_TokentileSmemBudget<kTTStageRows, kTTG>::total <= kTTSmemHardCa
 static int ds4_cuda_attn_tokentile_arch_ok(void) {
     int device = 0;
     cudaDeviceProp prop;
+    cudaFuncAttributes compiled;
     if (cudaGetDevice(&device) != cudaSuccess ||
-        cudaGetDeviceProperties(&prop, device) != cudaSuccess) {
+        cudaGetDeviceProperties(&prop, device) != cudaSuccess ||
+        cudaFuncGetAttributes(&compiled, attention_tokentile_hmma_kernel) != cudaSuccess) {
         (void)cudaGetLastError();
         return 0;
     }
-    return prop.major >= 8;
+    /* A newer device may JIT a pre-Ampere PTX image, whose compile-time
+     * __CUDA_ARCH__ branches contain no HMMA/cp.async implementation. Device
+     * capability alone would then select a kernel that silently computes zeros.
+     * Check PTX as well as binary version, as the Q8 MMA path already does. */
+    return prop.major >= 8 && compiled.binaryVersion >= 80 && compiled.ptxVersion >= 80;
 }
 
 __global__ static void __launch_bounds__(256, 4)
