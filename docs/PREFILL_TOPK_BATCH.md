@@ -25,7 +25,10 @@ Option0/unset and existing top-k disable flags retain the original path.
 - Model gates: all256 float32 vocabulary vectors (129280values each) identical
   between OFF and ON, and OFF matches the pre-change native reference.
   SHA256 `9dee9a5d2cc7d4a254716e50e07cd995e58b2c885fdea7fcdd36b36eb47a8298`.
-- GPU memory sanitizer and near256K real-output quality gate: pending.
+- Compute Sanitizer memcheck PASS, `ERROR SUMMARY: 0 errors`, all expanded
+  causal cases (`prefill-topk-memcheck-v1`,444.17s). This checks memory access,
+  not a separate racecheck/leakcheck claim.
+- Near256K real-output quality gate: pending.
 
 ## Clean model timing
 
@@ -53,3 +56,32 @@ Binary SHA256 `e47291805525ecf8bf8a203f1643760fa29e9b721a35b934277e2f0db9cdda18`
 
 Stage-sync is a separate unpromoted experiment; do not add its +6.38% estimate
 to this result or assume their benefits combine. See `PREFILL_STAGE_SYNC.md`.
+
+## Diagnostic attribution
+
+`prefill-topk-nsys64k-v1`, same64K/256K allocation, gen-tokens1, CUDA/OS-runtime
+tracing with CPU sampling/context-switch collection disabled. Actual model
+VmSwap0 in80 sampled observations (do not substitute profiler-parent metrics).
+Compared with `prefill-stage-nsys64k-off-v1` (pre-topk native reference):
+
+| Whole trace metric | Reference OFF | Batched top-k ON |
+|---|---:|---:|
+|GPU kernel events|2,106,477|1,800,574|
+|Summed GPU kernel seconds|143.336|124.264|
+|Sum of kernels with topk in name, seconds|21.851|3.169|
+|GPU activity union, seconds|146.518|127.490|
+|Gaps in recorded GPU activity, seconds|48.217|37.194|
+
+The new causal stream kernel ran4823times, total0.504s. Its NaN scan ran4823times,
+total0.031s on GPU (this is NOT the full host synchronization cost). Old chunk
+and merge counts each fall156866->2533. Thus the top-k change removes substantial
+GPU work, unlike stage-sync's mainly smaller gaps. CUDA profiles include startup
+and one decode token; no isolated-prefill or causal disk-latency claim.
+Profiled prefill404.44tok/s is diagnostic only; the gain above uses unprofiled
+counterbalanced runs. Trace source/binary provenance is recorded beside output.
+
+Active long-context quality run: `prefill-topk-recall-256k-v1`, same fixture and
+parameters as previously validated native reference, actual254902tokens,
+cache72/pool8/graphs0/topk1/stage-sync OFF, temp0/nothink, max512generatedtokens.
+CLI SHA256 `8b0960c5c27be3c9c5d6c6480d367cf50792bbb35d2d65204b037fc73df5655a`.
+Wait for strict recall checker before claiming this gate passed.
