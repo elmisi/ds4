@@ -93,3 +93,31 @@ The guard now checks both `cudaFuncAttributes.binaryVersion` and `ptxVersion`
 Real-output validation and final native rebuild checks remain pending; see
 `ENGRAM_RESUME.md`. Do not promote an architecture transition based only on
 the throughput numbers above.
+
+## Final native guard/profile verification
+
+Commit `23c5af8b` rebuilt all binaries for sm_121a; the full numerical V4.1 CUDA
+suite passed again (`engram-native-guard-unit-v1`). Benchmark SHA256
+`ca5164fc3b43b9482390fcd10626bafa3e801cac2be5f85d357556a15c83ce8a`.
+`engram-native-profile-64k-v1` dumped 256 full vectors identical to the native
+pre-guard OFF/ON reference above, despite enabling all profiling flags. Thus
+the guard and these profiling settings preserve the native output on this gate.
+
+This profile supersedes the hybrid profile for bottleneck assessment:
+
+- Mean decode 105.06 ms; Engram wait0+wait1 **0.02313 ms/token** (~0.022%).
+- Expert-cache load **29.92 ms/token** (~28.5%, includes I/O/uploads/victims),
+  4.619% misses, 26.31 GiB logical expert reads across 256 decode tokens.
+- Prefill stage sums: attention core/index **71.96 s**, attention output
+  **23.37 s**, shared/routed FFN **27.92 s**. Foreground expert-prefetch wait
+  **12.76 s**, Engram interval **4.00 s**; timings are nested, not additive.
+
+More Engram readers cannot materially reduce the already hidden decode wait.
+Attention/prefill scheduling and expert-cache load overlap are better candidates,
+but the cache load number must not be mistaken for pure disk latency.
+
+Profile throughput was 399.73 prefill / 9.51 decode tok/s, 194.16 s wall,
+no process swap. It includes extra GPU barriers and is not a clean performance
+claim: the higher prefill rate versus the earlier clean runs needs a controlled
+post-guard timing before attributing it to scheduling, build or run variability.
+Real-output long-context recall is currently running.
