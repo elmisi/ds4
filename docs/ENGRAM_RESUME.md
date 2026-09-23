@@ -56,8 +56,19 @@ running suite. Pre-guard source preserved in
 `engram-arch-guard-audit-v1` completed successfully: unguarded sm_75 fails the
 split-head oracle at 129 rows, guarded sm_75 passes through 2048 rows. Commands,
 isolated sources/objects, logs and result.json are preserved in its raw directory.
-Current next step: native rebuild with the guard, verify native logits unchanged,
-then real-output long-context recall. Keep Q8 and the older queue disabled.
+Guard committed `23c5af8b`. Native rebuild complete (all nine cubins sm_121a),
+full `engram-native-guard-unit-v1` CUDA suite PASS. Final benchmark SHA256
+`ca5164fc3b43b9482390fcd10626bafa3e801cac2be5f85d357556a15c83ce8a`;
+CLI SHA256 `2564b032cb07fbbabc8087c01c251bdf3e386f936e556e32d4e686c9feb295bf`.
+`engram-native-profile-64k-v1` completed: all 256 vectors byte-identical to
+`engram-native-64k-v1-gate-on8/decode.f32`. Native profile: Engram waits 0.02313
+ms/token, expert loads 29.92 ms/token; report updated with stage breakdown.
+Current run: `engram-native-recall-256k-v1`, ~254902 populated tokens, final CLI,
+Lexar Engram pool8, cache72, temp0/nothink, guarded timeout3600 and RAM floor8GiB.
+After completion run the existing `check_recall.py RUN --output RUN/recall.json`.
+Then one clean post-guard 64K timing is useful: the profiled run's 399.73 prefill
+tok/s is higher than prior clean ~354, but extra barriers/run variability are
+confounders. Do not claim a new prefill speedup yet. Keep Q8/queue disabled.
 
 Old-to-hybrid full-logit diagnostic: 0/256 exact vectors, 144/256 matching top1,
 max absolute difference 22.8622, RMS 2.51945, mean KL(old||hybrid) 1.72623.
