@@ -41718,6 +41718,14 @@ static bool ds41_graph_prefill_sweep(ds41_gpu_graph *g, const ds4_model *m,
         return false;
     const bool profile = getenv("DS4_METAL_GRAPH_PREFILL_PROFILE") != NULL;
     const bool stage_profile = getenv("DS4_METAL_V41_STAGE_PROFILE") != NULL;
+#if !defined(__APPLE__) && !defined(DS4_ROCM_BUILD)
+    /* Experimental scheduling only: the same barriers as stage profiling,
+     * without clocks or per-stage logging. Default arithmetic/dispatch stays
+     * unchanged; keep opt-in until exactness and paired timings are checked. */
+    const bool stage_sync = metal_graph_tp_env_flag("DS4_CUDA_V41_PREFILL_STAGE_SYNC", false);
+#else
+    const bool stage_sync = false;
+#endif
     const bool batch_moe = !getenv("DS4_METAL_DISABLE_V41_BATCH_MOE");
     const bool batch_attention = !getenv("DS4_METAL_DISABLE_V41_BATCH_ATTN");
     const bool batch_core = batch_attention && !getenv("DS4_METAL_DISABLE_V41_BATCH_CORE");
@@ -41880,12 +41888,14 @@ static bool ds41_graph_prefill_sweep(ds41_gpu_graph *g, const ds4_model *m,
             const double t_engram = profile ? now_sec() : 0;
             double stage_start = stage_profile ? now_sec() : 0;
 #define DS41_STAGE(label) do { \
-                if (ok && stage_profile) { \
+                if (ok && (stage_profile || stage_sync)) { \
                     ok = ds4_gpu_end_commands() != 0; \
-                    const double now = now_sec(); \
-                    fprintf(stderr, "ds4: V4.1 stage layer=%u pos=%u rows=%u %s=%.3f ms\n", \
-                        il, start, count, (label), (now - stage_start) * 1000); \
-                    stage_start = now; \
+                    if (stage_profile) { \
+                        const double now = now_sec(); \
+                        fprintf(stderr, "ds4: V4.1 stage layer=%u pos=%u rows=%u %s=%.3f ms\n", \
+                            il, start, count, (label), (now - stage_start) * 1000); \
+                        stage_start = now; \
+                    } \
                     if (ok) ok = ds4_gpu_begin_commands() != 0; \
                 } \
             } while (0)
