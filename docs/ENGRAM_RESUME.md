@@ -3,78 +3,52 @@
 Updated 2026-09-23. Active worktree: `/home/alessandro/projects/ds4-engram-external`.
 Branch: `feature/external-engram-gguf`, remote: `origin` (`elmisi/ds4`).
 
-## Active prefill investigation (resumed 2026-09-23)
+## Prefill investigation: current checkpoint
 
-TOP-K SUITE COMPLETE: both clean counterbalanced pairs PASS, mean prefill
-364.305->404.795tok/s (+11.114%), decoding essentially unchanged, all process
-swap0. See `PREFILL_TOPK_BATCH.md`. `prefill-topk-memcheck-v1` PASS,0 errors,
-444.17s. Diagnostic trace `prefill-topk-nsys64k-v1` complete: topk kernel time
-21.851->3.169s, kernel count2,106,477->1,800,574, model swap0. Active
-`prefill-topk-recall-256k-v1` started around10:44UTC with same254902-token
-recall fixture. No deployment. Quota66% historical at10:43:50UTC; refresh.
+User explicitly resumed prefill research on2026-09-23 with quota floor60%.
+Run fresh `check_quota.py` before/after bounded work; unknown/stale telemetry
+or any window below60% means stop. Do not treat percentages in this file as live.
+Latest observed65% around10:49UTC. Keep the desktop and unrelated services intact.
 
-Latest: stage-sync clean pairs2/3 mean +6.38% (large variation). Nsight OFF/ON
-same kernel count/time, whole-trace idle gaps48.22->26.71s; no disk causation
-claimed. Full evidence: `PREFILL_STAGE_SYNC.md`. Stage option remains default OFF.
+Runtime implementation2452f795; later commits update harness/report/checkpoints.
+All five binaries built native sm_121a. Bench SHA256:
+`e47291805525ecf8bf8a203f1643760fa29e9b721a35b934277e2f0db9cdda18`.
+No alias, service, OS swap setting or deployment was changed.
 
-New independent candidate `DS4_CUDA_V41_TOPK_BATCH=1`: causal batched exact top512
-using the existing streaming selection with per-row visible bounds. Single GPU,
-rows32..65535, width>8192; option must equal1, disable flags honored.
-Initial NaN ordering test failed (`prefill-topk-unit-on-v1`); fixed with visible
-NaN scan and fallback to original per-row implementation. This introduces a
-small flag read/synchronization whose cost MUST remain in timing. No extra score
-matrix allocation. `prefill-topk-unit-on-v2` PASSED all expanded causal tests,
-including visible131071, both ratios, ties, NaNs, infinities, signed zero,
-future-score masking and output bounds. All five native binaries rebuilt.
-Full GPU test suite PASSED (`prefill-topk-full-unit-v1`,12.02s). Active new
-exact-gated64K model suite `prefill-topk64k-v1`, two timing pairs, with
-`prefill_stage_suite.py --toggle DS4_CUDA_V41_TOPK_BATCH`; stage-sync stays OFF
-to isolate this candidate. Do not deploy either option yet. Fresh quota68%
-at10:11:54 UTC (historical, always refresh). Model suite binary SHA256
-`e47291805525ecf8bf8a203f1643760fa29e9b721a35b934277e2f0db9cdda18`;
-source2452f795. Do not rebuild until all gates/timing jobs complete.
-Both model gates now PASS:256 full float32 vocabulary vectors exactly equal to
-each other and pre-change reference (SHA9dee9a5d2cc7d4a254716e50e07cd995e58b2c885fdea7fcdd36b36eb47a8298).
-OFFgate210.11s/ONgate198.12s, no process swap. Clean timing sequence is running;
-do not promote gate timing or assume a gain until counterbalanced pairs finish.
+### Verified top-k candidate (default OFF)
 
-User explicitly asked to continue investigating prefill with the 60% quota floor.
-Fresh telemetry at start: 73% (historical, recheck before further work).
-Completed `prefill-stage-isolate64k-v1`: existing final native binary,
-only `DS4_METAL_V41_STAGE_PROFILE=1` enabled among profiling flags, pool8,
-65536 populated/262144 allocated context, cache72, 256 full decode vectors.
-All 256 full vectors equal `engram-native-64k-v1-gate-on8/decode.f32`.
-Prefill375.30/decode9.52tok/s, wall206.11s, no process swap. This is one profiled
-point, not a promoted gain. Added CUDA-only default-OFF experimental option
-`DS4_CUDA_V41_PREFILL_STAGE_SYNC=1`: same seven stage barriers without clocks or
-logging; 0/unset retains the normal path. Other backends unchanged.
-All five binaries built. Host suite-planning/comparator tests pass.
-Next/current suite `prefill-stage-sync64k-v1` uses `prefill_stage_suite.py`:
-OFF gate must match pre-change native reference; ON gate must match OFF; only
-then run two clean timing pairs ordered ON/OFF/OFF/ON. Both use pool8/cache72,
-graphs0, no profiling, 64K populated/256K allocated. Keep binary unchanged while
-the suite runs. Any significant candidate requires further long-context gating.
+`DS4_CUDA_V41_TOPK_BATCH=1` batches exact causal top512, single GPU,
+rows32..65535,width>8192; existing disable flags remain respected.
+Visible NaNs use the original path; retain the scan/read synchronization in
+timing. No extra score matrix. Detailed evidence: `PREFILL_TOPK_BATCH.md`.
 
-Implementation/harness committed and pushed as `53e680b9`. Both gates PASS:
-all 256 full vectors identical, including OFF versus the pre-change reference.
-Gate rates OFF349.58/ON367.67 prefill tok/s. Clean timing1 ON392.20; timing1 OFF
-329.26 but peak process swap85588KiB, so exclude the ENTIRE first pair from
-performance claims. Pair2 completed clean: OFF350.17/ON355.01 (+1.382%),
-decode9.48/9.49. This is much smaller than the contaminated aggregate.
-Pair3 ON/OFF is being run as a replacement, with the identical binary SHA256
-`2c92d5b2e9b1fc2a5a92e96424ca9bd415e2346dc4e6b6042b7cab790c17ba0f`.
-Source is 53e680b9 plus later harness/docs-only commits; no rebuild since gates.
-Do not use the original suite's unfiltered
-arithmetic mean as a clean gain: use `prefill_timing_summary.py --raw RAW
---prefix prefill-stage-sync64k-v1 --telemetry RAW/prefill-stage-sync64k-v1-telemetry.jsonl`.
-This preserves all samples and rejects failed/incomplete/swapped pairs.
-The suite now uses this filtered reporter automatically for future summaries.
-Read-only sysfs monitor `prefill_telemetry.py` is running for1100s from around
-09:35 UTC, sampling temperatures and disk sector counts. NVMe ~54..65C observed;
-no thermal cause established. No swap settings or desktop changes.
-Nsight Systems2025.3.2 available; CPU sampling forbidden by perf_event_paranoid4.
-If used after the suite, choose CUDA/OS-runtime trace with sample/cpuctxsw NONE;
-monitor the actual ds4-bench child, not just the nsys wrapper, for memory/swap.
+- Expanded exact-ID tests PASS through visible131071, both ratios, dispatch
+  boundaries, NaNs/infinities/signed zero/ties/future masking/output sentinel.
+- Full GPU numeric suite PASS. Memcheck PASS,0errors,444.17s.
+- `prefill-topk64k-v1`: all256 full float32 vocabulary vectors match OFF/ON
+  and pre-change reference exactly. Both clean counterbalanced timing pairs
+  passed without swap: mean364.305->404.795tok/s prefill (+11.114%), decode
+  essentially unchanged.64Kpopulated/256Kallocated,cache72,pool8,graphs0,
+  stage-sync OFF. Do not call this populated256K throughput evidence.
+- CUDA attribution: GPU kernel count2,106,477->1,800,574; topk-named kernel
+  durations21.851->3.169s; actual model swap0. Profiled rates are not benchmarks.
+
+ONLY ACTIVE JOB: `prefill-topk-recall-256k-v1`, started around10:44UTC,
+same actual254902-token recall fixture and parameters as native reference.
+Keep binary unchanged. Wait for completion, then run strict `check_recall.py
+RUN --output RUN/recall.json`; no long-context PASS claim before checker.
+Raw root: `/home/alessandro/projects/ds4-ds41/speed-bench/dgx_ds41/raw`.
+Run metadata's git_commit describes runner checkout; use added source provenance
+for the correct runtime source. Commit/push final report and memory checkpoint.
+
+### Separate stage-sync experiment (default OFF, not promoted)
+
+`DS4_CUDA_V41_PREFILL_STAGE_SYNC=1` inserts seven barriers without profiling
+clocks/logging.64K/256-vector gates exact. Two clean pairs mean+6.38%, but highly
+variable. Initial swapped pair excluded entirely; never quote its contaminated
+aggregate. Same kernel time under Nsight, smaller whole-trace gaps48.22->26.71s;
+no causal disk or thermal claim. Do not add this gain to top-k's gain.
+Detailed chronology/artifacts: `PREFILL_STAGE_SYNC.md`. All its jobs/monitors ended.
 
 ## Completed work and prior evidence
 
