@@ -43285,6 +43285,9 @@ static uint32_t ds41_decode_flush_layers(void) {
 static DS4_MAYBE_UNUSED bool ds41_graph_step(ds41_gpu_graph *g, const ds4_model *m,
                                              const ds4_weights *w, int token, float *logits) {
     if (!g || !g->valid || g->pos >= g->ctx || token < 0 || (uint32_t)token >= DS4_N_VOCAB) return false;
+    const bool profile = getenv("DS4_CUDA_V41_DECODE_PROFILE") != NULL;
+    const double profile_start = profile ? now_sec() : 0;
+    double engram_wait[2] = {0, 0};
     uint32_t ids[2][DS4_ENGRAM_COLS];
     ds4_engram_history next_history = g->history;
     if (!ds41_hash_tokens(g, &next_history, &token, 1, &ids[0][0])) return false;
@@ -43302,6 +43305,7 @@ static DS4_MAYBE_UNUSED bool ds41_graph_step(ds41_gpu_graph *g, const ds4_model 
             return false;
         }
     }
+    const double profile_submitted = profile ? now_sec() : 0;
     const float initial_pre[] = {1, 0, 0, 0};
     bool ok = ds4_gpu_tensor_write(g->pre, 0, initial_pre, sizeof(initial_pre)) &&
         ds4_gpu_begin_commands() && ds41_embed(g, m, w, g->residual, g->x, token, g->pos);
@@ -43335,13 +43339,16 @@ static DS4_MAYBE_UNUSED bool ds41_graph_step(ds41_gpu_graph *g, const ds4_model 
         !getenv("DS4_METAL_DISABLE_V41_SCORE_ROWS4");
 #endif
     for (uint32_t il = 0; ok && il < DS4_N_LAYER; il++) {
+        const double profile_layer_start = profile ? now_sec() : 0;
         const ds4_layer_weights *l = &w->layer[il];
         if (layer_resident)
             ok = metal_graph_stream_map_layer(m, w, il) && ds4_gpu_begin_commands();
         const unsigned table = il == 1 ? 0 : 1;
         if (ds41_engram_layer(il) && (rows[table] || overlap_engram)) {   /* each table joins at its layer */
+            const double wait_start = profile ? now_sec() : 0;
             const bool read = overlap_engram ? ds4_engram_reader_wait(g->engram_reader, table) :
                 ds4_engram_read_batch_finish(rows[table]);
+            if (profile) engram_wait[table] = now_sec() - wait_start;
             rows[table] = NULL;
             if (ok && !(read && ds4_gpu_tensor_write(table ? g->engram_rows_b : g->engram_rows, 0,
                                                     g->rows[table], sizeof(g->rows[table])))) ok = false;
@@ -43377,6 +43384,8 @@ static DS4_MAYBE_UNUSED bool ds41_graph_step(ds41_gpu_graph *g, const ds4_model 
         if (ok && queue_layers && !drain && (g->tp_world != 2 || tp_inline_gates) && flush_layers &&
             (il == 0 || (il + 1u) % flush_layers == 0))
             ok = ds4_gpu_flush_commands() != 0;
+        if (profile) fprintf(stderr, "ds4: V4.1 decode layer pos=%u layer=%u wall_ms=%.6f\n",
+                             g->pos, il, (now_sec() - profile_layer_start) * 1000);
     }
     g->score_selected_blocks = false;
     g->scalar_decode = false;
@@ -43393,6 +43402,10 @@ static DS4_MAYBE_UNUSED bool ds41_graph_step(ds41_gpu_graph *g, const ds4_model 
     /* Even a failed GPU layer must finish the reader before this graph (or
      * a borrowed row graph) can leave scope or reuse its host output rows. */
     if (overlap_engram && !ds4_engram_reader_wait(g->engram_reader, 1)) ok = false;
+    if (profile) fprintf(stderr,
+        "ds4: V4.1 decode token pos=%u async=%u submit_or_serial_ms=%.6f wait0_ms=%.6f wait1_ms=%.6f total_ms=%.6f ok=%u\n",
+        g->pos, overlap_engram, (profile_submitted - profile_start) * 1000,
+        engram_wait[0] * 1000, engram_wait[1] * 1000, (now_sec() - profile_start) * 1000, ok);
     if (!ok) {
         g->valid = false;
         return false;
