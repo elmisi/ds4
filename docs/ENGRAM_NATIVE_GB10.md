@@ -143,6 +143,7 @@ the earlier native clean results, so the guard did not explain the faster
 and run repeated clean A/Bs before considering an independent opt-in scheduling
 change. No new prefill speedup or synchronization optimization is promoted.
 
-All code and small reports are committed locally. Push remains dependent on
-restoring GitHub authentication; see the live checkpoint for publication status.
+Code and small reports through `e571a916` were pushed and verified on
+`origin/feature/external-engram-gguf` after renewed GitHub authentication.
+See the live checkpoint for publication status and the pending login diagnosis.
 Aliases, running services and other performance branches were not changed.
