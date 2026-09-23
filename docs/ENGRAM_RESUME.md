@@ -5,6 +5,24 @@ Branch: `feature/external-engram-gguf`, remote: `origin` (`elmisi/ds4`).
 
 ## Active prefill investigation (resumed 2026-09-23)
 
+Latest: stage-sync clean pairs2/3 mean +6.38% (large variation). Nsight OFF/ON
+same kernel count/time, whole-trace idle gaps48.22->26.71s; no disk causation
+claimed. Full evidence: `PREFILL_STAGE_SYNC.md`. Stage option remains default OFF.
+
+New independent candidate `DS4_CUDA_V41_TOPK_BATCH=1`: causal batched exact top512
+using the existing streaming selection with per-row visible bounds. Single GPU,
+rows32..65535, width>8192; option must equal1, disable flags honored.
+Initial NaN ordering test failed (`prefill-topk-unit-on-v1`); fixed with visible
+NaN scan and fallback to original per-row implementation. This introduces a
+small flag read/synchronization whose cost MUST remain in timing. No extra score
+matrix allocation. `prefill-topk-unit-on-v2` PASSED all expanded causal tests,
+including visible131071, both ratios, ties, NaNs, infinities, signed zero,
+future-score masking and output bounds. All five native binaries rebuilt.
+Full GPU test suite is next/current, then new exact-gated64K model suite with
+`prefill_stage_suite.py --toggle DS4_CUDA_V41_TOPK_BATCH`; stage-sync stays OFF
+to isolate this candidate. Do not deploy either option yet. Fresh quota68%
+at10:11:54 UTC (historical, always refresh).
+
 User explicitly asked to continue investigating prefill with the 60% quota floor.
 Fresh telemetry at start: 73% (historical, recheck before further work).
 Completed `prefill-stage-isolate64k-v1`: existing final native binary,
