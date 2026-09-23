@@ -7,8 +7,11 @@ Branch: `feature/external-engram-gguf`, remote: `origin` (`elmisi/ds4`).
 
 TOP-K SUITE COMPLETE: both clean counterbalanced pairs PASS, mean prefill
 364.305->404.795tok/s (+11.114%), decoding essentially unchanged, all process
-swap0. See `PREFILL_TOPK_BATCH.md`. Active next: `prefill-topk-memcheck-v1`, then
-diagnostic CUDA trace and same254902-token recall fixture. No deployment.
+swap0. See `PREFILL_TOPK_BATCH.md`. `prefill-topk-memcheck-v1` PASS,0 errors,
+444.17s. Diagnostic trace `prefill-topk-nsys64k-v1` complete: topk kernel time
+21.851->3.169s, kernel count2,106,477->1,800,574, model swap0. Active
+`prefill-topk-recall-256k-v1` started around10:44UTC with same254902-token
+recall fixture. No deployment. Quota66% historical at10:43:50UTC; refresh.
 
 Latest: stage-sync clean pairs2/3 mean +6.38% (large variation). Nsight OFF/ON
 same kernel count/time, whole-trace idle gaps48.22->26.71s; no disk causation
