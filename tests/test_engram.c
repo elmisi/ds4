@@ -103,6 +103,49 @@ static void test_hash(void) {
     assert(!ds4_engram_hash(&l, &h, tokens, NULL, 1, actual));
 }
 
+static void test_pool(const ds4_engram_table *t) {
+    ds4_engram_table tables[2] = {*t, *t};
+    uint32_t ids[48];
+    float expected[48 * DS4_ENGRAM_DIM], actual[48 * DS4_ENGRAM_DIM + 1];
+    assert(!ds4_engram_pool_create(0) && errno == EINVAL);
+    assert(!ds4_engram_pool_create(17) && errno == EINVAL);
+    for (unsigned readers = 1; readers <= 16; readers *= 2) {
+        ds4_engram_pool *p = ds4_engram_pool_create(readers);
+        assert(p);
+        for (unsigned iteration = 0; iteration < 64; iteration++) {
+            for (unsigned j = 0; j < 48; j++) ids[j] = (j + iteration) % 3;
+            assert(ds4_engram_read(t, ids, 48, expected));
+            actual[48 * DS4_ENGRAM_DIM] = 12345;
+            assert(ds4_engram_pool_submit(p, tables, ids, actual));
+            /* Submit owns its ID copy even while readers are running. */
+            memset(ids, 255, sizeof(ids));
+            assert(ds4_engram_pool_wait(p, 0));
+            assert(!memcmp(expected, actual, sizeof(expected) / 2));
+            assert(ds4_engram_pool_wait(p, 1));
+            assert(!memcmp(expected, actual, sizeof(expected)));
+            assert(actual[48 * DS4_ENGRAM_DIM] == 12345);
+        }
+        /* Invalid IDs and a bad descriptor propagate errors independently. */
+        memset(ids, 0, sizeof(ids));
+        ids[0] = t->rows;
+        assert(ds4_engram_pool_submit(p, tables, ids, actual));
+        assert(!ds4_engram_pool_wait(p, 0) && errno == EINVAL);
+        assert(ds4_engram_pool_wait(p, 1));
+        assert(!ds4_engram_pool_drain(p) && errno == EINVAL);
+        ids[0] = 0;
+        tables[1].fd = -1;
+        assert(ds4_engram_pool_submit(p, tables, ids, actual));
+        assert(ds4_engram_pool_wait(p, 0));
+        assert(!ds4_engram_pool_drain(p) && errno == EINVAL);
+        tables[1] = *t;
+        assert(ds4_engram_pool_submit(p, tables, ids, actual));
+        assert(ds4_engram_pool_drain(p));
+        /* Teardown must drain outstanding reads before output or fds die. */
+        assert(ds4_engram_pool_submit(p, tables, ids, actual));
+        ds4_engram_pool_free(p);
+    }
+}
+
 static void test_rows(void) {
     char path[] = "/tmp/ds4-engram-XXXXXX";
     int fd = mkstemp(path);
@@ -120,6 +163,7 @@ static void test_rows(void) {
     ds4_engram_table t;
     assert(ds4_engram_table_open(&t, path, offset, 3));
     assert(fcntl(t.fd, F_GETFD) & FD_CLOEXEC);
+    test_pool(&t);
     uint32_t rows[] = {2, 0, 2, 1};
     float out[4 * 256];
     assert(ds4_engram_read(&t, rows, 4, out));

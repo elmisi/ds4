@@ -11,11 +11,127 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <pthread.h>
 #ifdef __APPLE__
 #include <dispatch/dispatch.h>
-#else
-#include <pthread.h>
 #endif
+
+struct ds4_engram_pool {
+    pthread_mutex_t mutex;
+    pthread_cond_t work, ready;
+    pthread_t threads[16];
+    unsigned readers, next, pending[2];
+    int error[2];
+    bool stop;
+    ds4_engram_table tables[2];
+    uint32_t ids[2 * DS4_ENGRAM_COLS];
+    float *out;
+};
+
+static void *engram_pool_worker(void *arg) {
+    ds4_engram_pool *p = arg;
+    pthread_mutex_lock(&p->mutex);
+    for (;;) {
+        while (!p->stop && p->next == 2 * DS4_ENGRAM_COLS)
+            pthread_cond_wait(&p->work, &p->mutex);
+        if (p->stop) break;
+        unsigned job = p->next++, table = job / DS4_ENGRAM_COLS;
+        pthread_mutex_unlock(&p->mutex);
+        bool ok = ds4_engram_read(&p->tables[table], &p->ids[job], 1,
+                                   p->out + job * DS4_ENGRAM_DIM);
+        int error = ok ? 0 : (errno ? errno : EIO);
+        pthread_mutex_lock(&p->mutex);
+        if (error && !p->error[table]) p->error[table] = error;
+        if (--p->pending[table] == 0) pthread_cond_broadcast(&p->ready);
+    }
+    pthread_mutex_unlock(&p->mutex);
+    return NULL;
+}
+
+ds4_engram_pool *ds4_engram_pool_create(unsigned readers) {
+    if (!readers || readers > 16) { errno = EINVAL; return NULL; }
+    ds4_engram_pool *p = calloc(1, sizeof(*p));
+    if (!p) return NULL;
+    int error = pthread_mutex_init(&p->mutex, NULL);
+    if (error) goto fail_alloc;
+    error = pthread_cond_init(&p->work, NULL);
+    if (error) goto fail_mutex;
+    error = pthread_cond_init(&p->ready, NULL);
+    if (error) goto fail_work;
+    p->next = 2 * DS4_ENGRAM_COLS;
+    for (; p->readers < readers; p->readers++) {
+        error = pthread_create(&p->threads[p->readers], NULL, engram_pool_worker, p);
+        if (error) {
+            ds4_engram_pool_free(p);
+            errno = error;
+            return NULL;
+        }
+    }
+    return p;
+fail_work:
+    pthread_cond_destroy(&p->work);
+fail_mutex:
+    pthread_mutex_destroy(&p->mutex);
+fail_alloc:
+    free(p);
+    errno = error;
+    return NULL;
+}
+
+bool ds4_engram_pool_submit(ds4_engram_pool *p, const ds4_engram_table tables[2],
+                            const uint32_t *ids, float *out) {
+    if (!p || !tables || !ids || !out) { errno = EINVAL; return false; }
+    pthread_mutex_lock(&p->mutex);
+    if (p->pending[0] || p->pending[1]) {
+        pthread_mutex_unlock(&p->mutex);
+        errno = EBUSY;
+        return false;
+    }
+    memcpy(p->tables, tables, sizeof(p->tables));
+    memcpy(p->ids, ids, sizeof(p->ids));
+    p->out = out;
+    p->pending[0] = p->pending[1] = DS4_ENGRAM_COLS;
+    p->error[0] = p->error[1] = 0;
+    /* Give the early layer priority; later rows overlap the encoder layers. */
+    p->next = 0;
+    pthread_cond_broadcast(&p->work);
+    pthread_mutex_unlock(&p->mutex);
+    return true;
+}
+
+bool ds4_engram_pool_wait(ds4_engram_pool *p, unsigned table) {
+    if (!p || table >= 2) { errno = EINVAL; return false; }
+    pthread_mutex_lock(&p->mutex);
+    while (p->pending[table]) pthread_cond_wait(&p->ready, &p->mutex);
+    int error = p->error[table];
+    pthread_mutex_unlock(&p->mutex);
+    if (error) errno = error;
+    return error == 0;
+}
+
+bool ds4_engram_pool_drain(ds4_engram_pool *p) {
+    if (!p) return true;
+    bool first = ds4_engram_pool_wait(p, 0);
+    int error = first ? 0 : errno;
+    bool second = ds4_engram_pool_wait(p, 1);
+    if (error) errno = error;
+    return first && second;
+}
+
+void ds4_engram_pool_free(ds4_engram_pool *p) {
+    if (!p) return;
+    (void)ds4_engram_pool_drain(p);
+    pthread_mutex_lock(&p->mutex);
+    p->stop = true;
+    pthread_cond_broadcast(&p->work);
+    pthread_mutex_unlock(&p->mutex);
+    for (unsigned i = 0; i < p->readers; i++)
+        if (pthread_join(p->threads[i], NULL)) abort();
+    pthread_cond_destroy(&p->ready);
+    pthread_cond_destroy(&p->work);
+    pthread_mutex_destroy(&p->mutex);
+    free(p);
+}
 
 bool ds4_engram_layout_valid(const ds4_engram_layout *l) {
     if (!l || !l->token_map || !l->vocab_size ||

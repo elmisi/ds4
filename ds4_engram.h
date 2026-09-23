@@ -69,4 +69,16 @@ bool ds4_engram_read(const ds4_engram_table *table, const uint32_t *rows,
 bool ds4_engram_read_batch(const ds4_engram_table *table, const uint32_t *rows,
                            size_t tokens, size_t stride, float *out);
 
+/* One persistent pool per decoding session. Submit copies IDs/table descriptors;
+ * descriptors and output must remain alive until drain/free. One caller owns
+ * the pool; workers only write disjoint output rows. Wait publishes one table,
+ * drain publishes both, including after a read failure. No GPU calls on workers. */
+typedef struct ds4_engram_pool ds4_engram_pool;
+ds4_engram_pool *ds4_engram_pool_create(unsigned readers);
+bool ds4_engram_pool_submit(ds4_engram_pool *pool, const ds4_engram_table tables[2],
+                            const uint32_t *ids, float *out);
+bool ds4_engram_pool_wait(ds4_engram_pool *pool, unsigned table);
+bool ds4_engram_pool_drain(ds4_engram_pool *pool);
+void ds4_engram_pool_free(ds4_engram_pool *pool);
+
 #endif

@@ -40194,6 +40194,7 @@ typedef struct {
     uint32_t *token_map;
     uint32_t (*prefill_ids)[2][DS4_ENGRAM_COLS];
     ds4_engram_table table[2];
+    ds4_engram_pool *engram_pool;
     float rows[2][DS4_ENGRAM_COLS * DS4_ENGRAM_DIM];
     ds4_gpu_tensor *window[40];
     ds4_gpu_tensor *compressed[4], *index_cache[4];
@@ -40217,6 +40218,8 @@ static bool ds41_read_array(const ds4_model *m, const char *key, uint32_t type,
 
 static void ds41_graph_free(ds41_gpu_graph *g) {
     if (!g) return;
+    ds4_engram_pool_free(g->engram_pool);
+    g->engram_pool = NULL;
 #if !defined(__APPLE__) && !defined(DS4_ROCM_BUILD)
     ds4_gpu_decode_graphs_invalidate();
 #endif
@@ -41275,7 +41278,23 @@ static DS4_MAYBE_UNUSED bool ds41_graph_step(ds41_gpu_graph *g, const ds4_model 
     uint32_t ids[2][DS4_ENGRAM_COLS];
     ds4_engram_history next_history = g->history;
     if (!ds41_hash_tokens(g, &next_history, &token, 1, &ids[0][0])) return false;
-    for (uint32_t i = 0; !ds41_image_at(g, g->pos) && i < 2; i++) {
+    bool async_engram = false;
+#if !defined(__APPLE__) && !defined(DS4_ROCM_BUILD)
+    const char *readers = getenv("DS4_CUDA_ENGRAM_READERS");
+    if (readers && strcmp(readers, "0") && !ds41_image_at(g, g->pos)) {
+        char *end;
+        long n = strtol(readers, &end, 10);
+        if (end == readers || *end || n < 1 || n > 16) {
+            fprintf(stderr, "ds4: DS4_CUDA_ENGRAM_READERS must be 0..16\n");
+            return false;
+        }
+        if (!g->engram_pool) g->engram_pool = ds4_engram_pool_create((unsigned)n);
+        if (!g->engram_pool || !ds4_engram_pool_submit(g->engram_pool,
+                g->table, &ids[0][0], &g->rows[0][0])) return false;
+        async_engram = true;
+    }
+#endif
+    for (uint32_t i = 0; !async_engram && !ds41_image_at(g, g->pos) && i < 2; i++) {
 #ifdef __APPLE__
         if (!ds4_engram_read_batch(&g->table[i], ids[i], 1, DS4_ENGRAM_COLS, g->rows[i]))
             return false;
@@ -41285,7 +41304,11 @@ static DS4_MAYBE_UNUSED bool ds41_graph_step(ds41_gpu_graph *g, const ds4_model 
     }
     const float initial_pre[] = {1, 0, 0, 0};
     if (!ds4_gpu_tensor_write(g->pre, 0, initial_pre, sizeof(initial_pre)) ||
-        !ds4_gpu_begin_commands()) return false;
+        !ds4_gpu_begin_commands()) {
+        if (async_engram) (void)ds4_engram_pool_drain(g->engram_pool);
+        g->valid = false;
+        return false;
+    }
     bool ok = ds41_embed(g, m, w, g->residual, g->x, token, g->pos);
     /* Unfused quality kernels bind whole expert tensors. Keep just the current
      * layer mapped, using the same admitted reserve as layer-major prefill. */
@@ -41299,7 +41322,8 @@ static DS4_MAYBE_UNUSED bool ds41_graph_step(ds41_gpu_graph *g, const ds4_model 
             ok = metal_graph_stream_map_layer(m, w, il) && ds4_gpu_begin_commands();
         if (ok && ds41_engram_layer(il)) {
             const uint32_t i = il == 1 ? 0 : 1;
-            ok = ds4_gpu_tensor_write(g->engram_rows, 0, g->rows[i], sizeof(g->rows[i]));
+            if (async_engram) ok = ds4_engram_pool_wait(g->engram_pool, i);
+            if (ok) ok = ds4_gpu_tensor_write(g->engram_rows, 0, g->rows[i], sizeof(g->rows[i]));
         }
         if (ok) {
 #if !defined(__APPLE__) && !defined(DS4_ROCM_BUILD)
@@ -41324,6 +41348,7 @@ static DS4_MAYBE_UNUSED bool ds41_graph_step(ds41_gpu_graph *g, const ds4_model 
     if (ds4_gpu_commands_active() && !ds4_gpu_end_commands()) ok = false;
     if (layer_resident && !metal_graph_stream_map_decode_static_all(m, w)) ok = false;
     if (g->tp_world == 2 && ds4_gpu_tp_failed()) ok = false;
+    if (async_engram && !ds4_engram_pool_drain(g->engram_pool)) ok = false;
     if (ok && logits) ok = ds41_graph_logits(g, m, w, logits);
     if (!ok) {
         g->valid = false;

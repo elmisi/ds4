@@ -968,6 +968,25 @@ int main(int argc, char **argv) {
             }
 #endif
             const double token_t1 = bench_now_sec();
+            /* Diagnostic-only full F32 vectors, one per target-only eval.
+             * Dump overhead is outside per-token timing but inside wall time.
+             * Use a single frontier and separate runs for throughput claims. */
+            const char *decode_dump = getenv("DS4_BENCH_DECODE_LOGITS_FILE");
+            if (decode_dump) {
+                const int vocab = ds4_engine_vocab_size(engine);
+                float *values = malloc((size_t)vocab * sizeof(float));
+                FILE *fp = fopen(decode_dump, gen_done ? "ab" : "wb");
+                bool dumped = !speculative && values && fp &&
+                    ds4_session_copy_logits(session, values, vocab) == vocab &&
+                    fwrite(values, sizeof(float), (size_t)vocab, fp) == (size_t)vocab;
+                if (fp && fclose(fp)) dumped = false;
+                free(values);
+                if (!dumped) {
+                    fprintf(stderr, "ds4-bench: failed target-only decode logits dump\n");
+                    rc = 1;
+                    break;
+                }
+            }
             int cycle_tokens = 0;
             for (int j = 0; j < ntok && gen_done < cfg.gen_tokens; j++) {
                 if (toks[j] == eos) {
