@@ -18,10 +18,17 @@ small flag read/synchronization whose cost MUST remain in timing. No extra score
 matrix allocation. `prefill-topk-unit-on-v2` PASSED all expanded causal tests,
 including visible131071, both ratios, ties, NaNs, infinities, signed zero,
 future-score masking and output bounds. All five native binaries rebuilt.
-Full GPU test suite is next/current, then new exact-gated64K model suite with
+Full GPU test suite PASSED (`prefill-topk-full-unit-v1`,12.02s). Active new
+exact-gated64K model suite `prefill-topk64k-v1`, two timing pairs, with
 `prefill_stage_suite.py --toggle DS4_CUDA_V41_TOPK_BATCH`; stage-sync stays OFF
 to isolate this candidate. Do not deploy either option yet. Fresh quota68%
-at10:11:54 UTC (historical, always refresh).
+at10:11:54 UTC (historical, always refresh). Model suite binary SHA256
+`e47291805525ecf8bf8a203f1643760fa29e9b721a35b934277e2f0db9cdda18`;
+source2452f795. Do not rebuild until all gates/timing jobs complete.
+Both model gates now PASS:256 full float32 vocabulary vectors exactly equal to
+each other and pre-change reference (SHA9dee9a5d2cc7d4a254716e50e07cd995e58b2c885fdea7fcdd36b36eb47a8298).
+OFFgate210.11s/ONgate198.12s, no process swap. Clean timing sequence is running;
+do not promote gate timing or assume a gain until counterbalanced pairs finish.
 
 User explicitly asked to continue investigating prefill with the 60% quota floor.
 Fresh telemetry at start: 73% (historical, recheck before further work).
