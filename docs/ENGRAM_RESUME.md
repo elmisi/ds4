@@ -3,6 +3,10 @@
 Updated 2026-10-08. Active worktree: `/home/alessandro/projects/ds4-engram-external`.
 Branch: `feature/external-engram-gguf`, remote: `origin` (`elmisi/ds4`).
 
+Public showcase: [PR #10](https://github.com/elmisi/ds4/pull/10), intentionally
+kept open for visibility and **never to be merged into `main`**, matching the
+separate DGX performance showcase [PR #9](https://github.com/elmisi/ds4/pull/9).
+
 ## Maintenance rebase 2026-10-08
 
 User requested reviewing upstream GB10 changes and rebasing the service branch.
@@ -46,8 +50,11 @@ Service was stopped using `dgx-ctl stop ds4-ds41` as requested. Validated
 the service worktree; the service remains inactive and uses them next start.
 Build logs, cubin lists, hashes and rollback binaries:
 `/home/alessandro/projects/ds4/logs/rebase-ds41-20261008/`.
-No launcher/unit changes or remote push. The remote branch retains its old
-history. Upstream now includes causal batching too: the historical local
+No launcher/unit changes. After renewed GitHub authentication, the rebased
+branch was pushed at `5dd72b0c` using `--force-with-lease` against the verified
+old remote tip `28b819f2`; the pre-rebase backup above remains local.
+PR #10 publishes the implementation, validation and reproduction reports.
+Upstream now includes causal batching too: the historical local
 +11.114% cannot be added to, or claimed against, this new upstream baseline.
 
 ## PAUSED — handoff 2026-09-23 evening (supersedes older deployment notes)
