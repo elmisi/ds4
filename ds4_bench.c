@@ -36,6 +36,7 @@ extern int cudaProfilerStop(void) __attribute__((weak));
 
 typedef struct {
     const char *model_path;
+    const char *engram_model_path;
     const char *mtp_path;
     const char *prompt_path;
     const char *chat_prompt_path;
@@ -268,6 +269,8 @@ static bench_config parse_options(int argc, char **argv) {
 
         if (!strcmp(arg, "-m") || !strcmp(arg, "--model")) {
             c.model_path = need_arg(&i, argc, argv, arg);
+        } else if (!strcmp(arg, "--engram-model")) {
+            c.engram_model_path = need_arg(&i, argc, argv, arg);
         } else if (!strcmp(arg, "--mtp-model")) {
             c.mtp_path = need_arg(&i, argc, argv, arg);
         } else if (!strcmp(arg, "--dspark")) {
@@ -647,6 +650,7 @@ int main(int argc, char **argv) {
 
     ds4_engine_options opt = {
         .model_path = cfg.model_path,
+        .engram_model_path = cfg.engram_model_path,
         .mtp_path = cfg.mtp_path,
         .backend = cfg.backend,
         .n_threads = cfg.threads,
@@ -964,6 +968,25 @@ int main(int argc, char **argv) {
             }
 #endif
             const double token_t1 = bench_now_sec();
+            /* Diagnostic-only full F32 vectors, one per target-only eval.
+             * Dump overhead is outside per-token timing but inside wall time.
+             * Use a single frontier and separate runs for throughput claims. */
+            const char *decode_dump = getenv("DS4_BENCH_DECODE_LOGITS_FILE");
+            if (decode_dump) {
+                const int vocab = ds4_engine_vocab_size(engine);
+                float *values = malloc((size_t)vocab * sizeof(float));
+                FILE *fp = fopen(decode_dump, gen_done ? "ab" : "wb");
+                bool dumped = !speculative && values && fp &&
+                    ds4_session_copy_logits(session, values, vocab) == vocab &&
+                    fwrite(values, sizeof(float), (size_t)vocab, fp) == (size_t)vocab;
+                if (fp && fclose(fp)) dumped = false;
+                free(values);
+                if (!dumped) {
+                    fprintf(stderr, "ds4-bench: failed target-only decode logits dump\n");
+                    rc = 1;
+                    break;
+                }
+            }
             int cycle_tokens = 0;
             for (int j = 0; j < ntok && gen_done < cfg.gen_tokens; j++) {
                 if (toks[j] == eos) {

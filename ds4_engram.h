@@ -48,6 +48,15 @@ typedef struct {
  * Each GGUF I8 row is 256 E4M3 bytes followed by 8 original E8M0 scales. */
 bool ds4_engram_table_open(ds4_engram_table *table, const char *path,
                            uint64_t offset, uint32_t rows);
+/* Verify that a table descriptor still names the primary GGUF, or (when
+ * explicitly allowed) a compatible byte-for-byte copy. Alternate files must
+ * have the same size and metadata; deterministic rows across this table are
+ * compared to catch an accidentally mismatched payload without scanning the
+ * full 189 GiB Engram region at every launch. */
+bool ds4_engram_table_verify_backing(const ds4_engram_table *table,
+                                     int model_fd, uint64_t file_size,
+                                     uint64_t metadata_bytes,
+                                     bool allow_alternate);
 void ds4_engram_table_close(ds4_engram_table *table);
 /* Output uses F32 storage for the reference's BF16-rounded values. No whole
  * table allocation; caller owns count * DIM floats. Failure invalidates output. */
@@ -59,5 +68,17 @@ bool ds4_engram_read(const ds4_engram_table *table, const uint32_t *rows,
  * On macOS, large batches use bounded concurrent pread readers. */
 bool ds4_engram_read_batch(const ds4_engram_table *table, const uint32_t *rows,
                            size_t tokens, size_t stride, float *out);
+
+/* One persistent pool per decoding session. Submit copies IDs/table descriptors;
+ * descriptors and output must remain alive until drain/free. One caller owns
+ * the pool; workers only write disjoint output rows. Wait publishes one table,
+ * drain publishes both, including after a read failure. No GPU calls on workers. */
+typedef struct ds4_engram_pool ds4_engram_pool;
+ds4_engram_pool *ds4_engram_pool_create(unsigned readers);
+bool ds4_engram_pool_submit(ds4_engram_pool *pool, const ds4_engram_table tables[2],
+                            const uint32_t *ids, float *out);
+bool ds4_engram_pool_wait(ds4_engram_pool *pool, unsigned table);
+bool ds4_engram_pool_drain(ds4_engram_pool *pool);
+void ds4_engram_pool_free(ds4_engram_pool *pool);
 
 #endif

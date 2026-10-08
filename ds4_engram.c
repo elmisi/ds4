@@ -12,9 +12,127 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <pthread.h>
 #ifdef __APPLE__
 #include <dispatch/dispatch.h>
 #endif
+
+struct ds4_engram_pool {
+    pthread_mutex_t mutex;
+    pthread_cond_t work, ready;
+    pthread_t threads[16];
+    unsigned readers, next, pending[2];
+    int error[2];
+    bool stop;
+    ds4_engram_table tables[2];
+    uint32_t ids[2 * DS4_ENGRAM_COLS];
+    float *out;
+};
+
+static void *engram_pool_worker(void *arg) {
+    ds4_engram_pool *p = arg;
+    pthread_mutex_lock(&p->mutex);
+    for (;;) {
+        while (!p->stop && p->next == 2 * DS4_ENGRAM_COLS)
+            pthread_cond_wait(&p->work, &p->mutex);
+        if (p->stop) break;
+        unsigned job = p->next++, table = job / DS4_ENGRAM_COLS;
+        pthread_mutex_unlock(&p->mutex);
+        bool ok = ds4_engram_read(&p->tables[table], &p->ids[job], 1,
+                                   p->out + job * DS4_ENGRAM_DIM);
+        int error = ok ? 0 : (errno ? errno : EIO);
+        pthread_mutex_lock(&p->mutex);
+        if (error && !p->error[table]) p->error[table] = error;
+        if (--p->pending[table] == 0) pthread_cond_broadcast(&p->ready);
+    }
+    pthread_mutex_unlock(&p->mutex);
+    return NULL;
+}
+
+ds4_engram_pool *ds4_engram_pool_create(unsigned readers) {
+    if (!readers || readers > 16) { errno = EINVAL; return NULL; }
+    ds4_engram_pool *p = calloc(1, sizeof(*p));
+    if (!p) return NULL;
+    int error = pthread_mutex_init(&p->mutex, NULL);
+    if (error) goto fail_alloc;
+    error = pthread_cond_init(&p->work, NULL);
+    if (error) goto fail_mutex;
+    error = pthread_cond_init(&p->ready, NULL);
+    if (error) goto fail_work;
+    p->next = 2 * DS4_ENGRAM_COLS;
+    for (; p->readers < readers; p->readers++) {
+        error = pthread_create(&p->threads[p->readers], NULL, engram_pool_worker, p);
+        if (error) {
+            ds4_engram_pool_free(p);
+            errno = error;
+            return NULL;
+        }
+    }
+    return p;
+fail_work:
+    pthread_cond_destroy(&p->work);
+fail_mutex:
+    pthread_mutex_destroy(&p->mutex);
+fail_alloc:
+    free(p);
+    errno = error;
+    return NULL;
+}
+
+bool ds4_engram_pool_submit(ds4_engram_pool *p, const ds4_engram_table tables[2],
+                            const uint32_t *ids, float *out) {
+    if (!p || !tables || !ids || !out) { errno = EINVAL; return false; }
+    pthread_mutex_lock(&p->mutex);
+    if (p->pending[0] || p->pending[1]) {
+        pthread_mutex_unlock(&p->mutex);
+        errno = EBUSY;
+        return false;
+    }
+    memcpy(p->tables, tables, sizeof(p->tables));
+    memcpy(p->ids, ids, sizeof(p->ids));
+    p->out = out;
+    p->pending[0] = p->pending[1] = DS4_ENGRAM_COLS;
+    p->error[0] = p->error[1] = 0;
+    /* Give the early layer priority; later rows overlap the encoder layers. */
+    p->next = 0;
+    pthread_cond_broadcast(&p->work);
+    pthread_mutex_unlock(&p->mutex);
+    return true;
+}
+
+bool ds4_engram_pool_wait(ds4_engram_pool *p, unsigned table) {
+    if (!p || table >= 2) { errno = EINVAL; return false; }
+    pthread_mutex_lock(&p->mutex);
+    while (p->pending[table]) pthread_cond_wait(&p->ready, &p->mutex);
+    int error = p->error[table];
+    pthread_mutex_unlock(&p->mutex);
+    if (error) errno = error;
+    return error == 0;
+}
+
+bool ds4_engram_pool_drain(ds4_engram_pool *p) {
+    if (!p) return true;
+    bool first = ds4_engram_pool_wait(p, 0);
+    int error = first ? 0 : errno;
+    bool second = ds4_engram_pool_wait(p, 1);
+    if (error) errno = error;
+    return first && second;
+}
+
+void ds4_engram_pool_free(ds4_engram_pool *p) {
+    if (!p) return;
+    (void)ds4_engram_pool_drain(p);
+    pthread_mutex_lock(&p->mutex);
+    p->stop = true;
+    pthread_cond_broadcast(&p->work);
+    pthread_mutex_unlock(&p->mutex);
+    for (unsigned i = 0; i < p->readers; i++)
+        if (pthread_join(p->threads[i], NULL)) abort();
+    pthread_cond_destroy(&p->ready);
+    pthread_cond_destroy(&p->work);
+    pthread_mutex_destroy(&p->mutex);
+    free(p);
+}
 
 bool ds4_engram_layout_valid(const ds4_engram_layout *l) {
     if (!l || !l->token_map || !l->vocab_size ||
@@ -113,6 +231,77 @@ fail: {
         errno = saved;
         return false;
     }
+}
+
+static __attribute__((noinline)) bool pread_full(int fd, uint8_t *out,
+                                                size_t bytes, uint64_t offset) {
+    while (bytes) {
+        ssize_t n = pread(fd, out, bytes, (off_t)offset);
+        if (n < 0 && errno == EINTR) continue;
+        if (n <= 0) {
+            if (n == 0) errno = EIO;
+            return false;
+        }
+        out += (size_t)n;
+        offset += (size_t)n;
+        bytes -= (size_t)n;
+    }
+    return true;
+}
+
+static bool pread_equal(int a, int b, uint64_t offset, uint64_t bytes) {
+    uint8_t left[65536], right[65536];
+    while (bytes) {
+        size_t chunk = bytes < sizeof(left) ? (size_t)bytes : sizeof(left);
+        if (!pread_full(a, left, chunk, offset) ||
+            !pread_full(b, right, chunk, offset)) return false;
+        if (memcmp(left, right, chunk) != 0) {
+            errno = EINVAL;
+            return false;
+        }
+        offset += chunk;
+        bytes -= chunk;
+    }
+    return true;
+}
+
+bool ds4_engram_table_verify_backing(const ds4_engram_table *t,
+                                     int model_fd, uint64_t file_size,
+                                     uint64_t metadata_bytes,
+                                     bool allow_alternate) {
+    if (!t || t->fd < 0 || model_fd < 0 || metadata_bytes > file_size) {
+        errno = EINVAL;
+        return false;
+    }
+    struct stat model_st, table_st;
+    if (fstat(model_fd, &model_st) || fstat(t->fd, &table_st)) return false;
+    if (!S_ISREG(model_st.st_mode) || !S_ISREG(table_st.st_mode) ||
+        model_st.st_size < 0 || table_st.st_size < 0 ||
+        (uint64_t)model_st.st_size != file_size ||
+        (uint64_t)table_st.st_size != file_size) {
+        errno = EINVAL;
+        return false;
+    }
+    if (model_st.st_dev == table_st.st_dev && model_st.st_ino == table_st.st_ino)
+        return true;
+    if (!allow_alternate) {
+        errno = EXDEV;
+        return false;
+    }
+    if (metadata_bytes && !pread_equal(model_fd, t->fd, 0, metadata_bytes)) return false;
+
+    /* Sixteen evenly distributed rows include both boundaries. This is not a
+     * substitute for the one-time full-copy verification performed when the
+     * alternate GGUF is installed; it is a cheap launch-time guard against a
+     * wrong, replaced, or partially copied file. */
+    enum { SAMPLES = 16 };
+    for (uint32_t i = 0; i < SAMPLES; i++) {
+        uint64_t row = t->rows == 1 ? 0 :
+            ((uint64_t)(t->rows - 1) * i) / (SAMPLES - 1);
+        uint64_t offset = t->offset + row * DS4_ENGRAM_ROW_BYTES;
+        if (!pread_equal(model_fd, t->fd, offset, DS4_ENGRAM_ROW_BYTES)) return false;
+    }
+    return true;
 }
 
 void ds4_engram_table_close(ds4_engram_table *t) {

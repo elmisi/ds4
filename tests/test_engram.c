@@ -103,6 +103,49 @@ static void test_hash(void) {
     assert(!ds4_engram_hash(&l, &h, tokens, NULL, 1, actual));
 }
 
+static void test_pool(const ds4_engram_table *t) {
+    ds4_engram_table tables[2] = {*t, *t};
+    uint32_t ids[48];
+    float expected[48 * DS4_ENGRAM_DIM], actual[48 * DS4_ENGRAM_DIM + 1];
+    assert(!ds4_engram_pool_create(0) && errno == EINVAL);
+    assert(!ds4_engram_pool_create(17) && errno == EINVAL);
+    for (unsigned readers = 1; readers <= 16; readers *= 2) {
+        ds4_engram_pool *p = ds4_engram_pool_create(readers);
+        assert(p);
+        for (unsigned iteration = 0; iteration < 64; iteration++) {
+            for (unsigned j = 0; j < 48; j++) ids[j] = (j + iteration) % 3;
+            assert(ds4_engram_read(t, ids, 48, expected));
+            actual[48 * DS4_ENGRAM_DIM] = 12345;
+            assert(ds4_engram_pool_submit(p, tables, ids, actual));
+            /* Submit owns its ID copy even while readers are running. */
+            memset(ids, 255, sizeof(ids));
+            assert(ds4_engram_pool_wait(p, 0));
+            assert(!memcmp(expected, actual, sizeof(expected) / 2));
+            assert(ds4_engram_pool_wait(p, 1));
+            assert(!memcmp(expected, actual, sizeof(expected)));
+            assert(actual[48 * DS4_ENGRAM_DIM] == 12345);
+        }
+        /* Invalid IDs and a bad descriptor propagate errors independently. */
+        memset(ids, 0, sizeof(ids));
+        ids[0] = t->rows;
+        assert(ds4_engram_pool_submit(p, tables, ids, actual));
+        assert(!ds4_engram_pool_wait(p, 0) && errno == EINVAL);
+        assert(ds4_engram_pool_wait(p, 1));
+        assert(!ds4_engram_pool_drain(p) && errno == EINVAL);
+        ids[0] = 0;
+        tables[1].fd = -1;
+        assert(ds4_engram_pool_submit(p, tables, ids, actual));
+        assert(ds4_engram_pool_wait(p, 0));
+        assert(!ds4_engram_pool_drain(p) && errno == EINVAL);
+        tables[1] = *t;
+        assert(ds4_engram_pool_submit(p, tables, ids, actual));
+        assert(ds4_engram_pool_drain(p));
+        /* Teardown must drain outstanding reads before output or fds die. */
+        assert(ds4_engram_pool_submit(p, tables, ids, actual));
+        ds4_engram_pool_free(p);
+    }
+}
+
 static void test_rows(void) {
     char path[] = "/tmp/ds4-engram-XXXXXX";
     int fd = mkstemp(path);
@@ -120,6 +163,7 @@ static void test_rows(void) {
     ds4_engram_table t;
     assert(ds4_engram_table_open(&t, path, offset, 3));
     assert(fcntl(t.fd, F_GETFD) & FD_CLOEXEC);
+    test_pool(&t);
     uint32_t rows[] = {2, 0, 2, 1};
     float out[4 * 256];
     assert(ds4_engram_read(&t, rows, 4, out));
@@ -197,6 +241,58 @@ static void test_rows(void) {
     assert(unlink(path) == 0);
 }
 
+static void test_backing_validation(void) {
+    enum { FILE_BYTES = 16384, METADATA_BYTES = 512, ROWS = 17 };
+    const uint64_t table_offset = 4096;
+    char primary_path[] = "/tmp/ds4-engram-primary-XXXXXX";
+    char alternate_path[] = "/tmp/ds4-engram-alternate-XXXXXX";
+    int primary = mkstemp(primary_path);
+    int alternate = mkstemp(alternate_path);
+    assert(primary >= 0 && alternate >= 0);
+    uint8_t *contents = malloc(FILE_BYTES);
+    assert(contents);
+    for (size_t i = 0; i < FILE_BYTES; i++) contents[i] = (uint8_t)(i * 131u + i / 17u);
+    assert(write(primary, contents, FILE_BYTES) == FILE_BYTES);
+    assert(write(alternate, contents, FILE_BYTES) == FILE_BYTES);
+
+    ds4_engram_table same, copy;
+    assert(ds4_engram_table_open(&same, primary_path, table_offset, ROWS));
+    assert(ds4_engram_table_verify_backing(&same, primary, FILE_BYTES,
+                                           METADATA_BYTES, false));
+    assert(ds4_engram_table_open(&copy, alternate_path, table_offset, ROWS));
+    errno = 0;
+    assert(!ds4_engram_table_verify_backing(&copy, primary, FILE_BYTES,
+                                            METADATA_BYTES, false));
+    assert(errno == EXDEV);
+    assert(ds4_engram_table_verify_backing(&copy, primary, FILE_BYTES,
+                                           METADATA_BYTES, true));
+
+    uint8_t changed = contents[7] ^ 0xffu;
+    assert(pwrite(alternate, &changed, 1, 7) == 1);
+    assert(!ds4_engram_table_verify_backing(&copy, primary, FILE_BYTES,
+                                            METADATA_BYTES, true));
+    assert(pwrite(alternate, contents + 7, 1, 7) == 1);
+    const uint64_t last = table_offset + (ROWS - 1u) * DS4_ENGRAM_ROW_BYTES;
+    changed = contents[last] ^ 0xffu;
+    assert(pwrite(alternate, &changed, 1, (off_t)last) == 1);
+    assert(!ds4_engram_table_verify_backing(&copy, primary, FILE_BYTES,
+                                            METADATA_BYTES, true));
+    assert(pwrite(alternate, contents + last, 1, (off_t)last) == 1);
+    assert(ds4_engram_table_verify_backing(&copy, primary, FILE_BYTES,
+                                           METADATA_BYTES, true));
+    assert(ftruncate(alternate, FILE_BYTES - 1) == 0);
+    assert(!ds4_engram_table_verify_backing(&copy, primary, FILE_BYTES,
+                                            METADATA_BYTES, true));
+
+    ds4_engram_table_close(&copy);
+    ds4_engram_table_close(&same);
+    free(contents);
+    close(alternate);
+    close(primary);
+    assert(unlink(alternate_path) == 0);
+    assert(unlink(primary_path) == 0);
+}
+
 static void test_all_scaled_values(void) {
     char path[] = "/tmp/ds4-engram-values-XXXXXX";
     const int fd = mkstemp(path);
@@ -235,6 +331,7 @@ static void test_all_scaled_values(void) {
 int main(void) {
     test_hash();
     test_rows();
+    test_backing_validation();
     test_all_scaled_values();
     puts("Engram hashes, history and bounded disk rows: PASS");
     return 0;
