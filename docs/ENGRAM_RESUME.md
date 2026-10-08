@@ -1,7 +1,54 @@
 # Engram / GB10 work checkpoint
 
-Updated 2026-09-23. Active worktree: `/home/alessandro/projects/ds4-engram-external`.
+Updated 2026-10-08. Active worktree: `/home/alessandro/projects/ds4-engram-external`.
 Branch: `feature/external-engram-gguf`, remote: `origin` (`elmisi/ds4`).
+
+## Maintenance rebase 2026-10-08
+
+User requested reviewing upstream GB10 changes and rebasing the service branch.
+This maintenance does not resume the open-ended research paused below.
+
+- Upstream `main`: `fc80bd695da76ee14bcb86820bf900a5cdfda806` (October 7),
+  verified unchanged remotely after validation. Nine upstream commits added.
+- All 21 local commits retained; pre-rebase backup:
+  `backup/external-engram-pre-main-20261008` at `28b819f2`.
+- Tested runtime source: `c516520d`, including the maintenance fix extending
+  scalar NaN-order fallback to upstream's newly batched small causal rows.
+  Rebase conflicts retained upstream's causal kernel and batching, the local
+  wide-row flag/NaN guard, and both sets of frontier tests. The future-NaN
+  test pattern is now actually executed. Source worktree is clean.
+- Alternate external GGUF, persistent Engram readers, native architecture
+  guard and compiler-configuration invalidation retained. Service profile:
+  cache72GiB, ctx262144, readers8, topk1, graphs0, stage-sync0, KV32GiB.
+  Lexar is mounted ext4/noatime and negotiated UAS at 20Gb/s.
+
+Validation: native build; all four installed binaries contain nine sm_121a
+cubins each. Engram and alternate-GGUF tests, ASan/UBSan Engram tests, full
+V4.1 CUDA numeric suite, causal top-k ON/OFF through visible131071 (both
+ratios, NaNs, future masking, ties and output tails), shared-expert,
+token-tile and streaming-top-k tests passed. Top-k CUDA memcheck: zero errors.
+
+- `raw/rebase-20261008-logits64k-v2`: 65536 populated / 262144 allocated,
+  256 complete F32 vocabulary vectors byte-identical to
+  `prefill-topk64k-v1-gate-on/decode.f32`; model swap0. SHA256:
+  `9dee9a5d2cc7d4a254716e50e07cd995e58b2c885fdea7fcdd36b36eb47a8298`.
+- `raw/rebase-20261008-recall254k`: actual254902 tokens, strict recall16/16,
+  output byte-identical to `prefill-topk-recall-256k-v1`; model swap0,
+  minimum available18.63GiB, wall962.41s. Single-run diagnostic rates:
+  prefill268.66t/s, generation7.96t/s. No paired speedup claim.
+- Raw root: `/home/alessandro/projects/ds4-ds41/speed-bench/dgx_ds41/raw`.
+  Each new run has separate runtime source provenance: the runner's own
+  checkout commit is not the tested runtime commit. The first logits run
+  failed writing a literal environment placeholder; v2 fixed the path.
+
+Service was stopped using `dgx-ctl stop ds4-ds41` as requested. Validated
+`ds4`, `ds4-server`, `ds4-bench`, `ds4-agent` binaries were installed into
+the service worktree; the service remains inactive and uses them next start.
+Build logs, cubin lists, hashes and rollback binaries:
+`/home/alessandro/projects/ds4/logs/rebase-ds41-20261008/`.
+No launcher/unit changes or remote push. The remote branch retains its old
+history. Upstream now includes causal batching too: the historical local
++11.114% cannot be added to, or claimed against, this new upstream baseline.
 
 ## PAUSED — handoff 2026-09-23 evening (supersedes older deployment notes)
 
