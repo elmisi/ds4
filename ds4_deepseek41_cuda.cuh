@@ -507,11 +507,10 @@ extern "C" int ds4_gpu_dsv41_indexer_topk_batch(ds4_gpu_tensor *selected, const 
         (start + 1u) / ratio < 1024u ||
         !dsv41_has_floats(selected, (uint64_t)rows * 512u) ||
         !dsv41_has_floats(scores, (uint64_t)rows * width)) return 0;
-    bool scalar_topk = false;
-    const char *batch_topk = getenv("DS4_CUDA_V41_TOPK_BATCH");
-    if (g_n_gpus == 1 && rows >= 32u && rows <= 65535u && width > 8192u &&
-        batch_topk && !strcmp(batch_topk, "1") &&
-        !getenv("DS4_CUDA_NO_TOPK2048") && !getenv("DS4_CUDA_NO_TOPK_STREAM")) {
+    // Upstream now batches small causal rows too. Preserve scalar NaN ordering
+    // across those dispatches as well as the local wide-row opt-in path.
+    bool scalar_topk = g_n_gpus == 1 && rows > 65535u;
+    if (g_n_gpus == 1 && rows <= 65535u) {
         unsigned *nan_flag = (unsigned *)cuda_tmp_alloc_on(0, sizeof(unsigned), "V4.1 topk NaN flag");
         unsigned has_nan = 0;
         if (!nan_flag || !cuda_ok(cudaMemsetAsync(nan_flag, 0, sizeof(unsigned), cuda_decode_stream()),
@@ -523,13 +522,16 @@ extern "C" int ds4_gpu_dsv41_indexer_topk_batch(ds4_gpu_tensor *selected, const 
             !cuda_ok(cudaMemcpyAsync(&has_nan, nan_flag, sizeof(unsigned), cudaMemcpyDeviceToHost,
                                      cuda_decode_stream()), "V4.1 topk NaN read") ||
             !cuda_ok(cudaStreamSynchronize(cuda_decode_stream()), "V4.1 topk NaN wait")) return 0;
-        if (!has_nan) {
-            indexer_topk_stream512_kernel<true><<<rows, 512, 0, cuda_decode_stream()>>>(
-                (uint32_t *)selected->ptr, (const float *)scores->ptr,
-                width, rows, 512u, start, ratio);
-            return cuda_ok(cudaGetLastError(), "V4.1 causal batch topk");
-        }
-        scalar_topk = true;
+        scalar_topk = has_nan != 0;
+    }
+    const char *batch_topk = getenv("DS4_CUDA_V41_TOPK_BATCH");
+    if (!scalar_topk && g_n_gpus == 1 && rows >= 32u && rows <= 65535u && width > 8192u &&
+        batch_topk && !strcmp(batch_topk, "1") &&
+        !getenv("DS4_CUDA_NO_TOPK2048") && !getenv("DS4_CUDA_NO_TOPK_STREAM")) {
+        indexer_topk_stream512_kernel<true><<<rows, 512, 0, cuda_decode_stream()>>>(
+            (uint32_t *)selected->ptr, (const float *)scores->ptr,
+            width, rows, 512u, start, ratio);
+        return cuda_ok(cudaGetLastError(), "V4.1 causal batch topk");
     }
     uint32_t row = 0;
     /* Batch independent causal rows, splitting only at a sort-width boundary. */

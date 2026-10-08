@@ -1036,7 +1036,7 @@ static int check_causal_topk(void) {
         float *s = ds4_gpu_tensor_contents(scores);
         int32_t *ids = ds4_gpu_tensor_contents(selected);
         const int32_t *ref = ds4_gpu_tensor_contents(reference);
-        for (uint32_t pattern = 0; pattern < 4; pattern++) {
+        for (uint32_t pattern = 0; pattern < 5; pattern++) {
             for (uint32_t t = 0; t < 129u; t++) {
                 const uint32_t visible = (start + t + 1u) / ratio;
                 for (uint32_t j = 0; j < width; j++) {
