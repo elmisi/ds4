@@ -1,0 +1,6 @@
+# Generated payloads and rollback/build binaries remain on the validation host.
+# Their sizes and SHA256 hashes are recorded in local-artifacts-manifest.json.
+/raw/**/*.kv
+/raw/**/*.f32
+/validation-20261016/bin/
+/validation-20261016/obj/

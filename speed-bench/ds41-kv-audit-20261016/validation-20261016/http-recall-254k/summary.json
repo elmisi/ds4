@@ -1,0 +1,47 @@
+{
+  "status": "PASS",
+  "requests": [
+    {
+      "attempt": 1,
+      "wall_seconds": 920.4496403839439,
+      "minimum_available_gib": 10.438617706298828,
+      "peak_process_swap_kib": 0,
+      "stop_reason": null,
+      "returncode": 0,
+      "usage": {
+        "prompt_tokens": 254896,
+        "completion_tokens": 76,
+        "total_tokens": 254972,
+        "prompt_tokens_details": {
+          "cached_tokens": 0,
+          "cache_write_tokens": 254896
+        }
+      },
+      "finish_reason": "stop",
+      "trailing_newline_normalized": true,
+      "recall": "16/16",
+      "stdout_sha256": "61d7160f499bedcb55dd1b8c3b04dac1c5d4ef1484cd04f7868769e418b2df8d"
+    },
+    {
+      "attempt": 2,
+      "wall_seconds": 6.713339044013992,
+      "minimum_available_gib": 10.685932159423828,
+      "peak_process_swap_kib": 0,
+      "stop_reason": null,
+      "returncode": 0,
+      "usage": {
+        "prompt_tokens": 254896,
+        "completion_tokens": 76,
+        "total_tokens": 254972,
+        "prompt_tokens_details": {
+          "cached_tokens": 254896,
+          "cache_write_tokens": 0
+        }
+      },
+      "finish_reason": "stop",
+      "trailing_newline_normalized": true,
+      "recall": "16/16",
+      "stdout_sha256": "61d7160f499bedcb55dd1b8c3b04dac1c5d4ef1484cd04f7868769e418b2df8d"
+    }
+  ]
+}

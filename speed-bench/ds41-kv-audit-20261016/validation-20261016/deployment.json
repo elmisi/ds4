@@ -1,0 +1,6 @@
+{
+  "deployed": "/home/alessandro/projects/ds4-engram-external/ds4-server",
+  "candidate_sha256": "e4a8bb850ae7f7a442c368c9145f1034081b22af42cba83ac9d850be1015eb10",
+  "backup": "/home/alessandro/projects/ds4-engram-external/speed-bench/ds41-kv-audit-20261016/validation-20261016/bin/baseline-ds4-server",
+  "configuration": "80GiB experts,64GiB persistent KV,swap disabled"
+}

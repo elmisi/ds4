@@ -1,0 +1,11 @@
+{
+  "start": "2026-10-16T11:33:54.880514+02:00",
+  "pid": 848994,
+  "expert_cache_gib": 80,
+  "kv_budget_mib": 65536,
+  "minimum_available_gib": 8,
+  "fixture": "/home/alessandro/projects/ds4-engram-external/speed-bench/ds41-kv-audit-20261016/fixtures/recall-256k.txt",
+  "request_sha256": "5cea3c7d4e01516f8ed86f2d73eca10620a8727a47431fb6cee1fee3bc4261bf",
+  "swap_enabled": false,
+  "service_command": "./ds4-server --cuda --model /home/alessandro/projects/ds4/gguf/DeepSeek-V4.1-Flash-Q2.gguf --ssd-streaming --ssd-streaming-cache-experts 80GB --engram-model /mnt/ds4-models/models/DeepSeek-V4.1-Flash-Q2.gguf --host 0.0.0.0 --port 8000 --ctx 262144 --kv-disk-dir /home/alessandro/.cache/ds4/deepseek-v4.1-flash-kv --kv-disk-space-mb 65536 --kv-cache-continued-interval-tokens 20480 "
+}
