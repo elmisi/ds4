@@ -1,0 +1,23 @@
+{
+  "created": "2026-10-16T10:20:20.121765+02:00",
+  "read_only": true,
+  "file_count": 71,
+  "total_gib": 32.490889442153275,
+  "configured_budget_gib": 64,
+  "prompt_frontier_tokens": 254896,
+  "prompt_frontier_entries": 0,
+  "post_decode_frontier_entries": 1,
+  "focus_entries": [
+    {
+      "name": "70f3048423023d5da79287257cd24d651bf8b626.kv",
+      "tokens": 254972,
+      "hits": 0,
+      "ctx": 262144,
+      "quant_bits": 2,
+      "reason_code": 3,
+      "ext_flags": 0,
+      "model_id": 4,
+      "bytes": 1644691301
+    }
+  ]
+}

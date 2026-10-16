@@ -1,11 +1,75 @@
 # Engram / GB10 work checkpoint
 
-Updated 2026-10-08. Active worktree: `/home/alessandro/projects/ds4-engram-external`.
+Updated 2026-10-16. Active worktree: `/home/alessandro/projects/ds4-engram-external`.
 Branch: `feature/external-engram-gguf`, remote: `origin` (`elmisi/ds4`).
 
 Public showcase: [PR #10](https://github.com/elmisi/ds4/pull/10), intentionally
 kept open for visibility and **never to be merged into `main`**, matching the
 separate DGX performance showcase [PR #9](https://github.com/elmisi/ds4/pull/9).
+
+## KV checkpoint maintenance 2026-10-16
+
+User authorized a bounded KV-cache investigation, patch, and live validation in
+this runtime worktree. The older queue/Q8 and open-ended Engram research remain
+paused. Local base: `0ce0033fd53f93f0d29d16e6fc48f34892c5159b`.
+
+The continued-checkpoint scheduler previously required exact multiples of the
+20480-token interval. V4.1 progress callbacks arrive at 32768-token frontiers,
+and intermediate callbacks can precede a valid final checkpoint. A long prompt
+ending at 254896 tokens was consequently never persisted before generation;
+its longer post-answer snapshot could not satisfy an identical prompt.
+
+The scheduler now accepts the first valid frontier after an interval boundary,
+preserving the interval grid and the actual payload length. The server skips
+callbacks whose session checkpoint is not valid. No model kernels, compression
+format, intermediate checkpoint validity, or sampling behavior were changed.
+
+Validation artifacts are local to `speed-bench/ds41-kv-audit-20261016/`:
+
+- Host server suite passed, including the new off-grid/duplicate/restore tests.
+  The UBSan policy reproduction reports one valid 254896-token save instead of
+  zero saves and one invalid attempt in the baseline.
+- `raw/payload-roundtrip-254k-v1`: actual 254000-token prefill; real disk save
+  and restore; 257 full F32 vocabulary vectors (129280 values each) and 256
+  token logprobs bit-identical before/after restore. Append to 258096 passed
+  position/prefix checks with finite full logits. Minimum available RAM
+  10.576 GiB; process swap zero. This append check is not a full-logit equality
+  comparison against an independent 258096-token prefill reference.
+- GPU prefill 876.256s, checkpoint save 2.022s, immediate restore 0.367s.
+  These are single-run diagnostics; the restore is not a cold-disk measurement.
+- HTTP cold/repeated 254896-token strict recall passed 16/16 twice, with
+  identical normalized output SHA256
+  `61d7160f499bedcb55dd1b8c3b04dac1c5d4ef1484cd04f7868769e418b2df8d`.
+  Cold request: 920.450s wall, cache_write_tokens254896, cached_tokens0;
+  actual prefill908.388s / 280.60t/s. Repeat: 6.713s wall,
+  cached_tokens254896, cache_write_tokens0. The journal confirms a real
+  disk-text hit (435ms load) after the expected live-cache rollback miss,
+  then zero tokens to prefill (0.019s prompt stage). Minimum available RAM
+  10.439GiB; process swap zero; service restarts zero.
+  These timings compare a cold prompt with its immediate cached repeat,
+  not a paired model-throughput benchmark or a cold-disk restore.
+  Raw results: `validation-20261016/http-recall-254k/summary.json`.
+
+The candidate server is installed and the service active via `dgx-ctl`;
+API readiness, running executable hash, profile, and restart count verified.
+SHA256: `e4a8bb850ae7f7a442c368c9145f1034081b22af42cba83ac9d850be1015eb10`.
+The validated October 8 engine/CUDA objects were reused after comparing all
+228 tracked build inputs; changed C frontends were recompiled. All nine CUDA
+cubins are sm_121a. Build provenance, native cubin listing, and the previous
+server backup are under `validation-20261016/`.
+Combined evidence: `validation-20261016/validation-report.json`; its deployment
+and Git fields record the validation snapshot taken before this commit.
+The source fix, regression harnesses, fixtures and text validation artifacts
+are committed together. Generated KV/logit payloads and build/rollback binaries
+remain on disk, excluded from Git with sizes and SHA256 hashes recorded in
+`local-artifacts-manifest.json`. Nothing was pushed or merged; PR #10 remains
+a permanent showcase and must never be merged into `main`.
+
+Current service overrides: expert cache80GiB (72.88GiB dynamic plus 7.12GiB
+prefill reserve), persistent KV budget64GiB, ctx262144, readers8, topk1,
+graphs0, stage-sync0. Unit changes live in amygdala. Swap remains disabled
+after the user's manual swapoff. The 64GiB setting is disk-cache capacity;
+it is not a 64GiB GPU KV allocation. Historical profiles below are unchanged.
 
 ## Maintenance rebase 2026-10-08
 

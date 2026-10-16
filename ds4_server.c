@@ -11402,7 +11402,8 @@ static void kv_cache_discard_failed_disk_entry(server *s, server_slot *slot,
 }
 
 static void kv_cache_maybe_store_continued(server *s, server_slot *slot) {
-    if (!s || !slot) return;
+    /* A DS41 prefill callback can precede final logits. */
+    if (!s || !slot || !ds4_session_checkpoint_valid(slot->session)) return;
     kv_disk_cache *kc = &s->kv;
     const ds4_tokens *tokens = ds4_session_tokens(slot->session);
     if (!tokens) return;
@@ -21618,6 +21619,31 @@ static void test_kv_cache_cold_store_suppresses_duplicate_continued_boundary(voi
     TEST_ASSERT(kv_cache_continued_store_target(&kc, 10240) == 10240);
 }
 
+static void test_kv_cache_continued_accepts_late_valid_frontier(void) {
+    kv_disk_cache kc = {0};
+    kc.enabled = true;
+    kc.opt = kv_cache_default_options();
+    kc.opt.continued_interval_tokens = 20480;
+
+    /* V4.1 reports 32K progress frontiers; its valid final checkpoint need
+     * not be a multiple of the configured 20K checkpoint interval. */
+    TEST_ASSERT(kv_cache_continued_store_target(&kc, 20479) == 0);
+    TEST_ASSERT(kv_cache_continued_store_target(&kc, 32768) == 32768);
+    TEST_ASSERT(kv_cache_continued_store_target(&kc, 254896) == 254896);
+    ds4_kvstore_note_store(&kc, 254896);
+    TEST_ASSERT(kv_cache_continued_store_target(&kc, 254896) == 0);
+    TEST_ASSERT(kv_cache_continued_store_target(&kc, 260000) == 0);
+    TEST_ASSERT(kv_cache_continued_store_target(&kc, 266240) == 266240);
+
+    /* Restored off-grid checkpoints retain the next interval boundary. */
+    kc.continued_last_store_tokens = 32768;
+    TEST_ASSERT(kv_cache_continued_store_target(&kc, 40959) == 0);
+    TEST_ASSERT(kv_cache_continued_store_target(&kc, 40960) == 40960);
+    TEST_ASSERT(kv_cache_continued_store_target(&kc, 32767) == 0);
+    kc.enabled = false;
+    TEST_ASSERT(kv_cache_continued_store_target(&kc, 254896) == 0);
+}
+
 static void test_kv_cache_file_size_must_fit_budget(void) {
     kv_disk_cache kc = {0};
     kc.budget_bytes = 1100;
@@ -23086,6 +23112,7 @@ static void ds4_server_unit_tests_run(void) {
     test_kv_cache_chat_anchor_ignores_multiturn_tail();
     test_kv_cache_continued_uses_aligned_frontiers();
     test_kv_cache_cold_store_suppresses_duplicate_continued_boundary();
+    test_kv_cache_continued_accepts_late_valid_frontier();
     test_kv_cache_file_size_must_fit_budget();
     test_sha1_bytes_hex_matches_known_vector();
     test_kv_cache_lookup_uses_longest_text_prefix();
