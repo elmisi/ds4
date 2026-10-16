@@ -1,0 +1,18 @@
+{
+  "run": "payload-roundtrip-254k-v1",
+  "returncode": 0,
+  "stop_reason": null,
+  "wall_seconds": 1012.5555684566498,
+  "minimum_available_kib": 11090120,
+  "peak_rss_kib": 2525976,
+  "peak_process_swap_kib": 0,
+  "last_sample": {
+    "time": 1792143101.526662,
+    "available_kib": 121873588,
+    "swap_used_kib": 0,
+    "rss_kib": null,
+    "process_swap_kib": null,
+    "pswpin": 150038,
+    "pswpout": 150038
+  }
+}

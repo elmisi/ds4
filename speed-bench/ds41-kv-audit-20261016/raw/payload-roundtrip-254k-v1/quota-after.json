@@ -1,0 +1,14 @@
+{
+  "decision": "PROCEED",
+  "observed_at": "2026-10-16T09:31:22.198000+00:00",
+  "age_seconds": 21.4,
+  "threshold_remaining_percent": 50.0,
+  "windows": [
+    {
+      "window": "primary",
+      "remaining_percent": 86.0,
+      "window_minutes": 10080,
+      "resets_at": "2026-10-22T07:10:40+00:00"
+    }
+  ]
+}
