@@ -1,0 +1,27 @@
+{
+  "created": "2026-10-16T11:09:43.042903+02:00",
+  "validated_object_source": "/home/alessandro/projects/ds4-engram-rebase-check-20261008",
+  "build_inputs_compared": 228,
+  "all_inputs_equal_before_patch": true,
+  "baseline_server_sha256": "79c883850d43545acd4ff2e13ae7d714ba05a2d53eae1c666e2f56bcc62993f0",
+  "reused_objects_sha256": {
+    "ds4.o": "bba14fe7cd4e1266f68bc215d0e93ab8d9384290191d306f7e556f6efadb4414",
+    "ds4_image.o": "c100ee0e19d02a50b05cb13f3c71dff5b0b6da335f0c43e849c387d50cc928ab",
+    "ds4_distributed.o": "59554af03b8a5b4f705a30ae55e6ae53d7cc480aced800128eaec7b0330fc78a",
+    "ds4_tp.o": "b81572057212797af386c256a564edfd74059106ae8eda8b4f2ec61e9e22517b",
+    "ds4_ssd.o": "e0f9ce86206d587c24a6cb7c5b805e7a86b5a1ab2a25811eb5aef606aa35e4e3",
+    "ds4_cuda.o": "1e2b1a6af22157075e8e6f499cb03a7d9bb267a9115883b350ec725a3ed5c32b",
+    "ds4_layer_pack.o": "d1f76b78e097270bf108f708f2afe7ae4b5a011e8575ff495cc014fd7bc447e6",
+    "ds4_engram.o": "3de8c57f61aa74734342efc9a7ddc0fb31e1bf8c9b10edbaf59e6232cc53e651",
+    "ds4_help.o": "2a41af9b12d2ed38e613872d6366cd37ffc512dfeb9647180ae00cfbdcd6baf9",
+    "rax.o": "96192bb6b0dabeecabc54c7b92b0e945a853edf326b3b1738e6f0a1f08f590a2",
+    "ds4_gpu_args.o": "28d10c68f5ea8b59896c43bb5e401d81b296ddd92734ce16037dd75833ad0aa2",
+    "cuda/mmq/ds4_mmq_d2r.o": "99a107f4e9c4e2e1413de165b30d5b47b7855cffaee6f5068c4a994d4db7b481",
+    "cuda/mmq/ds4_repack.o": "5b873aab8941a2fe8773bc7b1e7d91b1e9e34d6f6582f9281d47eb6af145d697",
+    "cuda/mmq/mmvq.o": "8e0e1d8f2116fb8b7a79d5573f115d175f991632213fddb35cecacc4ad8909cd",
+    "cuda/mmq/mmid.o": "54af6721fdbdd04519c9a1072017908fdc7166d8b9766de9a846166809e947a0",
+    "cuda/mmq/ds4_mmq.o": "c50b28797d87c9285be69eb3a4949dfff112355f43b684130ad0f012312cbe45",
+    "cuda/mmq/quantize.o": "5eb951790d5e81643cac848d5b106b872b3d8addafab33b71c607edecc02489d",
+    "cuda/mmq/ds4_ggml_stubs.o": "986ab848a8e0139fc40daa89a752598d27f64af7a092f895bf5e84aaa53c004c"
+  }
+}

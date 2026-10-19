@@ -1,0 +1,71 @@
+{
+  "created": "2026-10-16T10:21:32.218495+02:00",
+  "worktree": "/home/alessandro/projects/ds4-engram-external",
+  "branch": "feature/external-engram-gguf",
+  "head": "0ce0033fd53f93f0d29d16e6fc48f34892c5159b",
+  "scope": "Read-only core/service audit with an unapplied proposed patch and CPU-only regression probe.",
+  "findings": [
+    {
+      "status": "confirmed",
+      "title": "Continued checkpoint policy misses valid off-grid frontiers",
+      "evidence": [
+        "ds4_kvstore.c:747-753 requires live_tokens % interval == 0.",
+        "ds4.c:76765 invalidates intermediate DS41 checkpoints; final logits validate them at 76784.",
+        "server_progress_cb observes 32768-token callback frontiers; interval is 20480, first common frontier 163840.",
+        "254896 is not divisible by 20480, so the valid final prompt does not get stored.",
+        "Cold saving in ds4_server.c:13707-13711 is limited to prompts <=30000 tokens."
+      ],
+      "reproduction": "policy-results.json: baseline writes=0, invalid_attempts=1; proposed candidate writes=1 at254896, invalid_attempts=0."
+    },
+    {
+      "status": "intentional correctness requirement",
+      "title": "DeepSeek active state cannot be rewound by dropping token counts",
+      "evidence": [
+        "ds4.c:86956-86959 explains compressor rollback requires a saved frontier.",
+        "The repeated request is a shorter prefix of the completed prompt+answer, not an append to that full live state."
+      ]
+    },
+    {
+      "status": "confirmed by disk inventory",
+      "title": "Post-answer eviction snapshot cannot replace a missing prompt snapshot",
+      "evidence": [
+        "disk-evidence.json: one254972-token evict entry and no254896-token prompt entry.",
+        "ds4_kvstore_find_text_prefix correctly rejects stored text longer than the incoming prompt.",
+        "Cache usage32.49GiB is below the configured64GiB budget. Increasing capacity alone does not repair the checkpoint schedule."
+      ]
+    },
+    {
+      "status": "diagnostic improvement",
+      "title": "token-mismatch label conflates different tokens with a shorter matching prefix",
+      "evidence": [
+        "common=prompt=254896, old_pos=254972; no mismatching token is required to produce this label."
+      ],
+      "suggestion": "Distinguish shorter-prefix/rollback-unavailable misses from actual token divergence."
+    }
+  ],
+  "proposal": {
+    "file": "proposed-fix.patch",
+    "changes": [
+      "Keep the interval grid but accept the first valid live frontier after crossing its next boundary.",
+      "Skip continued saves until ds4_session_checkpoint_valid is true.",
+      "Never mark an unfinished DS41 checkpoint valid and never truncate a compressed snapshot."
+    ],
+    "applied": false,
+    "host_test": "PASS with UBSan; existing extracted policy contract cases and recorded frontier sequence.",
+    "pending_validation": [
+      "Apply source patch and build a separate candidate binary.",
+      "With authorized service interruption, compare candidate full logits and restore/append behavior at actual near256K.",
+      "Verify identical repeated HTTP request loads the prompt checkpoint and retains16/16 recall."
+    ],
+    "performance_claim": null
+  },
+  "preserved": {
+    "production_sources_unchanged": true,
+    "server_sha256": "79c883850d43545acd4ff2e13ae7d714ba05a2d53eae1c666e2f56bcc62993f0",
+    "bench_sha256": "37b06a361bcf63e8938a0e9f1a6420fb4e712bc36a8783850b92a582b7992fff",
+    "running_service_pid": 806975,
+    "expert_cache_gib": 80,
+    "kv_disk_budget_gib": 64,
+    "swap_off": true
+  }
+}
