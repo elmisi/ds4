@@ -1,6 +1,6 @@
 # Engram / GB10 work checkpoint
 
-Updated 2026-10-16. Active worktree: `/home/alessandro/projects/ds4-engram-external`.
+Updated 2026-10-26. Active worktree: `/home/alessandro/projects/ds4-engram-external`.
 Branch: `feature/external-engram-gguf`, remote: `origin` (`elmisi/ds4`).
 
 Public showcase: [PR #10](https://github.com/elmisi/ds4/pull/10), intentionally
@@ -70,6 +70,12 @@ prefill reserve), persistent KV budget64GiB, ctx262144, readers8, topk1,
 graphs0, stage-sync0. Unit changes live in amygdala. Swap remains disabled
 after the user's manual swapoff. The 64GiB setting is disk-cache capacity;
 it is not a 64GiB GPU KV allocation. Historical profiles below are unchanged.
+
+Latest upstream SSD-read result: [ordered CUDA SSD expert reads A/B, 2026-10-26](SSD_ORDERED_READS.md).
+On the same 30.5K-token V4.1 service request, the default ordered-read path
+reduced mean prefill time by 6.8% across two runs per mode, with byte-identical
+16-line recall output. Treat this as a small exploratory sample, not a general
+speedup claim.
 
 ## Maintenance rebase 2026-10-08
 
