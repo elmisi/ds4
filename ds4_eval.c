@@ -1173,6 +1173,7 @@ typedef struct {
 
 typedef struct {
     const char *model_path;
+    const char *engram_model_path;
     const char *mtp_path;
     const char *trace_path;
     const char *regrade_trace_path;
@@ -1657,6 +1658,8 @@ static eval_config parse_options(int argc, char **argv) {
 
         if (!strcmp(arg, "-m") || !strcmp(arg, "--model")) {
             c.model_path = need_arg(&i, argc, argv, arg);
+        } else if (!strcmp(arg, "--engram-model")) {
+            c.engram_model_path = need_arg(&i, argc, argv, arg);
         } else if (!strcmp(arg, "--mtp-model")) {
             c.mtp_path = need_arg(&i, argc, argv, arg);
         } else if (!strcmp(arg, "-c") || !strcmp(arg, "--ctx")) {
@@ -4770,6 +4773,7 @@ int main(int argc, char **argv) {
 
     ds4_engine_options opt = {
         .model_path = cfg.model_path,
+        .engram_model_path = cfg.engram_model_path,
         .mtp_path = cfg.mtp_path,
         .backend = cfg.backend,
         .n_threads = cfg.threads,

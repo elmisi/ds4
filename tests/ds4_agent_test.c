@@ -1013,10 +1013,13 @@ int main(int argc, char **argv) {
     if (argc == 2 && !strcmp(argv[1], "--terminal-driver")) return test_terminal_driver();
     if (argc == 3 && !strcmp(argv[1], "--terminal-fixtures")) test_output_dir = argv[2];
     char *options[] = {"ds4-agent", "--model", "qwen.gguf",
+                    "--engram-model", "engram.gguf",
                     "--vision", "mmproj.gguf", "--non-interactive", "-p", "test"};
     agent_config cfg = parse_options((int)(sizeof(options) / sizeof(options[0])), options);
     AGENT_TEST_ASSERT(cfg.engine.vision_path && !strcmp(cfg.engine.vision_path, "mmproj.gguf"));
     AGENT_TEST_ASSERT(cfg.engine.model_path && !strcmp(cfg.engine.model_path, "qwen.gguf"));
+    AGENT_TEST_ASSERT(cfg.engine.engram_model_path &&
+                      !strcmp(cfg.engine.engram_model_path, "engram.gguf"));
     ds4_agent_unit_tests_run();
     test_v41_tool_syntax();
     test_qwen_tool_syntax();
