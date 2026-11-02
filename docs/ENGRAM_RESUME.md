@@ -1,11 +1,55 @@
 # Engram / GB10 work checkpoint
 
-Updated 2026-10-26. Active worktree: `/home/alessandro/projects/ds4-engram-external`.
+Updated 2026-11-02. Active worktree: `/home/alessandro/projects/ds4-engram-external`.
 Branch: `feature/external-engram-gguf`, remote: `origin` (`elmisi/ds4`).
 
 Public showcase: [PR #10](https://github.com/elmisi/ds4/pull/10), intentionally
 kept open for visibility and **never to be merged into `main`**, matching the
 separate DGX performance showcase [PR #9](https://github.com/elmisi/ds4/pull/9).
+
+## Rebase and native validation 2026-11-02
+
+Rebased onto upstream `890898cf`; all 25 local commits retained. See
+[full integration and validation report](REBASE_DS41_20261102.md).
+External Engram, off-grid KV persistence, CUDA pointwise fusion and top-k/NaN
+behavior remain preserved. Host tests and native top-k/mask memcheck pass;
+4K/64K/254K full-vector gates are exact against the previous1017 runtime.
+Disk KV roundtrip:257vectors/256logprobs exact, append reaches258096.
+HTTP recall16/16 on254896prompt tokens, repeated request fully cached;
+real coding and structured tool-call smokes pass. Clean AB/BA/AB timing and
+memory details are in the report. Cache80GiB, ctx262144, NVMe/Lexar split,
+graphs0, topk1, stage-sync0 remain the test configuration.
+
+The daily service is restored on its original0ba37bd9 executable. The new
+source and tested candidate binaries have not been activated in production.
+Candidate and rollback artifacts: `speed-bench/rebase-20261102-212809/`.
+Do not resume queue/Q8 research or enable other experiments automatically.
+Before implementing P2C, refresh its old-base source references and use the
+rebased runtime as the new benchmark baseline.
+
+## Performance investigation checkpoint 2026-10-30
+
+The owner requested a saved, executable plan for future single-Spark work:
+[DS41_SINGLE_SPARK_PLAN.md](DS41_SINGLE_SPARK_PLAN.md).
+Read it first for the five work items, source entry points, existing evidence,
+runner caveats, gates, stop conditions and progress table. The initial investigation was read-only. Subsequent owner-authorized windows
+completed P1/P4B (neutral), P2A profiling and P2B scan attribution (negligible).
+See [P1](p1-result.md), [P4B](p4b-result.md), [P2A](p2a-result.md),
+[P2B](p2b-result.md). The service was restored after each benchmark window.
+On 2026-11-01 [P2C static audit](p2c-audit.md) completed without stopping it;
+no overlap prototype or deployment has been implemented.
+
+Corrections to historical profile descriptions: the launcher still exports
+`DS4_CUDA_ENGRAM_READERS=8`, but the current reader uses four fixed workers and
+the running binary does not contain that environment-variable name. Startup
+reports KV1.57GiB plus buffers8.68GiB; V4.1 allocates its graph per session,
+without the generic shared-workspace assumption. Keep the historical results
+below tied to their original implementation and model.
+
+Next bounded step: isolated P2C scalar side-stream prototype and exact4K gate;
+read its audit for eligibility, cleanup and unchanged-arithmetic requirements.
+GPU work needs an authorized service window; historical queue/Q8 experiments
+remain preserved and must not be restarted automatically.
 
 ## KV checkpoint maintenance 2026-10-16
 
