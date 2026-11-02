@@ -64,8 +64,8 @@ Non chiedere nuovamente permessi già concessi per quella finestra.
 
 
 Aggiornamento 2026-11-02: branch rebasato su upstream890898cf e nuova build
-validata; [report completo](REBASE_DS41_20261102.md). Il servizio resta sulla
-build precedente fino all'attivazione. Per i prossimi esperimenti usare come
+validata; [report completo](REBASE_DS41_20261102.md). La build validata è stata
+attivata nel servizio il 2 novembre alle22:57CET, su richiesta del proprietario. Per i prossimi esperimenti usare come
 base il codice rebased e nuovi riferimenti numerici; i risultati P1–P2B restano
 storici e non sono percentuali da sommare al nuovo runtime.
 

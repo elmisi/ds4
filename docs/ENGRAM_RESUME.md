@@ -20,8 +20,11 @@ real coding and structured tool-call smokes pass. Clean AB/BA/AB timing and
 memory details are in the report. Cache80GiB, ctx262144, NVMe/Lexar split,
 graphs0, topk1, stage-sync0 remain the test configuration.
 
-The daily service is restored on its original0ba37bd9 executable. The new
-source and tested candidate binaries have not been activated in production.
+On 2026-11-02 at22:57CET the owner explicitly requested activation. The tested
+binaries were installed atomically and ds4-ds41 restarted via dgx-ctl. The
+live server hash matches the validated candidate; argv/DS4-CUDA environment
+are unchanged and /v1/models responds on8000. See deployment.json in the
+artifacts for the live PID/hash and checks.
 Candidate and rollback artifacts: `speed-bench/rebase-20261102-212809/`.
 Do not resume queue/Q8 research or enable other experiments automatically.
 Before implementing P2C, refresh its old-base source references and use the
