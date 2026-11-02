@@ -1,5 +1,7 @@
-/* ================================================================== * ds4.c - DeepSeek V4 inference engine.
- * ================================================================== *
+/* =========================================================================
+ * ds4.c - DeepSeek V4 inference engine.
+ * =========================================================================
+ *
  * This file is deliberately vertical: it owns GGUF loading, the fixed
  * DeepSeek V4 tensor layouts, CPU reference kernels, the whole-model Metal
  * graph driver, and tokenizer wiring.  Model shape selection is intentionally
@@ -481,8 +483,10 @@ static const char *glm_graph_env_value(const char *rocm_name,
     return (metal_env && metal_env[0]) ? metal_env : NULL;
 }
 
-/* ================================================================== * Model Shape Profiles.
- * ================================================================== *
+/* =========================================================================
+ * Model Shape Profiles.
+ * =========================================================================
+ *
  * The weight binder and metadata validator select one of the known model
  * profiles below.  Arrays reserve the maximum Pro dimensions; hot loops read
  * the active profile after GGUF validation.
@@ -1414,8 +1418,10 @@ static inline DS4_MAYBE_UNUSED int32_t dot_q2_16(const uint8_t *q2, const int8_t
 #endif
 }
 
-/* ================================================================== * Shared Helpers, Allocation Guards, Threads, and Cursor Reads.
- * ================================================================== *
+/* =========================================================================
+ * Shared Helpers, Allocation Guards, Threads, and Cursor Reads.
+ * =========================================================================
+ *
  * This section holds process-wide utilities used by all later stages:
  * fatal-error helpers, allocation wrappers, the persistent CPU worker pool,
  * and the small byte cursor used to parse GGUF metadata.
@@ -1597,8 +1603,10 @@ static double now_sec(void) {
     return (double)ts.tv_sec + (double)ts.tv_nsec * 1.0e-9;
 }
 
-/* ================================================================== * Metal Routed Expert Locality Profiler.
- * ================================================================== *
+/* =========================================================================
+ * Metal Routed Expert Locality Profiler.
+ * =========================================================================
+ *
  * SSD streaming decode needs routed-expert locality data before a cache policy
  * is meaningful. This profiler is intentionally Metal-decode-only for now:
  * it reads the tiny selected-expert and route-weight tensors after router
@@ -2375,8 +2383,10 @@ static uint64_t align_up(uint64_t value, uint64_t alignment) {
     return rem == 0 ? value : value + alignment - rem;
 }
 
-/* ================================================================== * GGUF Parsing and Model Mapping.
- * ================================================================== *
+/* =========================================================================
+ * GGUF Parsing and Model Mapping.
+ * =========================================================================
+ *
  * The loader maps the model once, records metadata/tensor descriptors, and
  * leaves tensor bytes in place.  Inference code accesses weights by adding
  * tensor offsets to the mapping instead of copying the GGUF into private
@@ -3699,8 +3709,10 @@ static void model_warm_weights(const ds4_model *m) {
             t1 - t0, (unsigned long long)checksum);
 }
 
-/* ================================================================== * Scalar Conversion and Quantized Tensor Kernels.
- * ================================================================== *
+/* =========================================================================
+ * Scalar Conversion and Quantized Tensor Kernels.
+ * =========================================================================
+ *
  * These functions are the CPU reference math used by the C backend and by
  * Metal diagnostics.  They implement only the tensor formats present in the
  * DeepSeek V4 Flash GGUF: F16, F32, Q8_0, Q2_K, IQ2_XXS, and Q8_K activation
@@ -4856,8 +4868,10 @@ typedef struct {
     ds4_dspark_stage_weights stage[DS4_DSPARK_MAX_STAGES];
 } ds4_dspark_weights;
 
-/* ================================================================== * Fixed Weight Binding and Model Validation.
- * ================================================================== *
+/* =========================================================================
+ * Fixed Weight Binding and Model Validation.
+ * =========================================================================
+ *
  * The GGUF tensor directory is converted into a DS4-specific pointer table.
  * After this section, the rest of the program addresses tensors by semantic
  * fields such as layer->attn_q_a or layer->ffn_gate_exps rather than by string
@@ -11182,7 +11196,8 @@ static void matvec_q2_k_batch_accum_rows_worker(void *vctx, uint64_t row0, uint6
     }
 }
 
-/* ================================================================== * Q4_K routed expert matrix-vector products.
+/* =========================================================================
+ * Q4_K routed expert matrix-vector products.
  * ========================================================================= */
 
 typedef struct {
@@ -11959,8 +11974,10 @@ static DS4_MAYBE_UNUSED void sum_down_pairs_worker(void *vctx, uint64_t row0, ui
     }
 }
 
-/* ================================================================== * Hyper-Connection Transforms.
- * ================================================================== *
+/* =========================================================================
+ * Hyper-Connection Transforms.
+ * =========================================================================
+ *
  * DeepSeek V4 Flash keeps four hyper-connection streams per token.  Before
  * attention or FFN, a learned small projection chooses how to reduce the HC
  * state into the 4096-wide sublayer input.  After the sublayer, the post and
@@ -12367,8 +12384,10 @@ static void layer_attn_norm_one(
     rms_norm_weight(out, x, attn_norm, DS4_N_EMBD, DS4_RMS_EPS);
 }
 
-/* ================================================================== * Attention Projections, RoPE, and Attention Output.
- * ================================================================== *
+/* =========================================================================
+ * Attention Projections, RoPE, and Attention Output.
+ * =========================================================================
+ *
  * This block performs the attention half of a transformer layer: HC pre,
  * attention RMSNorm, Q and KV projections, layer-specific RoPE, sink-aware
  * attention over raw and compressed KV rows, and the grouped LoRA output
@@ -12786,8 +12805,10 @@ static void layer_grouped_out_batch(
     free(low);
 }
 
-/* ================================================================== * Mixture-of-Experts FFN.
- * ================================================================== *
+/* =========================================================================
+ * Mixture-of-Experts FFN.
+ * =========================================================================
+ *
  * This is the FFN half of each layer.  It includes the shared expert, routed
  * expert selection, IQ2_XXS gate/up projections, SwiGLU, Q2_K down projection,
  * and the HC post step that returns the result to four-stream state.
@@ -14358,8 +14379,10 @@ static void output_logits_one(
         const ds4_weights * weights,
         const float       * inp_hc);
 
-/* ================================================================== * KV Cache, Compressors, and CPU Layer Execution.
- * ================================================================== *
+/* =========================================================================
+ * KV Cache, Compressors, and CPU Layer Execution.
+ * =========================================================================
+ *
  * The CPU path is the correctness reference.  It maintains raw SWA KV rows,
  * optional compressed KV rows, the indexer mask for ratio-4 layers, and a
  * reusable decode scratch arena so token generation does not allocate in the
@@ -17158,8 +17181,10 @@ static int sample_residual_probabilities(float *target_probs,
                                          uint64_t *rng);
 #endif
 
-/* ================================================================== * Metal Reference Comparison Helpers.
- * ================================================================== *
+/* =========================================================================
+ * Metal Reference Comparison Helpers.
+ * =========================================================================
+ *
  * These small scalar helpers are used only by diagnostics that compare the C
  * reference path with the Metal executor.
  */
@@ -17224,8 +17249,10 @@ static void print_vec_stats(const char *name, const float *x, uint64_t n) {
  * retain F32 staging, and the kernels receive the storage format explicitly. */
 #define DS4_GPU_GLM_COMPACT_CACHE_F16 1
 
-/* ================================================================== * Metal Release Graph State.
- * ================================================================== *
+/* =========================================================================
+ * Metal Release Graph State.
+ * =========================================================================
+ *
  * The release Metal executor owns one fixed set of tensors for single-token
  * decode and another for batched prefill.  The structure is DS4-specific:
  * tensor names follow the model stages rather than generic graph nodes.
@@ -18179,8 +18206,10 @@ static bool metal_tensor_fill_f32(ds4_gpu_tensor *t, float v, uint64_t n) {
     return ds4_gpu_tensor_fill_f32(t, v, n) != 0;
 }
 
-/* ================================================================== * Directional Steering.
- * ================================================================== *
+/* =========================================================================
+ * Directional Steering.
+ * =========================================================================
+ *
  * A steering file contains one normalized hidden-width direction per normal
  * transformer layer.  The model's MTP predictor is not part of the file.  When
  * enabled, the GPU graph edits selected block outputs in-place:
@@ -18460,8 +18489,10 @@ static ds4_gpu_tensor *metal_graph_alloc_kv_cache_tensor(bool managed, uint64_t 
     return metal_graph_alloc_kv_cache_tensor_on(managed, 0, bytes);
 }
 
-/* ================================================================== * Metal Diagnostic Dump Hooks.
- * ================================================================== *
+/* =========================================================================
+ * Metal Diagnostic Dump Hooks.
+ * =========================================================================
+ *
  * The release path calls these after important stages, but they are no-ops
  * unless DS4_METAL_GRAPH_DUMP_PREFIX or DS4_ROCM_GRAPH_DUMP_PREFIX is set.
  * Dumping synchronizes and restarts the command batch, so it is intentionally
@@ -19126,7 +19157,8 @@ static uint64_t metal_graph_q8_0_row_bytes(uint64_t in_dim) {
     return ((in_dim + 31u) / 32u) * 34u;
 }
 
-/* ================================================================== * Metal Release Graph Allocation.
+/* =========================================================================
+ * Metal Release Graph Allocation.
  * ========================================================================= */
 
 /* Allocate the Metal graph state for a chosen raw-cache capacity.  The model
@@ -21981,8 +22013,10 @@ static bool metal_graph_capture_prefix_index_state(
                                  g->layer_index_state_score[il], 0, bytes) != 0;
 }
 
-/* ================================================================== * Metal Decode Release Helpers and Reference Fallbacks.
- * ================================================================== *
+/* =========================================================================
+ * Metal Decode Release Helpers and Reference Fallbacks.
+ * =========================================================================
+ *
  * The normal generation path uses the fused helpers below.  The older unfused
  * kernels remain available as diagnostic reference paths selected only by the
  * DS4_METAL_DISABLE_*_FUSION environment switches.
@@ -28707,8 +28741,10 @@ static bool metal_graph_encode_output_head_mtp(
     return ok;
 }
 
-/* ================================================================== * Metal Diagnostic Comparisons.
- * ================================================================== *
+/* =========================================================================
+ * Metal Diagnostic Comparisons.
+ * =========================================================================
+ *
  * These routines deliberately allocate CPU-side reference buffers and read
  * Metal tensors back.  They are not part of generation; command-line tests use
  * them to localize drift against the C reference pipeline.
@@ -29350,8 +29386,10 @@ static int metal_graph_first_token_full_test(
     return ok ? 0 : 1;
 }
 
-/* ================================================================== * Metal Release Decode and Prefill.
- * ================================================================== *
+/* =========================================================================
+ * Metal Release Decode and Prefill.
+ * =========================================================================
+ *
  * Everything below is the user-facing Metal backend.  It uses the same layer
  * encoder as diagnostics, but diagnostics are not required for normal command
  * flow and their CPU reads stay outside these generation entry points.
@@ -37414,8 +37452,10 @@ static bool metal_graph_eval_mtp_draft(
                                               top_id);
 }
 
-/* ================================================================== * Imatrix Collection.
- * ================================================================== *
+/* =========================================================================
+ * Imatrix Collection.
+ * =========================================================================
+ *
  * The 2-bit DS4 quants care most about routed MoE experts.  For expert gate
  * and up matrices the matmul input is the FFN-normalized activation row.  For
  * expert down matrices the matmul input is the routed SwiGLU row after route
@@ -40813,8 +40853,10 @@ static void embed_prompt(
     }
 }
 
-/* ================================================================== * Tokenizer and Chat Prompt Encoding.
- * ================================================================== *
+/* =========================================================================
+ * Tokenizer and Chat Prompt Encoding.
+ * =========================================================================
+ *
  * DeepSeek V4 Flash stores a GPT-2 style byte-level BPE tokenizer in GGUF.
  * The implementation below is intentionally small.  It loads token strings
  * and merge ranks from the mmaped file, builds two open-addressed hash tables,
@@ -40921,8 +40963,10 @@ bool ds4_tokens_starts_with(const ds4_tokens *tokens, const ds4_tokens *prefix) 
 }
 
 #ifdef DS4_HAS_DEEPSEEK41_GPU
-/* ================================================================== * DeepSeek V4.1 GPU Graph.
- * ================================================================== * Four layers own compressed KV/index keys. Every layer owns its sliding
+/* =========================================================================
+ * DeepSeek V4.1 GPU Graph.
+ * =========================================================================
+ * Four layers own compressed KV/index keys. Every layer owns its sliding
  * window; index-source layers publish selections for following reuse layers.
  * Engram tables are never GPU resources, only bounded decoded row buffers.
  */
@@ -62757,8 +62801,10 @@ static size_t engine_per_tier_graph_overhead_bytes(const ds4_engine *e) {
     return total;
 }
 
-/* ================================================================== * Engine API and Process Lock.
- * ================================================================== *
+/* =========================================================================
+ * Engine API and Process Lock.
+ * =========================================================================
+ *
  * The public entry points acquire the single instance lock, open the GGUF with
  * the backend-appropriate mmap policy, and expose tokenized prompt operations
  * to the CLI and server.
@@ -63497,8 +63543,10 @@ static void ds4_session_dspark_scheduler_note(
 }
 #endif
 
-/* ================================================================== * Session Snapshot Payloads.
- * ================================================================== *
+/* =========================================================================
+ * Session Snapshot Payloads.
+ * =========================================================================
+ *
  * The server disk cache stores a high-level file header, then delegates the
  * graph-specific payload below to the engine.  This payload is intentionally
  * not mmaped: restoring a checkpoint copies bytes back into the already
@@ -72021,8 +72069,10 @@ static void model_warm_weights_sharded(const ds4_model *m,
 #endif
 }
 
-/* ================================================================== * Wave-2 multi-GPU placement scaffolding: engine placement helpers.
- * ================================================================== *
+/* =========================================================================
+ * Wave-2 multi-GPU placement scaffolding: engine placement helpers.
+ * =========================================================================
+ *
  * These helpers compute and install the multi-GPU layer placement table.
  * They are reached only when ds4_engine_create_with_gpu_config is called
  * with a non-NULL ds4_gpu_config. When the caller passes NULL (every
