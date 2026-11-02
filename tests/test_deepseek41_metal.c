@@ -1615,7 +1615,8 @@ static int check_causal_topk(void) {
                 CHECK(ds4_gpu_synchronize());
                 CHECK(ids[rows * 512u] == 123456);
                 for (uint32_t t = 0; t < rows; t++) {
-                    CHECK(s[(size_t)t * width + width - 1u] == 12345.0f);
+                    const float future = s[(size_t)t * width + width - 1u];
+                    CHECK(pattern == 4 ? isnan(future) : future == 12345.0f);
                     for (uint32_t k = 0; k < 512u; k++) {
                         if (ids[t * 512u + k] != ref[t * 512u + k]) {
                             fprintf(stderr, "top-k mismatch ratio=%u visible=%u rows=%u pattern=%u row=%u rank=%u: %d vs %d\n",
