@@ -27950,21 +27950,21 @@ static int routed_moe_launch(
                 } else if (use_down_tile8_rowspan) {
                     if (down_row_span == 512u) {
                         dim3 tgrid((out_dim + 511u) / 512u, tile_capacity, 1);
-                        moe_down_expert_tile8_rowspan_kernel<512><<<tgrid, 256>>>(
+                        moe_down_expert_tile8_rowspan_kernel<512><<<tgrid, 256, 0, cuda_decode_stream()>>>(
                             use_atomic_down ? (float *)out->ptr : (float *)down->ptr,
                             down_w, midq, sorted_pairs, sorted_offsets, sorted_counts,
                             tile_total, tile_experts, tile_starts, down_expert_bytes, down_row_bytes,
                             midq_blocks, out_dim, n_expert, use_atomic_down);
                     } else if (down_row_span == 1024u) {
                         dim3 tgrid((out_dim + 1023u) / 1024u, tile_capacity, 1);
-                        moe_down_expert_tile8_rowspan_kernel<1024><<<tgrid, 256>>>(
+                        moe_down_expert_tile8_rowspan_kernel<1024><<<tgrid, 256, 0, cuda_decode_stream()>>>(
                             use_atomic_down ? (float *)out->ptr : (float *)down->ptr,
                             down_w, midq, sorted_pairs, sorted_offsets, sorted_counts,
                             tile_total, tile_experts, tile_starts, down_expert_bytes, down_row_bytes,
                             midq_blocks, out_dim, n_expert, use_atomic_down);
                     } else {
                         dim3 tgrid((out_dim + 2047u) / 2048u, tile_capacity, 1);
-                        moe_down_expert_tile8_rowspan_kernel<2048><<<tgrid, 256>>>(
+                        moe_down_expert_tile8_rowspan_kernel<2048><<<tgrid, 256, 0, cuda_decode_stream()>>>(
                             use_atomic_down ? (float *)out->ptr : (float *)down->ptr,
                             down_w, midq, sorted_pairs, sorted_offsets, sorted_counts,
                             tile_total, tile_experts, tile_starts, down_expert_bytes, down_row_bytes,
