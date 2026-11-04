@@ -14,8 +14,15 @@ import statistics
 import subprocess
 import sys
 
-from engram_pool_suite import digest
 from prefill_timing_summary import collect
+
+
+def digest(path):
+    result = hashlib.sha256()
+    with path.open('rb') as source:
+        for block in iter(lambda: source.read(1024 * 1024), b''):
+            result.update(block)
+    return result.hexdigest()
 
 
 def jobs(pairs):
