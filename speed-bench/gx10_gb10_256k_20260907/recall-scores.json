@@ -1,0 +1,38 @@
+{
+  "output-a-recall-t0": {
+    "correct": 16,
+    "missing": [],
+    "wrong": {},
+    "formal": true
+  },
+  "output-a-recall-t1": {
+    "correct": 16,
+    "missing": [],
+    "wrong": {},
+    "formal": true
+  },
+  "output-b-recall-t0": {
+    "correct": 16,
+    "missing": [],
+    "wrong": {},
+    "formal": true
+  },
+  "output-b-recall-t1": {
+    "correct": 16,
+    "missing": [],
+    "wrong": {},
+    "formal": true
+  },
+  "output-c-recall-t0": {
+    "correct": 16,
+    "missing": [],
+    "wrong": {},
+    "formal": true
+  },
+  "output-c-recall-t1": {
+    "correct": 16,
+    "missing": [],
+    "wrong": {},
+    "formal": true
+  }
+}

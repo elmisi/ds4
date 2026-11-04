@@ -1,0 +1,5 @@
+variant,revision,build,environment,status,ctx_tokens,prefill_tokens,ctx_alloc,gen_tokens,prefill_chunk,prefill_tps,gen_tps,gen_first_ms,gen_steady_tokens,gen_steady_tps,planned_memory_gib
+dgx_performance_tile8,8251c0a,CUDA_ARCH=,none,complete,2048,2048,262144,128,2048,386.33,18.19,70.368,127,18.34,85.31
+main_mmq_raw,b7e9f00,CUDA_ARCH=sm_121,DS4_CUDA_MOE_NO_IQ2_ALIGNED=1;DS4_CUDA_MOE_NO_Q2K_ALIGNED=1;DS4_CUDA_Q8_NO_ALIGNED=1,complete,2048,2048,262144,128,2048,441.93,17.00,75.758,127,17.14,85.31
+main_mmq_disabled,b7e9f00,CUDA_ARCH=sm_121,DS4_CUDA_MMQ=0;DS4_CUDA_MOE_NO_IQ2_ALIGNED=1;DS4_CUDA_MOE_NO_Q2K_ALIGNED=1;DS4_CUDA_Q8_NO_ALIGNED=1,complete,2048,2048,262144,128,2048,408.87,16.92,73.300,127,17.05,85.31
+main_default_aligned_artifacts,b7e9f00,CUDA_ARCH=sm_121,none,no_csv_result,2048,2048,262144,128,2048,,,,,,85.31

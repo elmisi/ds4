@@ -2,6 +2,9 @@
   <img src="logo.svg" alt="DwarfStar logo" width="220">
 </p>
 
+> **DGX performance branch.** This branch's CUDA, GLM, build, validation, and
+> benchmark changes are documented in [DGX_PERFORMANCE.md](DGX_PERFORMANCE.md).
+
 **DwarfStar** aims to be the best way to run a few excellent large
 language models on consumer hardware (that is, hardware that people
 can actually own). To reach this goal, we are building

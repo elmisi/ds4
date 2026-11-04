@@ -1,0 +1,120 @@
+ds4: Linux cuda backend set oom_score_adj=1000
+ds4: CUDA using unordered one-token F16 matmul on GB10/sm_121
+ds4: CUDA backend initialized on NVIDIA GB10 (sm_121) dev=0
+ds4: direct I/O enabled for ds4flash.gguf align=4096
+ds4: direct I/O enabled for ds4flash.gguf align=4096
+ds4: q2k aligned repack base: 43 tensors 28.22 GiB in 6.8s (threads=6)
+ds4: direct I/O enabled for ds4flash.gguf align=4096
+ds4: iq2 aligned repack base: 86 tensors 44.34 GiB in 10.2s (threads=6)
+ds4: direct I/O enabled for ds4flash.gguf align=4096
+ds4: q8 aligned repack base: 345 tensors 6.15 GiB in 2.3s (threads=6)
+ds4: built 474 aligned CUDA artifacts (78.71 GiB) in 19.3s; expert raw residency replaced
+ds4: CUDA aligned artifacts replace expert residency; leaving the 80.76 GiB model mmap unpinned
+ds4: CUDA preparing model tensor mappings
+ds4: CUDA loading model tensors into device cache
+ds4: CUDA startup model preparation covered 8.20 GiB of tensor spans in 1.687s
+ds4: cuda backend initialized for graph diagnostics
+ds4: memory: KV 0.78 GiB (raw 0.36 + compressed 0.42) + buffers 0.25 GiB + resident model 80.76 GiB = 81.79 GiB planned
+ds4: memory detail: ctx=32768 prefill_cap=4096 raw_kv_rows=4352 compressed_kv_rows=8194 backend=cuda
+ds4: memory: KV 0.78 GiB (raw 0.36 + compressed 0.42) + buffers 0.25 GiB = 1.03 GiB context
+ds4: memory detail: ctx=32768 prefill_cap=4096 raw_kv_rows=4352 compressed_kv_rows=8194 backend=cuda
+ds4: using GPU graph generation with graph prefill
+ds4: using chunked GPU prefill (4096-token chunks for 30474 prompt tokens)
+processing 30474 input tokens: 0/30474 (0.0%)
+ds4: dense Q8 prefill using aligned D2R
+ds4: routed MoE using aligned CUDA artifacts
+processing 30474 input tokens: 4096/30474 (13.4%)
+processing 30474 input tokens: 8192/30474 (26.9%)
+processing 30474 input tokens: 12288/30474 (40.3%)
+processing 30474 input tokens: 16384/30474 (53.8%)
+processing 30474 input tokens: 20480/30474 (67.2%)
+processing 30474 input tokens: 24576/30474 (80.6%)
+processing 30474 input tokens: 28672/30474 (94.1%)
+processing 30474 input tokens: 30474/30474 (100.0%)
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: CUDA hc_decode_pre_mix_parallel launch failed: operation would make the legacy stream depend on a capturing blocking stream
+ds4: prefill: 847.01 t/s, generation: 15.15 t/s

@@ -1,0 +1,5 @@
+variant,sample,ctx_tokens,prefill_tokens,ctx_alloc,gen_tokens,prefill_chunk,prefill_tps,gen_tps,gen_first_ms,gen_steady_tokens,gen_steady_tps,planned_memory_gib
+former_path,1,2048,2048,262144,128,2048,369.55,18.43,71.699,127,18.59,85.31
+tile8,1,2048,2048,262144,128,2048,390.35,18.47,,127,18.63,85.31
+former_path,2,2048,2048,262144,128,2048,368.80,18.16,71.443,127,18.32,85.31
+tile8,2,2048,2048,262144,128,2048,389.60,18.21,72.167,127,18.37,85.31

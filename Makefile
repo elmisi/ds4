@@ -39,6 +39,7 @@ CUDA_HOME ?= $(shell if [ -x /usr/local/cuda/bin/nvcc ]; then \
 	fi)
 NVCC ?= $(CUDA_HOME)/bin/nvcc
 CUDA_ARCH ?=
+CUDA_SPARK_ARCH ?= sm_121
 ifneq ($(strip $(CUDA_ARCH)),)
 ifneq ($(filter sm_120 sm_120a,$(strip $(CUDA_ARCH))),)
 NVCC_ARCH_FLAGS := -gencode arch=compute_120a,code=sm_120a -DDS4_CUDA_HAVE_MXF4=1
@@ -413,7 +414,7 @@ help:
 	@echo "  make clean               Remove build outputs"
 
 cuda-spark:
-	$(MAKE) -B ds4 ds4-server ds4-bench ds4-eval ds4-agent CUDA_ARCH=sm_121
+	$(MAKE) -B ds4 ds4-server ds4-bench ds4-eval ds4-agent CUDA_ARCH="$(CUDA_SPARK_ARCH)"
 
 cuda-generic:
 	$(MAKE) -B ds4 ds4-server ds4-bench ds4-eval ds4-agent CUDA_ARCH=native
@@ -802,8 +803,10 @@ cpu: ds4_cli_cpu.o ds4_server_cpu.o ds4_bench_cpu.o ds4_eval_cpu.o ds4_eval_case
 	$(CC) $(CFLAGS) -o ds4-eval ds4_eval_cpu.o ds4_eval_cases.o ds4_help.o $(CPU_CORE_OBJS) $(LDLIBS)
 	$(CC) $(CFLAGS) -o ds4-agent ds4_agent_cpu.o ds4_help.o ds4_prompt_prefix.o ds4_web.o ds4_kvstore.o linenoise.o ds4_gpu_args_cpu.o $(CPU_CORE_OBJS) $(LDLIBS)
 
-cuda-regression: tests/cuda_long_context_smoke
+cuda-regression: tests/cuda_long_context_smoke tests/cuda_fused_decode_smoke tests/cuda_splitk_smoke
 	./tests/cuda_long_context_smoke
+	./tests/cuda_fused_decode_smoke
+	./tests/cuda_splitk_smoke
 
 tests/test_mxfp4_cuda: tests/test_mxfp4_cuda.cu $(MMQ_OBJS)
 	$(NVCC) $(NVCCFLAGS) -std=c++17 $(MMQ_INCLUDES) -o $@ $^ $(CUDA_LDLIBS)
@@ -914,6 +917,12 @@ ds4_agent_test.o: tests/ds4_agent_test.c ds4_agent.c ds4.h ds4_ssd.h ds4_distrib
 
 tests/cuda_long_context_smoke.o: tests/cuda_long_context_smoke.c ds4_gpu.h
 	$(CC) $(CFLAGS) -I. -c -o $@ tests/cuda_long_context_smoke.c
+
+tests/cuda_fused_decode_smoke.o: tests/cuda_fused_decode_smoke.c ds4_gpu.h
+	$(CC) $(CFLAGS) -I. -c -o $@ tests/cuda_fused_decode_smoke.c
+
+tests/cuda_splitk_smoke.o: tests/cuda_splitk_smoke.c ds4_gpu.h
+	$(CC) $(CFLAGS) -I. -c -o $@ tests/cuda_splitk_smoke.c
 
 rax.o: rax.c rax.h rax_malloc.h
 	$(CC) $(CFLAGS) -c -o $@ rax.c
@@ -1433,6 +1442,12 @@ test-cuda-mixed-batch: tests/test_cuda_mixed_batch
 	DS4_TEST_MODEL="$(DS4_TEST_MODEL)" ./tests/test_cuda_mixed_batch
 endif
 
+tests/cuda_fused_decode_smoke: tests/cuda_fused_decode_smoke.o ds4_cuda.o ds4_image.o $(MMQ_OBJS)
+	$(NVCC) $(NVCCFLAGS) -o $@ $^ $(CUDA_LDLIBS)
+
+tests/cuda_splitk_smoke: tests/cuda_splitk_smoke.o ds4_cuda.o ds4_image.o $(MMQ_OBJS)
+	$(NVCC) $(NVCCFLAGS) -o $@ $^ $(CUDA_LDLIBS)
+
 ds4_test: ds4_test.o ds4_help.o ds4_kvstore.o rax.o $(CORE_OBJS)
 ifeq ($(UNAME_S),Darwin)
 	$(CC) $(CFLAGS) -o $@ ds4_test.o ds4_help.o ds4_kvstore.o rax.o $(CORE_OBJS) $(METAL_LDLIBS)
@@ -1605,6 +1620,8 @@ clean:
 	rm -f tests/test_metal_qwen4_moe_mid
 	rm -f tests/test_metal_qwen4_moe_down
 	rm -f tests/test_metal_qwen4_mxfp4_stage
+	rm -f tests/cuda_fused_decode_smoke tests/cuda_fused_decode_smoke.o
+	rm -f tests/cuda_splitk_smoke tests/cuda_splitk_smoke.o
 
 # The active tokenizer includes generated Unicode classes.
 ds4.o ds4_cpu.o ds4_cpu_test_hooks.o: ds4_qwen4_unicode.inc

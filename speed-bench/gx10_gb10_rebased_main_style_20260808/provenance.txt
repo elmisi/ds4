@@ -1,0 +1,8 @@
+revision=c9766d740c9bd0e65a0e2f02f12a5ec3dedff90e
+branch=dgx-performance
+started_at=2026-08-08T18:16:41+02:00
+model=/home/alessandro/projects/ds4/gguf/DeepSeek-V4-Flash-IQ2XXS-w2Q2K-AProjQ8-SExpQ8-OutQ8-chat-v2-imatrix-0731.gguf
+prompt=/home/alessandro/projects/ds4-gx10/speed-bench/promessi_sposi.txt
+command=DS4_BENCH_FORCE_SNAPSHOT=1 ./ds4-bench -m ds4flash.gguf --prompt-file speed-bench/promessi_sposi.txt --ctx-start 2048 --ctx-max 65536 --step-incr 2048 --gen-tokens 128
+NVIDIA GB10, 595.84, 43, 4 %
+2026-08-08T18:26:49+02:00

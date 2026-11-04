@@ -11954,6 +11954,10 @@ int ds4_gpu_synchronize(void) {
 static void qwen4_nax_release_scratch(void);
 static void qwen4_batch_release_scratch(void);
 
+int ds4_gpu_recycle_weight_cache_if_needed(void) {
+    return 1;
+}
+
 void ds4_gpu_cleanup(void) {
     if (!g_initialized) return;
     ds4_gpu_queue_keepalive_stop_thread();
@@ -18103,6 +18107,14 @@ static int ds4_gpu_stream_expert_cache_prepare_selected_batch(
                 continue;
             }
 
+            /* At budget, evict-and-reuse like the decode loader does instead
+             * of spilling to whole-tensor overflow views: the overflow wrap
+             * needs the expert tensors in the mapped view set, which the
+             * decode-expert-cache prefill mapping does not provide, so a
+             * full cache made any checkpoint-extend or small-suffix prefill
+             * fail ("failed to map overflow expert views").  Commands were
+             * just synced by the caller, so reuse cannot race the GPU, and
+             * prepare_load_buffers protects this layer's unique set. */
             const int force_reuse =
                 cache_budget != 0 && reserved_entries >= cache_budget;
             /* The worker pool reads this entire batch below. Serial read-ahead
