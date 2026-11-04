@@ -1,5 +1,19 @@
 # DGX performance branch
 
+## November 4, 2026: rebase onto upstream b3f50180
+
+The branch now includes upstream `b3f50180`, preserving all 40 local commits
+and the local GB10 defaults. The tile-8 MoE down launches now use the upstream
+decode stream; the F16 pair path keeps both the local unordered option and
+the upstream derived-weight chunk path. The removed HC/RoPE fusion bundle
+remains removed. Split-K remains opt-in. No performance benefit is inferred
+from carrying these changes forward.
+
+The native build and host checks are recorded in
+[the November 4 rebase report](docs/REBASE_GX10_20261104.md). GPU/model gates
+and performance measurements from older reports are historical and have
+not been repeated for this candidate. Production binaries are unchanged.
+
 ## September 14, 2026: current upstream rebase
 
 The local branch was rebased onto upstream `9139e2ae`. At 250000 populated
@@ -110,9 +124,9 @@ its documented `DS4_*` environment variables.
 
 ## Build and validation
 
-`make cuda-spark` remains the DGX Spark build target. Its default omits an
-explicit `nvcc -arch`; `CUDA_SPARK_ARCH=sm_N` is available for controlled A/B
-builds. `make cuda-generic` remains the generic local CUDA target.
+`make cuda-spark` remains the DGX Spark build target. The current default is `CUDA_SPARK_ARCH=sm_121`, mapped to native
+`sm_121a` cubins by the upstream Makefile. `CUDA_SPARK_ARCH=sm_N` remains
+available for controlled A/B builds; older no-arch measurements are historical. `make cuda-generic` remains the generic local CUDA target.
 
 The CUDA regression target now includes:
 
