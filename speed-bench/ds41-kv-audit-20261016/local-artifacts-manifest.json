@@ -1,0 +1,158 @@
+{
+  "created_at": "2026-10-16T12:19:11.608482+02:00",
+  "artifact_root": "/home/alessandro/projects/ds4-engram-external/speed-bench/ds41-kv-audit-20261016",
+  "description": "Generated artifacts preserved on this host and intentionally excluded from Git. Sources, fixtures and text evidence are tracked.",
+  "files": [
+    {
+      "path": "raw/payload-roundtrip-254k-v1/kv/957f91d3425cdcbf28ae46a48534e37dc9327878.kv",
+      "bytes": 1638419855,
+      "sha256": "4189e9bb4d5ce09787aa581a256aec00d23c0090304b75a591fc3d097aa926e0"
+    },
+    {
+      "path": "raw/payload-roundtrip-254k-v1/reference.f32",
+      "bytes": 132899840,
+      "sha256": "d04b94ae0989db70036f1007bbe411c5bc72ddb79c8920a8d99d5a6dbdb609b0"
+    },
+    {
+      "path": "validation-20261016/bin/baseline-ds4",
+      "bytes": 50292248,
+      "sha256": "267fc91be090d6f64f22d89317ec4e4d8c48be3bc65f98cc80fa473e9ef5ec55"
+    },
+    {
+      "path": "validation-20261016/bin/baseline-ds4-bench",
+      "bytes": 50012400,
+      "sha256": "37b06a361bcf63e8938a0e9f1a6420fb4e712bc36a8783850b92a582b7992fff"
+    },
+    {
+      "path": "validation-20261016/bin/baseline-ds4-server",
+      "bytes": 51473984,
+      "sha256": "79c883850d43545acd4ff2e13ae7d714ba05a2d53eae1c666e2f56bcc62993f0"
+    },
+    {
+      "path": "validation-20261016/bin/ds4-server",
+      "bytes": 51493712,
+      "sha256": "e4a8bb850ae7f7a442c368c9145f1034081b22af42cba83ac9d850be1015eb10"
+    },
+    {
+      "path": "validation-20261016/bin/host-tests",
+      "bytes": 52510864,
+      "sha256": "0dc162c8f2be76c6d5477b1b7cfe9d25b2e1c8debd105929f0780fba422740e0"
+    },
+    {
+      "path": "validation-20261016/bin/payload-roundtrip",
+      "bytes": 50270192,
+      "sha256": "af12c12ce044275f5957f329954756ae731a3135150ba2b789b5fb8e8fa8001e"
+    },
+    {
+      "path": "validation-20261016/obj/cuda/mmq/ds4_ggml_stubs.o",
+      "bytes": 655448,
+      "sha256": "986ab848a8e0139fc40daa89a752598d27f64af7a092f895bf5e84aaa53c004c"
+    },
+    {
+      "path": "validation-20261016/obj/cuda/mmq/ds4_mmq.o",
+      "bytes": 24580720,
+      "sha256": "c50b28797d87c9285be69eb3a4949dfff112355f43b684130ad0f012312cbe45"
+    },
+    {
+      "path": "validation-20261016/obj/cuda/mmq/ds4_mmq_d2r.o",
+      "bytes": 2341384,
+      "sha256": "99a107f4e9c4e2e1413de165b30d5b47b7855cffaee6f5068c4a994d4db7b481"
+    },
+    {
+      "path": "validation-20261016/obj/cuda/mmq/ds4_repack.o",
+      "bytes": 1232672,
+      "sha256": "5b873aab8941a2fe8773bc7b1e7d91b1e9e34d6f6582f9281d47eb6af145d697"
+    },
+    {
+      "path": "validation-20261016/obj/cuda/mmq/mmid.o",
+      "bytes": 977688,
+      "sha256": "54af6721fdbdd04519c9a1072017908fdc7166d8b9766de9a846166809e947a0"
+    },
+    {
+      "path": "validation-20261016/obj/cuda/mmq/mmvq.o",
+      "bytes": 12908576,
+      "sha256": "8e0e1d8f2116fb8b7a79d5573f115d175f991632213fddb35cecacc4ad8909cd"
+    },
+    {
+      "path": "validation-20261016/obj/cuda/mmq/quantize.o",
+      "bytes": 722240,
+      "sha256": "5eb951790d5e81643cac848d5b106b872b3d8addafab33b71c607edecc02489d"
+    },
+    {
+      "path": "validation-20261016/obj/ds4.o",
+      "bytes": 13292640,
+      "sha256": "bba14fe7cd4e1266f68bc215d0e93ab8d9384290191d306f7e556f6efadb4414"
+    },
+    {
+      "path": "validation-20261016/obj/ds4_cuda.o",
+      "bytes": 19378424,
+      "sha256": "1e2b1a6af22157075e8e6f499cb03a7d9bb267a9115883b350ec725a3ed5c32b"
+    },
+    {
+      "path": "validation-20261016/obj/ds4_distributed.o",
+      "bytes": 1051320,
+      "sha256": "59554af03b8a5b4f705a30ae55e6ae53d7cc480aced800128eaec7b0330fc78a"
+    },
+    {
+      "path": "validation-20261016/obj/ds4_engram.o",
+      "bytes": 84992,
+      "sha256": "3de8c57f61aa74734342efc9a7ddc0fb31e1bf8c9b10edbaf59e6232cc53e651"
+    },
+    {
+      "path": "validation-20261016/obj/ds4_gpu_args.o",
+      "bytes": 31608,
+      "sha256": "28d10c68f5ea8b59896c43bb5e401d81b296ddd92734ce16037dd75833ad0aa2"
+    },
+    {
+      "path": "validation-20261016/obj/ds4_help.o",
+      "bytes": 461944,
+      "sha256": "2a41af9b12d2ed38e613872d6366cd37ffc512dfeb9647180ae00cfbdcd6baf9"
+    },
+    {
+      "path": "validation-20261016/obj/ds4_image.o",
+      "bytes": 408088,
+      "sha256": "c100ee0e19d02a50b05cb13f3c71dff5b0b6da335f0c43e849c387d50cc928ab"
+    },
+    {
+      "path": "validation-20261016/obj/ds4_kvstore.o",
+      "bytes": 246240,
+      "sha256": "f2eb7e957f599372f8b14279842f0b867f212a89e894458c99263b41168669ba"
+    },
+    {
+      "path": "validation-20261016/obj/ds4_layer_pack.o",
+      "bytes": 32328,
+      "sha256": "d1f76b78e097270bf108f708f2afe7ae4b5a011e8575ff495cc014fd7bc447e6"
+    },
+    {
+      "path": "validation-20261016/obj/ds4_server.o",
+      "bytes": 2685664,
+      "sha256": "17675573d26150412cc7c51b1912bfde29a72907c18f59febd635fb6efc4193e"
+    },
+    {
+      "path": "validation-20261016/obj/ds4_ssd.o",
+      "bytes": 36544,
+      "sha256": "e0f9ce86206d587c24a6cb7c5b805e7a86b5a1ab2a25811eb5aef606aa35e4e3"
+    },
+    {
+      "path": "validation-20261016/obj/ds4_tp.o",
+      "bytes": 548408,
+      "sha256": "b81572057212797af386c256a564edfd74059106ae8eda8b4f2ec61e9e22517b"
+    },
+    {
+      "path": "validation-20261016/obj/host-tests.o",
+      "bytes": 5434208,
+      "sha256": "66d3ab5b001a65ff2e4b9c9f971ca4107a85f2dbaaaddbd55ebb11f0e97526e2"
+    },
+    {
+      "path": "validation-20261016/obj/payload-roundtrip.o",
+      "bytes": 69912,
+      "sha256": "7817bdf2f3f59dff6b7f496f5d00780d924d27f18258e9ed3384c6b168b706e3"
+    },
+    {
+      "path": "validation-20261016/obj/rax.o",
+      "bytes": 282744,
+      "sha256": "96192bb6b0dabeecabc54c7b92b0e945a853edf326b3b1738e6f0a1f08f590a2"
+    }
+  ],
+  "total_bytes": 2164836887
+}

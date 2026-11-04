@@ -1,0 +1,3 @@
+# Preserve the exact benchmark fixture and unified-diff context bytes.
+fixtures/recall-256k.txt -whitespace
+*.patch -whitespace

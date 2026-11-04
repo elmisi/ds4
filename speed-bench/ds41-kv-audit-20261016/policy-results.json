@@ -1,0 +1,31 @@
+{
+  "status": "PASS",
+  "kind": "host-only policy reproduction",
+  "results": {
+    "baseline": {
+      "writes": 0,
+      "attempts": 1,
+      "invalid_attempts": 1,
+      "last_write": 0,
+      "existing_policy_contracts": "PASS"
+    },
+    "candidate": {
+      "writes": 1,
+      "attempts": 1,
+      "invalid_attempts": 0,
+      "last_write": 254896,
+      "existing_policy_contracts": "PASS"
+    }
+  },
+  "patch_applied": false,
+  "service_modified": false,
+  "source_hashes": {
+    "ds4_kvstore.c": "e8d9849f979470d500c5f3370a59bd5b10283eb694cae042f6103e8d1bebe2dc",
+    "ds4_server.c": "83c9f494dd7848a6c94e9aa029a021b7894a2f57cb898109594648c831a1cda7"
+  },
+  "limitations": [
+    "GPU state and payload persistence are test doubles.",
+    "GPU serialization, restore equality and latency still need live validation.",
+    "No engine arithmetic, production source or service binary was changed."
+  ]
+}

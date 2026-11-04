@@ -1,0 +1,30 @@
+ds4: Linux cuda backend set oom_score_adj=1000
+ds4: V4.1 Engram reads use alternate GGUF: /mnt/ds4-models/models/DeepSeek-V4.1-Flash-Q2.gguf
+ds4: CUDA backend initialized on NVIDIA GB10 (sm_121) dev=0
+ds4: cuda SSD streaming cache target 80.00 GiB; effective 80.00 GiB = 7.12 GiB prefill headroom + 72.88 GiB dynamic cache (7862 experts, 9.49 MiB each)
+ds4: SSD streaming initial cuda model map (569 spans, 9.37 GiB tensor span)
+ds4: CUDA preparing model tensor mappings
+ds4: CUDA loading model tensors into device cache
+ds4: CUDA startup model preparation covered 9.38 GiB of tensor spans in 2.249s
+ds4: cuda backend initialized for graph diagnostics
+ds4: memory: KV 1.57 GiB (raw 0.01 + compressed 1.56) + buffers 8.68 GiB + resident model 9.37 GiB + expert cache 72.88 GiB + prefill expert reserve 7.12 GiB = 99.62 GiB planned
+ds4: memory detail: ctx=262144 prefill_cap=8192 raw_kv_rows=128 compressed_kv_rows=262145 backend=cuda
+ds4: V4.1 static context buffers 10493.71 MiB (ctx=262144), Engram disk-only
+ds4: CUDA SSD expert cache: 7862 slots, 72.88 GiB
+ds4: moe gateup y-indirect q8 staging engage (flat-pool p5b, first n_tokens=8192 n_assign=49152)
+prefill 32768/254000
+prefill 65536/254000
+prefill 98304/254000
+prefill 131072/254000
+prefill 163840/254000
+prefill 196608/254000
+prefill 229376/254000
+prefill 254000/254000
+prefill 254000/254000
+roundtrip: KV disk cache /home/alessandro/projects/ds4-engram-external/speed-bench/ds41-kv-audit-20261016/raw/payload-roundtrip-254k-v1/kv (budget=65536 MiB, cross-quant=accept, min=512, cold_max=30000, continued=10000, trim=32, align=2048, hit_half_life=21600s)
+roundtrip: kv cache stored tokens=254000 trimmed=0 reason=continued key=token-text size=1562.52 MiB save=931.0 ms
+saved actual KV payload; recording 256 full-logit steps
+roundtrip: kv cache hit text tokens=254000 text=800871 quant=2 key=token-text load=362.8 ms file=/home/alessandro/projects/ds4-engram-external/speed-bench/ds41-kv-audit-20261016/raw/payload-roundtrip-254k-v1/kv/957f91d3425cdcbf28ae46a48534e37dc9327878.kv
+restored disk KV; comparing complete logits and logprobs
+prefill 258096/258096
+prefill 258096/258096

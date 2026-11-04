@@ -1,0 +1,166 @@
+{
+  "status": "PASS",
+  "validated_at": "2026-10-16T11:50:03.405991+02:00",
+  "worktree": "/home/alessandro/projects/ds4-engram-external",
+  "branch": "feature/external-engram-gguf",
+  "base_commit": "0ce0033fd53f93f0d29d16e6fc48f34892c5159b",
+  "source_committed": false,
+  "pushed": false,
+  "source_sha256": {
+    "ds4_kvstore.c": "415f332662816b49b4e9ccd1cf514761d793b4a50204f33ab5cd1523de5fc04f",
+    "ds4_server.c": "fc70b1024e3f13da3077c87d63bb62472d3f881417143cb658ede58e02df5601"
+  },
+  "source_patch": "applied-source.patch",
+  "change": "Persist the first valid actual frontier after a continued-checkpoint interval boundary; skip invalid server checkpoints.",
+  "deployment": {
+    "deployed": "/home/alessandro/projects/ds4-engram-external/ds4-server",
+    "candidate_sha256": "e4a8bb850ae7f7a442c368c9145f1034081b22af42cba83ac9d850be1015eb10",
+    "backup": "/home/alessandro/projects/ds4-engram-external/speed-bench/ds41-kv-audit-20261016/validation-20261016/bin/baseline-ds4-server",
+    "configuration": "80GiB experts,64GiB persistent KV,swap disabled"
+  },
+  "running_executable": "/home/alessandro/projects/ds4-engram-external/ds4-server",
+  "running_executable_sha256": "e4a8bb850ae7f7a442c368c9145f1034081b22af42cba83ac9d850be1015eb10",
+  "service": {
+    "MainPID": "848994",
+    "NRestarts": "0",
+    "Environment": "DS4_CUDA_DECODE_GRAPHS=0 DS4_CUDA_ENGRAM_READERS=8 DS4_CUDA_V41_TOPK_BATCH=1 DS4_CUDA_V41_PREFILL_STAGE_SYNC=0 DS4_DS41_EXPERT_CACHE=80GB DS4_DS41_KV_SPACE_MB=65536",
+    "ActiveState": "active",
+    "SubState": "running"
+  },
+  "api_ready": true,
+  "swap_enabled": false,
+  "host_suite": "PASS; host-tests.stdout and host-tests.stderr",
+  "ubsan_policy": {
+    "status": "PASS",
+    "kind": "host-only policy reproduction",
+    "results": {
+      "baseline": {
+        "writes": 0,
+        "attempts": 1,
+        "invalid_attempts": 1,
+        "last_write": 0,
+        "existing_policy_contracts": "PASS"
+      },
+      "candidate": {
+        "writes": 1,
+        "attempts": 1,
+        "invalid_attempts": 0,
+        "last_write": 254896,
+        "existing_policy_contracts": "PASS"
+      }
+    },
+    "patch_applied": true,
+    "baseline_ref": "0ce0033fd53f93f0d29d16e6fc48f34892c5159b",
+    "service_modified": false,
+    "source_hashes": {
+      "ds4_kvstore.c": "e8d9849f979470d500c5f3370a59bd5b10283eb694cae042f6103e8d1bebe2dc",
+      "ds4_server.c": "83c9f494dd7848a6c94e9aa029a021b7894a2f57cb898109594648c831a1cda7"
+    },
+    "limitations": [
+      "GPU state and payload persistence are test doubles.",
+      "GPU serialization, restore equality and latency still need live validation.",
+      "This probe does not rebuild or install the service binary."
+    ]
+  },
+  "gpu_roundtrip": {
+    "status": "PASS",
+    "frontier": 254000,
+    "append_frontier": 258096,
+    "full_vector_checks": 257,
+    "vocabulary": 129280,
+    "logprobs_equal": 256,
+    "prefill_s": 876.256157,
+    "save_s": 2.022354,
+    "load_s": 0.366963,
+    "append_s": 81.778797
+  },
+  "gpu_guard": {
+    "run": "payload-roundtrip-254k-v1",
+    "returncode": 0,
+    "stop_reason": null,
+    "wall_seconds": 1012.5555684566498,
+    "minimum_available_kib": 11090120,
+    "peak_rss_kib": 2525976,
+    "peak_process_swap_kib": 0,
+    "last_sample": {
+      "time": 1792143101.526662,
+      "available_kib": 121873588,
+      "swap_used_kib": 0,
+      "rss_kib": null,
+      "process_swap_kib": null,
+      "pswpin": 150038,
+      "pswpout": 150038
+    }
+  },
+  "http_recall": {
+    "status": "PASS",
+    "requests": [
+      {
+        "attempt": 1,
+        "wall_seconds": 920.4496403839439,
+        "minimum_available_gib": 10.438617706298828,
+        "peak_process_swap_kib": 0,
+        "stop_reason": null,
+        "returncode": 0,
+        "usage": {
+          "prompt_tokens": 254896,
+          "completion_tokens": 76,
+          "total_tokens": 254972,
+          "prompt_tokens_details": {
+            "cached_tokens": 0,
+            "cache_write_tokens": 254896
+          }
+        },
+        "finish_reason": "stop",
+        "trailing_newline_normalized": true,
+        "recall": "16/16",
+        "stdout_sha256": "61d7160f499bedcb55dd1b8c3b04dac1c5d4ef1484cd04f7868769e418b2df8d"
+      },
+      {
+        "attempt": 2,
+        "wall_seconds": 6.713339044013992,
+        "minimum_available_gib": 10.685932159423828,
+        "peak_process_swap_kib": 0,
+        "stop_reason": null,
+        "returncode": 0,
+        "usage": {
+          "prompt_tokens": 254896,
+          "completion_tokens": 76,
+          "total_tokens": 254972,
+          "prompt_tokens_details": {
+            "cached_tokens": 254896,
+            "cache_write_tokens": 0
+          }
+        },
+        "finish_reason": "stop",
+        "trailing_newline_normalized": true,
+        "recall": "16/16",
+        "stdout_sha256": "61d7160f499bedcb55dd1b8c3b04dac1c5d4ef1484cd04f7868769e418b2df8d"
+      }
+    ]
+  },
+  "http_cold_prefill": {
+    "tokens": 254896,
+    "seconds": 908.388,
+    "tokens_per_second": 280.6
+  },
+  "http_repeat": {
+    "cached_tokens": 254896,
+    "cache_write_tokens": 0,
+    "disk_load_seconds": 0.435,
+    "prompt_stage_seconds": 0.019,
+    "decode_tokens": 76
+  },
+  "limitations": [
+    "Immediate warm-cache repeats are not cold-disk latency measurements.",
+    "No paired 80GiB-versus-72GiB throughput claim.",
+    "Append-to-258096 checks position, prefix and finite logits; full-vector equality covers the 257 vectors following the 254000-token restored checkpoint."
+  ],
+  "rollback": {
+    "backup": "/home/alessandro/projects/ds4-engram-external/speed-bench/ds41-kv-audit-20261016/validation-20261016/bin/baseline-ds4-server",
+    "sha256": "79c883850d43545acd4ff2e13ae7d714ba05a2d53eae1c666e2f56bcc62993f0",
+    "lifecycle_tool": "dgx-ctl"
+  },
+  "journal": "service-validation.log",
+  "build_provenance": "build-provenance.json"
+}

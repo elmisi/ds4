@@ -41291,6 +41291,7 @@ static void ds41_engram_warm(const ds4_model *m, const char *path, uint64_t grap
 
 static DS4_MAYBE_UNUSED bool ds41_graph_alloc(ds41_gpu_graph *g, const ds4_model *m,
                                               const ds4_weights *w, const char *path,
+                                              bool alternate_engram,
                                               uint32_t ctx, bool streaming) {
     memset(g, 0, sizeof(*g));
     g->table[0].fd = g->table[1].fd = -1;
@@ -41325,11 +41326,19 @@ static DS4_MAYBE_UNUSED bool ds41_graph_alloc(ds41_gpu_graph *g, const ds4_model
     for (uint32_t i = 0; i < 2; i++) {
         const uint32_t il = i ? 14u : 1u;
         const ds4_tensor *table = required_tensorf(m, "blk.%u.engram_embd.weight", il);
-        if (!ds4_engram_table_open(&g->table[i], path, table->abs_offset, g->engram.rows[i])) goto fail;
-        struct stat weights_stat, rows_stat;
-        if (fstat(m->fd, &weights_stat) || fstat(g->table[i].fd, &rows_stat) ||
-            weights_stat.st_dev != rows_stat.st_dev || weights_stat.st_ino != rows_stat.st_ino)
+        if (!ds4_engram_table_open(&g->table[i], path, table->abs_offset,
+                                   g->engram.rows[i])) {
+            fprintf(stderr, "ds4: cannot open V4.1 Engram table in %s: %s\n",
+                    path, strerror(errno));
             goto fail;
+        }
+        if (!ds4_engram_table_verify_backing(&g->table[i], m->fd, m->file_size,
+                                             i ? 0 : m->tensor_data_pos,
+                                             alternate_engram)) {
+            fprintf(stderr, "ds4: V4.1 Engram backing is not a compatible GGUF copy: %s\n",
+                    strerror(errno));
+            goto fail;
+        }
         const uint64_t bytes = (uint64_t)DS4_N_EMBD * DS4_N_HC * 4;
         g->engram_q_norm[i] = ds4_gpu_tensor_alloc(bytes);
         g->engram_k_norm[i] = ds4_gpu_tensor_alloc(bytes);
@@ -43320,6 +43329,9 @@ static uint32_t ds41_decode_flush_layers(void) {
 static DS4_MAYBE_UNUSED bool ds41_graph_step(ds41_gpu_graph *g, const ds4_model *m,
                                              const ds4_weights *w, int token, float *logits) {
     if (!g || !g->valid || g->pos >= g->ctx || token < 0 || (uint32_t)token >= DS4_N_VOCAB) return false;
+    const bool profile = getenv("DS4_CUDA_V41_DECODE_PROFILE") != NULL;
+    const double profile_start = profile ? now_sec() : 0;
+    double engram_wait[2] = {0, 0};
     uint32_t ids[2][DS4_ENGRAM_COLS];
     ds4_engram_history next_history = g->history;
     if (!ds41_hash_tokens(g, &next_history, &token, 1, &ids[0][0])) return false;
@@ -43337,6 +43349,7 @@ static DS4_MAYBE_UNUSED bool ds41_graph_step(ds41_gpu_graph *g, const ds4_model 
             return false;
         }
     }
+    const double profile_submitted = profile ? now_sec() : 0;
     const float initial_pre[] = {1, 0, 0, 0};
     bool ok = ds4_gpu_tensor_write(g->pre, 0, initial_pre, sizeof(initial_pre)) &&
         ds4_gpu_begin_commands() && ds41_embed(g, m, w, g->residual, g->x, token, g->pos);
@@ -43370,13 +43383,16 @@ static DS4_MAYBE_UNUSED bool ds41_graph_step(ds41_gpu_graph *g, const ds4_model 
         !getenv("DS4_METAL_DISABLE_V41_SCORE_ROWS4");
 #endif
     for (uint32_t il = 0; ok && il < DS4_N_LAYER; il++) {
+        const double profile_layer_start = profile ? now_sec() : 0;
         const ds4_layer_weights *l = &w->layer[il];
         if (layer_resident)
             ok = metal_graph_stream_map_layer(m, w, il) && ds4_gpu_begin_commands();
         const unsigned table = il == 1 ? 0 : 1;
         if (ds41_engram_layer(il) && (rows[table] || overlap_engram)) {   /* each table joins at its layer */
+            const double wait_start = profile ? now_sec() : 0;
             const bool read = overlap_engram ? ds4_engram_reader_wait(g->engram_reader, table) :
                 ds4_engram_read_batch_finish(rows[table]);
+            if (profile) engram_wait[table] = now_sec() - wait_start;
             rows[table] = NULL;
             if (ok && !(read && ds4_gpu_tensor_write(table ? g->engram_rows_b : g->engram_rows, 0,
                                                     g->rows[table], sizeof(g->rows[table])))) ok = false;
@@ -43412,6 +43428,8 @@ static DS4_MAYBE_UNUSED bool ds41_graph_step(ds41_gpu_graph *g, const ds4_model 
         if (ok && queue_layers && !drain && (g->tp_world != 2 || tp_inline_gates) && flush_layers &&
             (il == 0 || (il + 1u) % flush_layers == 0))
             ok = ds4_gpu_flush_commands() != 0;
+        if (profile) fprintf(stderr, "ds4: V4.1 decode layer pos=%u layer=%u wall_ms=%.6f\n",
+                             g->pos, il, (now_sec() - profile_layer_start) * 1000);
     }
     g->score_selected_blocks = false;
     g->scalar_decode = false;
@@ -43428,6 +43446,10 @@ static DS4_MAYBE_UNUSED bool ds41_graph_step(ds41_gpu_graph *g, const ds4_model 
     /* Even a failed GPU layer must finish the reader before this graph (or
      * a borrowed row graph) can leave scope or reuse its host output rows. */
     if (overlap_engram && !ds4_engram_reader_wait(g->engram_reader, 1)) ok = false;
+    if (profile) fprintf(stderr,
+        "ds4: V4.1 decode token pos=%u async=%u submit_or_serial_ms=%.6f wait0_ms=%.6f wait1_ms=%.6f total_ms=%.6f ok=%u\n",
+        g->pos, overlap_engram, (profile_submitted - profile_start) * 1000,
+        engram_wait[0] * 1000, engram_wait[1] * 1000, (now_sec() - profile_start) * 1000, ok);
     if (!ok) {
         g->valid = false;
         return false;
@@ -43814,6 +43836,14 @@ static bool ds41_graph_prefill_sweep(ds41_gpu_graph *g, const ds4_model *m,
         return false;
     const bool profile = getenv("DS4_METAL_GRAPH_PREFILL_PROFILE") != NULL;
     const bool stage_profile = getenv("DS4_METAL_V41_STAGE_PROFILE") != NULL;
+#if !defined(__APPLE__) && !defined(DS4_ROCM_BUILD)
+    /* Experimental scheduling only: the same barriers as stage profiling,
+     * without clocks or per-stage logging. Default arithmetic/dispatch stays
+     * unchanged; keep opt-in until exactness and paired timings are checked. */
+    const bool stage_sync = metal_graph_tp_env_flag("DS4_CUDA_V41_PREFILL_STAGE_SYNC", false);
+#else
+    const bool stage_sync = false;
+#endif
     const bool batch_moe = !getenv("DS4_METAL_DISABLE_V41_BATCH_MOE");
     const bool batch_attention = !getenv("DS4_METAL_DISABLE_V41_BATCH_ATTN");
     const bool batch_core = batch_attention && !getenv("DS4_METAL_DISABLE_V41_BATCH_CORE");
@@ -44027,12 +44057,14 @@ static bool ds41_graph_prefill_sweep(ds41_gpu_graph *g, const ds4_model *m,
             const double t_engram = profile ? now_sec() : 0;
             double stage_start = stage_profile ? now_sec() : 0;
 #define DS41_STAGE(label) do { \
-                if (ok && stage_profile) { \
+                if (ok && (stage_profile || stage_sync)) { \
                     ok = ds4_gpu_end_commands() != 0; \
-                    const double now = now_sec(); \
-                    fprintf(stderr, "ds4: V4.1 stage layer=%u pos=%u rows=%u %s=%.3f ms\n", \
-                        il, start, count, (label), (now - stage_start) * 1000); \
-                    stage_start = now; \
+                    if (stage_profile) { \
+                        const double now = now_sec(); \
+                        fprintf(stderr, "ds4: V4.1 stage layer=%u pos=%u rows=%u %s=%.3f ms\n", \
+                            il, start, count, (label), (now - stage_start) * 1000); \
+                        stage_start = now; \
+                    } \
                     if (ok) ok = ds4_gpu_begin_commands() != 0; \
                 } \
             } while (0)
@@ -44532,6 +44564,7 @@ typedef enum {
 
 struct ds4_engine {
     char *model_path;
+    char *engram_model_path;
     uint64_t ds41_session_bytes;
     uint64_t qwen4_session_bytes;
     ds4_model model;
@@ -66961,7 +66994,9 @@ static int ds4_engine_collect_sequential_imatrix(
         if (ctx_size > 1048576 ||
             !ds41_memory_admit(e, ds4_add_sat_u64(e->ds41_session_bytes,
                 ds41_graph_bytes((uint32_t)ctx_size)), false) ||
-            !ds41_graph_alloc(&d, &e->model, &e->weights, e->model_path,
+            !ds41_graph_alloc(&d, &e->model, &e->weights,
+                              e->engram_model_path ? e->engram_model_path : e->model_path,
+                              e->engram_model_path != NULL,
                               (uint32_t)ctx_size, e->ssd_streaming)) return 1;
     } else
 #endif
@@ -73897,6 +73932,13 @@ static int ds4_engine_open_internal(ds4_engine **out,
     if (e->backend == DS4_BACKEND_METAL)
         ds4_gpu_set_model_untracked_default(DS4_MODEL_FAMILY == DS4_MODEL_FAMILY_DEEPSEEK41);
 #endif
+    if (opt->engram_model_path && opt->engram_model_path[0] &&
+        DS4_MODEL_FAMILY != DS4_MODEL_FAMILY_DEEPSEEK41) {
+        fprintf(stderr, "ds4: --engram-model requires a DeepSeek V4.1 model\n");
+        ds4_engine_close(e);
+        *out = NULL;
+        return 1;
+    }
     if (ds4_model_is_qwen4() && !opt->inspect_only) {
         if (e->ssd_streaming && (e->ssd_streaming_full_layers || e->ssd_streaming_preload_experts)) {
             fprintf(stderr, "ds4: Qwen SSD fills its expert cache on demand; full resident layers "
@@ -73954,6 +73996,18 @@ static int ds4_engine_open_internal(ds4_engine **out,
             ds4_engine_close(e);
             *out = NULL;
             return 1;
+        }
+        if (opt->engram_model_path && opt->engram_model_path[0]) {
+            e->engram_model_path = realpath(opt->engram_model_path, NULL);
+            if (!e->engram_model_path) {
+                fprintf(stderr, "ds4: cannot resolve V4.1 Engram model path: %s\n",
+                        strerror(errno));
+                ds4_engine_close(e);
+                *out = NULL;
+                return 1;
+            }
+            fprintf(stderr, "ds4: V4.1 Engram reads use alternate GGUF: %s\n",
+                    e->engram_model_path);
         }
     }
     if (engine_warm_full_model(opt) && DS4_MODEL_FAMILY != DS4_MODEL_FAMILY_DEEPSEEK41)
@@ -76160,6 +76214,7 @@ void ds4_engine_close(ds4_engine *e) {
     ds4_release_instance_lock();
     free(e->directional_steering_dirs);
     free(e->directional_steering_file);
+    free(e->engram_model_path);
     free(e->model_path);
     free(e);
 }
@@ -76346,7 +76401,9 @@ int ds4_session_create(ds4_session **out, ds4_engine *e, int ctx_size) {
             !ds41_memory_admit(e, ds4_add_sat_u64(e->ds41_session_bytes,
                 ds41_graph_bytes((uint32_t)ctx_size)), false) ||
             !ds41_graph_alloc(&s->ds41_graph, &e->model, &e->weights,
-                              e->model_path, (uint32_t)ctx_size, e->ssd_streaming)) {
+                              e->engram_model_path ? e->engram_model_path : e->model_path,
+                              e->engram_model_path != NULL,
+                              (uint32_t)ctx_size, e->ssd_streaming)) {
             free(s);
             return 1;
         }

@@ -748,8 +748,10 @@ int ds4_kvstore_continued_store_target(const ds4_kvstore *kc, int live_tokens) {
     const int step = kv_cache_continued_step(kc);
     if (step <= 0) return 0;
     if (live_tokens < kc->opt.min_tokens) return 0;
-    if (live_tokens % step != 0) return 0;
-    if (live_tokens <= kc->continued_last_store_tokens) return 0;
+    /* Backend-safe callbacks can skip an exact interval boundary.
+     * Keep the interval grid, but allow the first valid frontier
+     * after crossing it. Never round a live payload backwards. */
+    if (live_tokens / step <= kc->continued_last_store_tokens / step) return 0;
     return live_tokens;
 }
 

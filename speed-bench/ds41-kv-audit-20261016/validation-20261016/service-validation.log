@@ -1,0 +1,40 @@
+Avvio ds4-ds41: dir=/home/alessandro/projects/ds4-engram-external model=/home/alessandro/projects/ds4/gguf/DeepSeek-V4.1-Flash-Q2.gguf engram=/mnt/ds4-models/models/DeepSeek-V4.1-Flash-Q2.gguf cache=80GB readers=8 topk=on stage-sync=off ctx=262144 api=0.0.0.0:8000 ssd-streaming=on kv-disk=/home/alessandro/.cache/ds4/deepseek-v4.1-flash-kv (65536 MB, continued=20480) decode_graphs=off
+ds4: Linux cuda backend set oom_score_adj=1000
+ds4: V4.1 Engram reads use alternate GGUF: /mnt/ds4-models/models/DeepSeek-V4.1-Flash-Q2.gguf
+ds4: CUDA backend initialized on NVIDIA GB10 (sm_121) dev=0
+ds4: cuda SSD streaming cache target 80.00 GiB; effective 80.00 GiB = 7.12 GiB prefill headroom + 72.88 GiB dynamic cache (7862 experts, 9.49 MiB each)
+ds4: SSD streaming initial cuda model map (569 spans, 9.37 GiB tensor span)
+ds4: CUDA preparing model tensor mappings
+ds4: CUDA loading model tensors into device cache
+ds4: CUDA startup model preparation covered 9.38 GiB of tensor spans in 2.260s
+ds4: cuda backend initialized for graph diagnostics
+ds4: memory: KV 1.57 GiB (raw 0.01 + compressed 1.56) + buffers 8.68 GiB + resident model 9.37 GiB + expert cache 72.88 GiB + prefill expert reserve 7.12 GiB = 99.62 GiB planned
+ds4: memory detail: ctx=262144 prefill_cap=8192 raw_kv_rows=128 compressed_kv_rows=262145 backend=cuda
+1016 11:32:22 ds4-server: context buffers 10493.71 MiB (ctx=262144, backend=cuda, prefill_chunk=8192, raw_kv_rows=128, compressed_kv_rows=262145)
+ds4: V4.1 static context buffers 10493.71 MiB (ctx=262144), Engram disk-only
+1016 11:32:22 ds4-server: KV disk cache /home/alessandro/.cache/ds4/deepseek-v4.1-flash-kv (budget=65536 MiB, cross-quant=accept, min=512, cold_max=30000, continued=20480, trim=32, align=2048, hit_half_life=21600s)
+1016 11:32:22 ds4-server: listening on http://0.0.0.0:8000
+1016 11:33:55 ds4-server: chat ctx=0..254896:254896 prompt start
+ds4: CUDA SSD expert cache: 7862 slots, 72.88 GiB
+ds4: moe gateup y-indirect q8 staging engage (flat-pool p5b, first n_tokens=8192 n_assign=49152)
+1016 11:35:16 ds4-server: chat ctx=0..254896:254896 prefill chunk 32768/254896 (12.9%) chunk=0.00 t/s avg=404.51 t/s 81.006s
+1016 11:36:31 ds4-server: chat ctx=0..254896:254896 prefill chunk 65536/254896 (25.7%) chunk=431.89 t/s avg=417.75 t/s 156.877s
+1016 11:38:06 ds4-server: chat ctx=0..254896:254896 prefill chunk 98304/254896 (38.6%) chunk=347.75 t/s avg=391.48 t/s 251.105s
+1016 11:39:50 ds4-server: chat ctx=0..254896:254896 prefill chunk 131072/254896 (51.4%) chunk=315.53 t/s avg=369.26 t/s 354.956s
+1016 11:41:42 ds4-server: chat ctx=0..254896:254896 prefill chunk 163840/254896 (64.3%) chunk=290.22 t/s avg=350.19 t/s 467.864s
+1016 11:43:45 ds4-server: chat ctx=0..254896:254896 prefill chunk 196608/254896 (77.1%) chunk=267.79 t/s avg=333.11 t/s 590.228s
+1016 11:46:01 ds4-server: chat ctx=0..254896:254896 prefill chunk 229376/254896 (90.0%) chunk=240.70 t/s avg=315.79 t/s 726.364s
+1016 11:48:20 ds4-server: chat ctx=0..254896:254896 prefill chunk 253952/254896 (99.6%) chunk=177.11 t/s avg=293.54 t/s 865.123s
+1016 11:49:03 ds4-server: chat ctx=0..254896:254896 prefill chunk 254896/254896 (100.0%) chunk=21.82 t/s avg=280.60 t/s 908.388s
+1016 11:49:06 ds4-server: kv cache stored tokens=254896 trimmed=0 reason=continued key=token-text size=1568.04 MiB save=1463.3 ms
+1016 11:49:06 ds4-server: chat ctx=0..254896:254896 prompt done 911.256s
+1016 11:49:12 ds4-server: chat ctx=254896..254946:50 gen=50 decoding chunk=7.79 t/s avg=7.79 t/s 6.415s
+1016 11:49:15 ds4-server: chat ctx=254946..254972:26 gen=76 decoding chunk=10.18 t/s avg=8.47 t/s 8.969s
+1016 11:49:15 ds4-server: chat ctx=0..254896:254896 gen=76 finish=stop 920.225s
+1016 11:49:15 ds4-server: live kv cache miss live=254972 prompt=254896 common=254896 vision=match reason=token-mismatch
+1016 11:49:15 ds4-server: kv cache hit text tokens=254896 text=847494 quant=2 key=token-text load=435.0 ms file=/home/alessandro/.cache/ds4/deepseek-v4.1-flash-kv/81a30c8ba9999b64628f413c83028ed2bbba4a61.kv
+1016 11:49:15 ds4-server: chat ctx=254896..254896:0 prompt start
+1016 11:49:15 ds4-server: chat ctx=254896..254896:0 prompt done 0.019s
+1016 11:49:19 ds4-server: chat ctx=254896..254946:50 gen=50 decoding chunk=12.45 t/s avg=12.45 t/s 4.017s
+1016 11:49:22 ds4-server: chat ctx=254946..254972:26 gen=76 decoding chunk=12.51 t/s avg=12.47 t/s 6.095s
+1016 11:49:22 ds4-server: chat ctx=254896..254896:0 gen=76 finish=stop 6.114s

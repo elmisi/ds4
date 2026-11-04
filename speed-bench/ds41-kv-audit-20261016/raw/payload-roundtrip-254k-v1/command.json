@@ -1,0 +1,46 @@
+{
+  "command": [
+    "/home/alessandro/projects/ds4-engram-external/speed-bench/ds41-kv-audit-20261016/validation-20261016/bin/payload-roundtrip",
+    "/home/alessandro/projects/ds4/gguf/DeepSeek-V4.1-Flash-Q2.gguf",
+    "/mnt/ds4-models/models/DeepSeek-V4.1-Flash-Q2.gguf",
+    "/home/alessandro/projects/ds4-engram-external/speed-bench/promessi_sposi.txt",
+    "/home/alessandro/projects/ds4-engram-external/speed-bench/ds41-kv-audit-20261016/raw/payload-roundtrip-254k-v1/kv"
+  ],
+  "cwd": "/home/alessandro/projects/ds4-engram-external",
+  "quota_before": {
+    "decision": "PROCEED",
+    "observed_at": "2026-10-16T09:14:34.269000+00:00",
+    "age_seconds": 16.7,
+    "threshold_remaining_percent": 50.0,
+    "windows": [
+      {
+        "window": "primary",
+        "remaining_percent": 87.0,
+        "window_minutes": 10080,
+        "resets_at": "2026-10-22T07:10:40+00:00"
+      }
+    ]
+  },
+  "git_commit": "0ce0033fd53f93f0d29d16e6fc48f34892c5159b",
+  "tracked_diff_sha256": "5953107125277bc184a98360445eb25de822b6a96baa238f20aad003fc59d8bf",
+  "environment": {
+    "DS4_CUDA_DECODE_GRAPHS": "0",
+    "DS4_BENCH_FORCE_SNAPSHOT": "1",
+    "DS4_CUDA_ENGRAM_READERS": "8",
+    "DS4_CUDA_V41_TOPK_BATCH": "1",
+    "DS4_CUDA_V41_PREFILL_STAGE_SYNC": "0"
+  },
+  "start": 1792142090.9715455,
+  "timeout_seconds": 3600.0,
+  "minimum_available_gib": 8.0,
+  "cache_state": "fresh engine; OS page cache uncontrolled, not a cold-disk claim",
+  "binary_sha256": "af12c12ce044275f5957f329954756ae731a3135150ba2b789b5fb8e8fa8001e",
+  "harness_sha256": {
+    "build_candidate.py": "8defd0993eb57c4a4e720436427384fc6bef1aa75d206199c8cb3a62e3ab507e",
+    "check_quota.py": "573e101632c9921a7f2982bd9400f51ce92ab2e40a77aa5656ebf5527b960eab",
+    "payload_roundtrip.c": "c2d559326bbe5b9a4f9cc5135c1cb05308b23399ea01a8454d6fcdf2e6b8e7cd",
+    "policy_probe.c": "0fe3dac8d411c6d711f6cddb3ce8c016f85efba5e5e738d454e8f51077a5b17b",
+    "run_audit.py": "a7d978f872ed8babb325916a4a844d15597f64529ffccb8e911f90a2fb5f8076",
+    "run_guard.py": "fd9b2f4f92f7f725f67d56f918f00015e6e4cd91030143d0883fe357268b43f8"
+  }
+}
